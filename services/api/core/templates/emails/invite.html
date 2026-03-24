@@ -1,0 +1,17 @@
+{% extends "emails/base.html" %}
+{% block content %}
+<h2>Você foi convidado! ✉️</h2>
+<p>Olá,</p>
+<p>Você foi convidado por <strong>{{ remetente }}</strong> para colaborar na gestão da empresa <strong>{{ nome_tenant
+        }}</strong> dentro da plataforma AgroSaaS.</p>
+
+<div class="card">
+    <strong>Acesso:</strong> {{ perfil_nome }}
+</div>
+
+<p>Clique no botão abaixo para aceitar o convite e configurar sua senha de acesso.</p>
+
+<a href="{{ invite_url }}" class="button">Aceitar Convite</a>
+
+<p style="font-size: 11px; color: #94a3b8; margin-top: 30px;">Este link expira em 3 dias.</p>
+{% endblock %}

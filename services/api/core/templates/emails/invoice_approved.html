@@ -1,0 +1,15 @@
+{% extends "emails/base.html" %}
+{% block content %}
+<h2>Pagamento Confirmado! 🎉</h2>
+<p>Olá, <strong>{{ nome_cliente }}</strong>,</p>
+<p>Identificamos o pagamento da sua fatura referente ao plano <strong>{{ nome_plano }}</strong>.</p>
+
+<div class="card">
+    <strong>Valor:</strong> R$ {{ valor }}<br>
+    <strong>Referência:</strong> {{ referencia }}
+</div>
+
+<p>Seu acesso continua liberado com todos os recursos do seu pacote. Obrigado por confiar no AgroSaaS!</p>
+
+<a href="{{ login_url }}" class="button">Acessar Painel</a>
+{% endblock %}

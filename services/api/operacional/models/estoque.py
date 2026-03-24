@@ -1,0 +1,127 @@
+import uuid
+from datetime import datetime, date, timezone
+from sqlalchemy import String, Boolean, DateTime, Date, ForeignKey, JSON, Float, Integer
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Uuid as UUID
+from core.database import Base
+
+class Deposito(Base):
+    """Armazéns, galpões ou tanques de combustível."""
+    __tablename__ = "estoque_depositos"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    fazenda_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("fazendas.id"), index=True)
+    
+    nome: Mapped[str] = mapped_column(String(100), nullable=False)
+    tipo: Mapped[str] = mapped_column(String(50), default="GERAL") # GERAL, COMBUSTIVEL, DEFENSIVOS, PECAS
+    localizacao_desc: Mapped[str | None] = mapped_column(String(200))
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+class SaldoEstoque(Base):
+    """Ponte entre Produto e Depósito para controle de quantidade atual."""
+    __tablename__ = "estoque_saldos"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    deposito_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("estoque_depositos.id", ondelete="CASCADE"), index=True)
+    produto_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cadastros_produtos.id", ondelete="CASCADE"), index=True)
+    
+    quantidade_atual: Mapped[float] = mapped_column(Float, default=0.0)
+    quantidade_reservada: Mapped[float] = mapped_column(Float, default=0.0)
+    ultima_atualizacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+class LoteEstoque(Base):
+    """Rastreabilidade por lote de produto (defensivos, sementes, ração)."""
+    __tablename__ = "estoque_lotes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    produto_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cadastros_produtos.id", ondelete="CASCADE"), index=True)
+    deposito_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("estoque_depositos.id", ondelete="CASCADE"), index=True)
+
+    numero_lote: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    data_fabricacao: Mapped[date | None] = mapped_column(Date, nullable=True)
+    data_validade: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+
+    quantidade_inicial: Mapped[float] = mapped_column(Float, default=0.0)
+    quantidade_atual: Mapped[float] = mapped_column(Float, default=0.0)
+    custo_unitario: Mapped[float] = mapped_column(Float, default=0.0)
+    nota_fiscal_ref: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # ATIVO, VENCIDO, ESGOTADO, BLOQUEADO
+    status: Mapped[str] = mapped_column(String(20), default="ATIVO")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class RequisicaoMaterial(Base):
+    """Solicitação interna de material ao almoxarifado."""
+    __tablename__ = "estoque_requisicoes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    fazenda_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("fazendas.id"), index=True)
+    solicitante_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id"))
+    aprovador_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=True)
+    data_solicitacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    data_necessidade: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # PENDENTE, APROVADA, SEPARANDO, ENTREGUE, RECUSADA, CANCELADA
+    status: Mapped[str] = mapped_column(String(20), default="PENDENTE")
+    # ORDEM_SERVICO, MANUTENCAO, PRODUCAO, OUTRO
+    origem_tipo: Mapped[str] = mapped_column(String(30), default="OUTRO")
+    origem_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    observacoes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+
+class ItemRequisicao(Base):
+    __tablename__ = "estoque_requisicoes_itens"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    requisicao_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("estoque_requisicoes.id", ondelete="CASCADE"))
+    produto_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cadastros_produtos.id"))
+    deposito_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("estoque_depositos.id"), nullable=True)
+    lote_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("estoque_lotes.id"), nullable=True)
+    quantidade_solicitada: Mapped[float] = mapped_column(Float, nullable=False)
+    quantidade_aprovada: Mapped[float | None] = mapped_column(Float, nullable=True)
+    quantidade_entregue: Mapped[float | None] = mapped_column(Float, nullable=True)
+    observacoes: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+class ReservaEstoque(Base):
+    """Bloqueio de saldo para uso futuro garantido (OS, safra, pedido)."""
+    __tablename__ = "estoque_reservas"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
+    produto_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cadastros_produtos.id", ondelete="CASCADE"), index=True)
+    deposito_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("estoque_depositos.id", ondelete="CASCADE"), index=True)
+    criado_por_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id"), nullable=True)
+
+    quantidade: Mapped[float] = mapped_column(Float, nullable=False)
+    motivo: Mapped[str] = mapped_column(String(255), nullable=False)
+    # ORDEM_SERVICO, PEDIDO_COMPRA, SAFRA, REQUISICAO, MANUAL
+    referencia_tipo: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    referencia_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    # ATIVA, CONSUMIDA, CANCELADA
+    status: Mapped[str] = mapped_column(String(20), default="ATIVA", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+class MovimentacaoEstoque(Base):
+    """Histórico de entradas e saídas."""
+    __tablename__ = "estoque_movimentacoes"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    deposito_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("estoque_depositos.id", ondelete="CASCADE"), index=True)
+    produto_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cadastros_produtos.id", ondelete="CASCADE"), index=True)
+    usuario_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id"))
+    lote_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("estoque_lotes.id"), nullable=True)
+
+    tipo: Mapped[str] = mapped_column(String(20)) # ENTRADA, SAIDA, TRANSFERENCIA, AJUSTE
+    quantidade: Mapped[float] = mapped_column(Float, nullable=False)
+    data_movimentacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    custo_unitario: Mapped[float | None] = mapped_column(Float, nullable=True)
+    custo_total: Mapped[float | None] = mapped_column(Float, nullable=True)
+    motivo: Mapped[str | None] = mapped_column(String(255))
+    origem_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True)) # ID do Pedido ou OS
+    origem_tipo: Mapped[str | None] = mapped_column(String(50)) # "ORDEM_SERVICO", "PEDIDO_COMPRA", "MANUAL"

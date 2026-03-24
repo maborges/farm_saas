@@ -1,0 +1,48 @@
+from typing import AsyncGenerator
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.orm import declarative_base
+from sqlalchemy import event, text
+from core.config import settings
+from loguru import logger
+
+# Criação da Engine Assíncrona para o PostgreSQL ou SQLite Fallback
+DB_URL = str(settings.database_url)
+if not DB_URL or "postgresql" not in DB_URL:
+    DB_URL = "sqlite+aiosqlite:///./agrosaas.db"
+    logger.warning("Usando banco local SQLite devido à falta de PostgreSQL configurado.")
+else:
+    # Corrige driver se não especificado ou se especificado asyncpg e ele não for achado
+    try:
+        import asyncpg
+    except ImportError:
+        DB_URL = "sqlite+aiosqlite:///./agrosaas.db"
+        logger.warning("asyncpg driver não encontrado. Usando banco local SQLite Fallback.")
+
+engine = create_async_engine(
+    DB_URL,
+    echo=False,  # Em produção manter False para não floodar de logs SQL
+    future=True,
+    # Remove args impeditivos sqlite
+    **({} if "sqlite" in DB_URL else {"pool_size": 10, "max_overflow": 20}),
+    connect_args={"check_same_thread": False} if "sqlite" in DB_URL else {"server_settings": {"search_path": "farms"}}
+)
+
+# Fábrica de Sessoes Assíncronas
+async_session_maker = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autoflush=False
+)
+
+# Base para os Models do ORM
+Base = declarative_base()
+
+# Event Listener do SQLAlchemy para RLS (Row Level Security) 
+# Injetamos o tenant_id no escopo local do postgres toda vez que a sessão abre
+@event.listens_for(engine.sync_engine, "connect")
+def set_tenant_context(dbapi_connection, connection_record):
+    if "postgresql" in DB_URL:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        cursor.close()

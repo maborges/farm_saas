@@ -1,0 +1,14 @@
+{% extends "emails/base.html" %}
+{% block content %}
+<h2 style="color: #ef4444;">Problema com o Comprovante ⚠️</h2>
+<p>Olá, <strong>{{ nome_cliente }}</strong>,</p>
+<p>Infelizmente não conseguimos validar o comprovante de pagamento que você nos enviou.</p>
+
+<div class="card" style="border-left-color: #ef4444;">
+    <strong>Motivo:</strong> {{ justificativa }}
+</div>
+
+<p>Por favor, acesse sua conta e envie um novo comprovante válido para evitar a suspensão dos serviços.</p>
+
+<a href="{{ billing_url }}" class="button" style="background: #ef4444;">Resolver Agora</a>
+{% endblock %}
