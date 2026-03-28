@@ -28,7 +28,7 @@ class Rateio(Base):
         UUID(as_uuid=True), ForeignKey("safras.id", ondelete="SET NULL"), nullable=True
     )
     talhao_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("talhoes.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True), ForeignKey("cadastros_areas_rurais.id", ondelete="SET NULL"), nullable=True
     )
     
     valor_rateado: Mapped[float] = mapped_column(Float, nullable=False)

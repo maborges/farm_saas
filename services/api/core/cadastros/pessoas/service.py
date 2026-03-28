@@ -7,13 +7,16 @@ from sqlalchemy.orm import selectinload
 from core.base_service import BaseService
 from core.exceptions import EntityNotFoundError, BusinessRuleError
 from .models import (
-    Pessoa, PessoaPII, PessoaEndereco,
+    Pessoa, PessoaPII, PessoaEndereco, PessoaContato, PessoaBancario,
     TipoRelacionamento, PessoaRelacionamento,
     PessoaConsentimento, PessoaAcessoLog,
 )
 from .schemas import (
     PessoaCreate, PessoaUpdate, PessoaPIIUpdate,
-    EnderecoCreate, RelacionamentoCreate, ConsentimentoCreate,
+    EnderecoCreate, EnderecoUpdate,
+    ContatoCreate, ContatoUpdate,
+    BancarioCreate, BancarioUpdate,
+    RelacionamentoCreate, ConsentimentoCreate,
 )
 
 
@@ -84,6 +87,10 @@ class PessoaService(BaseService[Pessoa]):
         pii_data = data.pii.model_dump(exclude_none=True) if data.pii else {}
         pii = PessoaPII(pessoa_id=pessoa.id, **pii_data)
         self.session.add(pii)
+
+        # Contatos
+        for contato in data.contatos:
+            self.session.add(PessoaContato(pessoa_id=pessoa.id, **contato.model_dump()))
 
         # Endereços
         for end in data.enderecos:
@@ -182,6 +189,125 @@ class PessoaService(BaseService[Pessoa]):
         await self.session.commit()
         await self.session.refresh(c)
         return c
+
+    async def atualizar_endereco(self, pessoa_id: uuid.UUID, endereco_id: uuid.UUID, data: EnderecoUpdate) -> PessoaEndereco:
+        await self._get_pessoa(pessoa_id)
+        stmt = select(PessoaEndereco).where(PessoaEndereco.id == endereco_id, PessoaEndereco.pessoa_id == pessoa_id)
+        result = await self.session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Endereço não encontrado")
+        for k, v in data.model_dump(exclude_none=True).items():
+            setattr(obj, k, v)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+    async def remover_endereco(self, pessoa_id: uuid.UUID, endereco_id: uuid.UUID) -> None:
+        await self._get_pessoa(pessoa_id)
+        stmt = select(PessoaEndereco).where(
+            PessoaEndereco.id == endereco_id, PessoaEndereco.pessoa_id == pessoa_id
+        )
+        result = await self.session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Endereço não encontrado")
+        obj.ativo = False
+        await self.session.commit()
+
+    async def listar_contatos(self, pessoa_id: uuid.UUID) -> list[PessoaContato]:
+        await self._get_pessoa(pessoa_id)
+        stmt = select(PessoaContato).where(
+            PessoaContato.pessoa_id == pessoa_id, PessoaContato.ativo == True
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def adicionar_contato(self, pessoa_id: uuid.UUID, data: ContatoCreate) -> PessoaContato:
+        await self._get_pessoa(pessoa_id)
+        contato = PessoaContato(pessoa_id=pessoa_id, **data.model_dump())
+        self.session.add(contato)
+        await self.session.commit()
+        await self.session.refresh(contato)
+        return contato
+
+    async def atualizar_contato(self, pessoa_id: uuid.UUID, contato_id: uuid.UUID, data: ContatoUpdate) -> PessoaContato:
+        await self._get_pessoa(pessoa_id)
+        stmt = select(PessoaContato).where(PessoaContato.id == contato_id, PessoaContato.pessoa_id == pessoa_id)
+        result = await self.session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Contato não encontrado")
+        for k, v in data.model_dump(exclude_none=True).items():
+            setattr(obj, k, v)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+    async def remover_contato(self, pessoa_id: uuid.UUID, contato_id: uuid.UUID) -> None:
+        await self._get_pessoa(pessoa_id)
+        stmt = select(PessoaContato).where(
+            PessoaContato.id == contato_id, PessoaContato.pessoa_id == pessoa_id
+        )
+        result = await self.session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Contato não encontrado")
+        obj.ativo = False
+        await self.session.commit()
+
+    async def listar_bancario(self, pessoa_id: uuid.UUID) -> list[PessoaBancario]:
+        await self._get_pessoa(pessoa_id)
+        stmt = select(PessoaBancario).where(
+            PessoaBancario.pessoa_id == pessoa_id, PessoaBancario.ativo == True
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def adicionar_bancario(self, pessoa_id: uuid.UUID, data: BancarioCreate) -> PessoaBancario:
+        await self._get_pessoa(pessoa_id)
+        bancario = PessoaBancario(pessoa_id=pessoa_id, **data.model_dump())
+        self.session.add(bancario)
+        await self.session.commit()
+        await self.session.refresh(bancario)
+        return bancario
+
+    async def atualizar_bancario(self, pessoa_id: uuid.UUID, bancario_id: uuid.UUID, data: BancarioUpdate) -> PessoaBancario:
+        await self._get_pessoa(pessoa_id)
+        stmt = select(PessoaBancario).where(PessoaBancario.id == bancario_id, PessoaBancario.pessoa_id == pessoa_id)
+        result = await self.session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Dado bancário não encontrado")
+        for k, v in data.model_dump(exclude_none=True).items():
+            setattr(obj, k, v)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+    async def remover_bancario(self, pessoa_id: uuid.UUID, bancario_id: uuid.UUID) -> None:
+        await self._get_pessoa(pessoa_id)
+        stmt = select(PessoaBancario).where(
+            PessoaBancario.id == bancario_id, PessoaBancario.pessoa_id == pessoa_id
+        )
+        result = await self.session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Dado bancário não encontrado")
+        obj.ativo = False
+        await self.session.commit()
+
+    async def remover_relacionamento(self, pessoa_id: uuid.UUID, rel_id: uuid.UUID) -> None:
+        await self._get_pessoa(pessoa_id)
+        stmt = select(PessoaRelacionamento).where(
+            PessoaRelacionamento.id == rel_id, PessoaRelacionamento.pessoa_id == pessoa_id
+        )
+        result = await self.session.execute(stmt)
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Relacionamento não encontrado")
+        await self.session.delete(obj)
+        await self.session.commit()
 
     async def anonimizar(self, pessoa_id: uuid.UUID) -> Pessoa:
         """LGPD — direito ao esquecimento. Apaga PII, mantém histórico operacional."""

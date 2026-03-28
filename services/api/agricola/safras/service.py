@@ -7,7 +7,7 @@ from sqlalchemy import update, func
 from core.exceptions import BusinessRuleError
 from core.base_service import BaseService
 
-from agricola.safras.models import Safra
+from agricola.safras.models import Safra, SafraFaseHistorico, SafraTalhao, SAFRA_TRANSICOES
 from agricola.safras.schemas import SafraCreate, SafraUpdate
 
 class SafraService(BaseService[Safra]):
@@ -33,33 +33,60 @@ class SafraService(BaseService[Safra]):
         dados_dict = dados.model_dump()
         return await super().create(dados_dict)
 
-    async def atualizar_status(self, safra_id: UUID, novo_status: str) -> Safra:
-        transicoes = {
-            'PLANEJADA': ['EM_PREPARO', 'CANCELADA'],
-            'EM_PREPARO': ['PLANTADA', 'CANCELADA'],
-            'PLANTADA': ['EM_CRESCIMENTO', 'CANCELADA'],
-            'EM_CRESCIMENTO': ['EM_COLHEITA', 'CANCELADA'],
-            'EM_COLHEITA': ['COLHIDA', 'CANCELADA'],
-            'COLHIDA': [],
-            'CANCELADA': []
-        }
-
+    async def avancar_fase(
+        self,
+        safra_id: UUID,
+        novo_status: str,
+        usuario_id: UUID | None = None,
+        observacao: str | None = None,
+        dados_fase: dict | None = None,
+    ) -> Safra:
         safra = await self.get_or_fail(safra_id)
-        if novo_status not in transicoes.get(safra.status, []):
-            raise BusinessRuleError(f"Transição de status inválida de {safra.status} para {novo_status}")
+        permitidas = SAFRA_TRANSICOES.get(safra.status, [])
+        if novo_status not in permitidas:
+            raise BusinessRuleError(
+                f"Transição inválida: {safra.status} → {novo_status}. "
+                f"Permitidas: {permitidas or 'nenhuma'}"
+            )
 
-        upd = {'status': novo_status}
-        
-        if novo_status == 'PLANTADA' and not safra.data_plantio_real:
-            upd['data_plantio_real'] = date.today()
-            
+        fase_anterior = safra.status
+        upd: dict = {"status": novo_status}
+
+        # Preenche datas automáticas na transição
+        if novo_status == "PLANTIO" and not safra.data_plantio_real:
+            upd["data_plantio_real"] = date.today()
+        elif novo_status == "ENCERRADA" and not safra.data_colheita_real:
+            upd["data_colheita_real"] = date.today()
+
         safra = await self.atualizar(safra_id, SafraUpdate(**upd))
-        
-        if novo_status == 'COLHIDA':
-            # fechar_safra logic would be handled here
-            pass
-            
+
+        # Registra no histórico
+        historico = SafraFaseHistorico(
+            safra_id=safra_id,
+            tenant_id=self.tenant_id,
+            fase_anterior=fase_anterior,
+            fase_nova=novo_status,
+            usuario_id=usuario_id,
+            observacao=observacao,
+            dados_fase=dados_fase,
+        )
+        self.session.add(historico)
+        await self.session.flush()
+
         return safra
+
+    async def listar_historico(self, safra_id: UUID) -> list[SafraFaseHistorico]:
+        await self.get_or_fail(safra_id)  # garante tenant isolation
+        stmt = (
+            select(SafraFaseHistorico)
+            .where(
+                SafraFaseHistorico.safra_id == safra_id,
+                SafraFaseHistorico.tenant_id == self.tenant_id,
+            )
+            .order_by(SafraFaseHistorico.created_at)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
         
     async def atualizar(self, obj_id: UUID, dados: SafraUpdate) -> Safra:
         dados_dict = dados.model_dump(exclude_unset=True)
@@ -140,3 +167,57 @@ class SafraService(BaseService[Safra]):
             "receita_realizada": round(receita_realizada, 2),
             "resultado_liquido": round(receita_realizada - custo_realizado_total, 2),
         }
+
+    # ─── Talhões ──────────────────────────────────────────────────────────────
+
+    async def listar_talhoes(self, safra_id: UUID) -> list[SafraTalhao]:
+        """Retorna todos os talhões associados à safra."""
+        stmt = (
+            select(SafraTalhao)
+            .where(
+                SafraTalhao.safra_id == safra_id,
+                SafraTalhao.tenant_id == self.tenant_id,
+            )
+            .order_by(SafraTalhao.principal.desc())
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def sincronizar_talhoes(
+        self,
+        safra_id: UUID,
+        talhao_ids: list[UUID],
+        areas_ha: dict[str, float] | None = None,
+    ) -> list[SafraTalhao]:
+        """Substitui a lista de talhões da safra (upsert idempotente).
+        O primeiro ID da lista é marcado como principal.
+        """
+        # Remove existentes
+        from sqlalchemy import delete
+        await self.session.execute(
+            delete(SafraTalhao).where(
+                SafraTalhao.safra_id == safra_id,
+                SafraTalhao.tenant_id == self.tenant_id,
+            )
+        )
+        await self.session.flush()
+
+        novos = []
+        for i, tid in enumerate(talhao_ids):
+            st = SafraTalhao(
+                tenant_id=self.tenant_id,
+                safra_id=safra_id,
+                area_id=tid,
+                principal=(i == 0),
+                area_ha=(areas_ha or {}).get(str(tid)),
+            )
+            self.session.add(st)
+            novos.append(st)
+
+        await self.session.flush()
+
+        # Atualiza talhao_id principal na safra para manter compat. legado
+        if talhao_ids:
+            safra = await self.get_or_fail(safra_id)
+            safra.talhao_id = talhao_ids[0]
+
+        return novos

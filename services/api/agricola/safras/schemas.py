@@ -9,6 +9,7 @@ class SafraCreate(BaseModel):
     cultura: str
     cultivar_id: UUID | None = None
     cultivar_nome: str | None = None
+    commodity_id: UUID | None = None
     sistema_plantio: str | None = None
     data_plantio_prevista: date | None = None
     populacao_prevista: int | None = Field(None, gt=0, le=500000)
@@ -29,6 +30,7 @@ class SafraUpdate(BaseModel):
     cultura: str | None = None
     cultivar_id: UUID | None = None
     cultivar_nome: str | None = None
+    commodity_id: UUID | None = None
     sistema_plantio: str | None = None
     data_plantio_prevista: date | None = None
     data_plantio_real: date | None = None
@@ -46,6 +48,24 @@ class SafraUpdate(BaseModel):
     status: str | None = None
     observacoes: str | None = None
 
+class SafraAvancarFase(BaseModel):
+    observacao: str | None = None
+    dados_fase: dict | None = None
+
+
+class SafraFaseHistoricoResponse(BaseModel):
+    id: UUID
+    safra_id: UUID
+    fase_anterior: str | None
+    fase_nova: str
+    usuario_id: UUID | None
+    observacao: str | None
+    dados_fase: dict | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class SafraResponse(BaseModel):
     id: UUID
     tenant_id: UUID
@@ -54,6 +74,7 @@ class SafraResponse(BaseModel):
     cultura: str
     cultivar_id: UUID | None
     cultivar_nome: str | None
+    commodity_id: UUID | None
     sistema_plantio: str | None
     data_plantio_prevista: date | None
     data_plantio_real: date | None
@@ -74,3 +95,18 @@ class SafraResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SafraTalhaoResponse(BaseModel):
+    id: UUID
+    safra_id: UUID
+    area_id: UUID
+    principal: bool
+    area_ha: float | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SafraTalhoesSincronizar(BaseModel):
+    talhao_ids: list[UUID]
+    areas_ha: dict[str, float] | None = None  # area_id (str) → ha

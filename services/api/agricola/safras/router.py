@@ -6,7 +6,12 @@ from pydantic import BaseModel
 
 from core.dependencies import get_tenant_id, require_module, require_role
 from core.dependencies import get_session_with_tenant
-from agricola.safras.schemas import SafraCreate, SafraResponse, SafraUpdate
+from agricola.safras.schemas import (
+    SafraCreate, SafraResponse, SafraUpdate,
+    SafraAvancarFase, SafraFaseHistoricoResponse,
+    SafraTalhaoResponse, SafraTalhoesSincronizar,
+)
+from agricola.safras.models import SAFRA_FASES_ORDEM, SAFRA_TRANSICOES
 from agricola.safras.service import SafraService
 
 router = APIRouter(prefix="/safras", tags=["Safras"])
@@ -103,22 +108,102 @@ async def resumo_safra(
     return await svc.resumo_planejado_realizado(id)
 
 
-class StatusUpdate(BaseModel):
-    novo_status: str
-
-@router.patch(
-    "/{id}/status",
+@router.post(
+    "/{id}/avancar-fase/{nova_fase}",
     response_model=SafraResponse,
-    summary="Transição de status da safra",
+    summary="Avança o ciclo de vida da safra para a próxima fase",
 )
-async def atualizar_status_safra(
+async def avancar_fase_safra(
     id: UUID,
-    dados: StatusUpdate,
+    nova_fase: str,
+    dados: SafraAvancarFase = SafraAvancarFase(),
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A1")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = SafraService(session, tenant_id)
-    safra = await svc.atualizar_status(id, dados.novo_status)
+    usuario_id = UUID(user["sub"]) if user.get("sub") else None
+    safra = await svc.avancar_fase(
+        id,
+        nova_fase.upper(),
+        usuario_id=usuario_id,
+        observacao=dados.observacao,
+        dados_fase=dados.dados_fase,
+    )
     return SafraResponse.model_validate(safra)
+
+
+@router.get(
+    "/{id}/historico-fases",
+    response_model=list[SafraFaseHistoricoResponse],
+    summary="Histórico de transições de fase da safra",
+)
+async def historico_fases_safra(
+    id: UUID,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("A1")),
+):
+    svc = SafraService(session, tenant_id)
+    return [SafraFaseHistoricoResponse.model_validate(h) for h in await svc.listar_historico(id)]
+
+
+@router.get(
+    "/meta/fases",
+    summary="Retorna as fases válidas e transições permitidas",
+)
+async def meta_fases():
+    return {
+        "fases_ordem": SAFRA_FASES_ORDEM,
+        "transicoes": SAFRA_TRANSICOES,
+    }
+
+
+# ─── Talhões da Safra ─────────────────────────────────────────────────────────
+
+@router.get("/{id}/talhoes", response_model=list[SafraTalhaoResponse])
+async def listar_talhoes_safra(
+    id: UUID,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("A1")),
+):
+    """Retorna todos os talhões associados à safra."""
+    svc = SafraService(session, tenant_id)
+    talhoes = await svc.listar_talhoes(id)
+    # Se ainda não foi populado via sincronizar, retorna o talhao_id legado
+    if not talhoes:
+        safra = await svc.get_or_fail(id)
+        from agricola.safras.models import SafraTalhao
+        import uuid as _uuid
+        placeholder = SafraTalhao()
+        placeholder.id = _uuid.uuid4()
+        placeholder.safra_id = safra.id
+        placeholder.area_id = safra.talhao_id
+        placeholder.principal = True
+        placeholder.area_ha = safra.area_plantada_ha
+        return [SafraTalhaoResponse.model_validate(placeholder)]
+    return [SafraTalhaoResponse.model_validate(t) for t in talhoes]
+
+
+@router.put("/{id}/talhoes", response_model=list[SafraTalhaoResponse])
+async def sincronizar_talhoes_safra(
+    id: UUID,
+    dados: SafraTalhoesSincronizar,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("A1")),
+    user: dict = Depends(require_role(["agronomo", "admin"])),
+):
+    """Substitui a lista de talhões da safra. O primeiro ID é o principal."""
+    svc = SafraService(session, tenant_id)
+    talhoes = await svc.sincronizar_talhoes(
+        id,
+        dados.talhao_ids,
+        areas_ha=dados.areas_ha,
+    )
+    await session.commit()
+    for t in talhoes:
+        await session.refresh(t)
+    return [SafraTalhaoResponse.model_validate(t) for t in talhoes]

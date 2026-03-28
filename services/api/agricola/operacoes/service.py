@@ -8,10 +8,11 @@ from core.exceptions import BusinessRuleError, EntityNotFoundError
 from core.base_service import BaseService
 
 from agricola.operacoes.models import OperacaoAgricola, InsumoOperacao
-from agricola.operacoes.schemas import OperacaoAgricolaCreate, OperacaoAgricolaUpdate
+from agricola.operacoes.schemas import OperacaoAgricolaCreate, OperacaoAgricolaUpdate, OperacaoPorFaseKPI, SafraOperacoesPorFaseResponse
+from agricola.safras.models import SAFRA_FASES_ORDEM
 from agricola.talhoes.models import Talhao
 from agricola.safras.models import Safra
-from core.cadastros.models import ProdutoCatalogo
+from core.cadastros.produtos.models import Produto
 from operacional.services import EstoqueService
 from financeiro.models.despesa import Despesa
 
@@ -27,9 +28,16 @@ class OperacaoService(BaseService[OperacaoAgricola]):
         if not fazenda_id:
             raise EntityNotFoundError("Talhão", dados.talhao_id)
 
-        # 2. Extrai insumos
+        # 2. Auto-preenche fase_safra com fase atual da safra (override permitido)
+        safra_atual = await self.session.get(Safra, dados.safra_id)
+        if not safra_atual:
+            raise EntityNotFoundError("Safra", dados.safra_id)
+        fase_safra = dados.fase_safra or safra_atual.status
+
+        # 3. Extrai insumos
         insumos_data = dados.insumos
         dados_dict = dados.model_dump(exclude={"insumos"})
+        dados_dict["fase_safra"] = fase_safra
         
         custo_total_operacao = 0.0
         
@@ -96,31 +104,35 @@ class OperacaoService(BaseService[OperacaoAgricola]):
         # 5. Registra Despesa no Financeiro (Módulo Integrado)
         if custo_total_operacao > 0:
             from financeiro.models.plano_conta import PlanoConta
-            # Busca conta ANALITICA de CUSTEIO do sistema para lançamento automático
+            # Tenta conta analítica de custeio; fallback para qualquer conta de custeio ativa
             stmt_pc = (
                 select(PlanoConta.id)
                 .where(
                     PlanoConta.tenant_id == self.tenant_id,
                     PlanoConta.categoria_rfb == "CUSTEIO",
-                    PlanoConta.natureza == "ANALITICA",
                     PlanoConta.ativo == True,
                 )
+                .order_by(PlanoConta.natureza)  # ANALITICA < SINTETICA alfabeticamente
                 .limit(1)
             )
             plano_id = (await self.session.execute(stmt_pc)).scalar()
             
             if plano_id:
+                safra_desc = f"{safra_atual.cultura} {safra_atual.ano_safra}" if safra_atual else str(dados.safra_id)[:8]
+                descricao = f"{operacao.tipo} — {safra_desc} (fase {fase_safra})"
                 despesa = Despesa(
                     id=uuid.uuid4(),
                     tenant_id=self.tenant_id,
                     fazenda_id=fazenda_id,
                     plano_conta_id=plano_id,
-                    descricao=f"Custo Insumos: {operacao.tipo} - Talhão {operacao.talhao_id}",
+                    descricao=descricao[:255],
                     valor_total=float(custo_total_operacao),
                     data_emissao=operacao.data_realizada,
                     data_vencimento=operacao.data_realizada,
                     data_pagamento=operacao.data_realizada,
-                    status="PAGO"
+                    status="PAGO",
+                    origem_id=operacao.id,
+                    origem_tipo="OPERACAO_AGRICOLA",
                 )
                 self.session.add(despesa)
 
@@ -140,6 +152,57 @@ class OperacaoService(BaseService[OperacaoAgricola]):
     async def atualizar(self, obj_id: UUID, dados: OperacaoAgricolaUpdate) -> OperacaoAgricola:
         dados_dict = dados.model_dump(exclude_unset=True)
         return await super().update(obj_id, dados_dict)
+
+    async def listar_por_safra_e_fase(
+        self, safra_id: UUID, fase: str | None = None
+    ) -> list[OperacaoAgricola]:
+        stmt = select(OperacaoAgricola).where(
+            OperacaoAgricola.safra_id == safra_id,
+            OperacaoAgricola.tenant_id == self.tenant_id,
+        ).order_by(OperacaoAgricola.data_realizada.desc())
+        if fase:
+            stmt = stmt.where(OperacaoAgricola.fase_safra == fase)
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def resumo_por_fase(self, safra_id: UUID) -> SafraOperacoesPorFaseResponse:
+        stmt = select(
+            OperacaoAgricola.fase_safra,
+            func.count(OperacaoAgricola.id).label("total"),
+            func.coalesce(func.sum(OperacaoAgricola.custo_total), 0).label("custo_total"),
+            func.coalesce(func.sum(OperacaoAgricola.area_aplicada_ha), 0).label("area_total"),
+        ).where(
+            OperacaoAgricola.safra_id == safra_id,
+            OperacaoAgricola.tenant_id == self.tenant_id,
+        ).group_by(OperacaoAgricola.fase_safra)
+
+        rows = (await self.session.execute(stmt)).all()
+        por_fase: dict[str, OperacaoPorFaseKPI] = {}
+        for row in rows:
+            fase = row.fase_safra or "SEM_FASE"
+            area = float(row.area_total or 0)
+            custo = float(row.custo_total or 0)
+            por_fase[fase] = OperacaoPorFaseKPI(
+                fase=fase,
+                total_operacoes=row.total,
+                custo_total=custo,
+                custo_por_ha=round(custo / area, 2) if area > 0 else 0.0,
+                area_total_ha=area,
+            )
+
+        # Ordena pelas fases do ciclo
+        fases_ordenadas = [
+            por_fase[f] for f in SAFRA_FASES_ORDEM if f in por_fase
+        ]
+        # Fases fora do ciclo padrão (SEM_FASE, etc.)
+        extras = [v for k, v in por_fase.items() if k not in SAFRA_FASES_ORDEM]
+        fases_ordenadas.extend(extras)
+
+        custo_total = sum(f.custo_total for f in fases_ordenadas)
+        return SafraOperacoesPorFaseResponse(
+            safra_id=safra_id,
+            fases=fases_ordenadas,
+            custo_total_safra=custo_total,
+        )
 
     async def gerar_receituario_agronomico(self, operacao_id: UUID) -> bytes:
         return b"%PDF-1.4\n..."

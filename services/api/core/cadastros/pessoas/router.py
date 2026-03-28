@@ -9,7 +9,9 @@ from .models import TipoRelacionamento, Pessoa
 from .schemas import (
     PessoaCreate, PessoaUpdate, PessoaResponse, PessoaComPIIResponse,
     PessoaPIIUpdate, PessoaPIIResponse,
-    EnderecoCreate, EnderecoResponse,
+    EnderecoCreate, EnderecoUpdate, EnderecoResponse,
+    ContatoCreate, ContatoUpdate, ContatoResponse,
+    BancarioCreate, BancarioUpdate, BancarioResponse,
     RelacionamentoCreate, RelacionamentoResponse,
     TipoRelacionamentoCreate, TipoRelacionamentoResponse,
     ConsentimentoCreate, ConsentimentoResponse,
@@ -94,6 +96,15 @@ async def criar_pessoa(
     return await _svc(session, tenant_id).criar(data)
 
 
+@router.get("/{pessoa_id}", response_model=PessoaResponse)
+async def obter_pessoa(
+    pessoa_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    return await _svc(session, tenant_id)._get_pessoa(pessoa_id)
+
+
 @router.patch("/{pessoa_id}", response_model=PessoaResponse)
 async def atualizar_pessoa(
     pessoa_id: uuid.UUID,
@@ -162,6 +173,111 @@ async def adicionar_endereco(
     return await _svc(session, tenant_id).adicionar_endereco(pessoa_id, data)
 
 
+@router.patch("/{pessoa_id}/enderecos/{endereco_id}", response_model=EnderecoResponse)
+async def atualizar_endereco(
+    pessoa_id: uuid.UUID,
+    endereco_id: uuid.UUID,
+    data: EnderecoUpdate,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    return await _svc(session, tenant_id).atualizar_endereco(pessoa_id, endereco_id, data)
+
+
+@router.delete("/{pessoa_id}/enderecos/{endereco_id}", status_code=204)
+async def remover_endereco(
+    pessoa_id: uuid.UUID,
+    endereco_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    await _svc(session, tenant_id).remover_endereco(pessoa_id, endereco_id)
+
+
+# ── Contatos ──────────────────────────────────────────────────────────────────
+
+@router.get("/{pessoa_id}/contatos", response_model=list[ContatoResponse])
+async def listar_contatos(
+    pessoa_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    return await _svc(session, tenant_id).listar_contatos(pessoa_id)
+
+
+@router.post("/{pessoa_id}/contatos", response_model=ContatoResponse, status_code=201)
+async def adicionar_contato(
+    pessoa_id: uuid.UUID,
+    data: ContatoCreate,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    return await _svc(session, tenant_id).adicionar_contato(pessoa_id, data)
+
+
+@router.patch("/{pessoa_id}/contatos/{contato_id}", response_model=ContatoResponse)
+async def atualizar_contato(
+    pessoa_id: uuid.UUID,
+    contato_id: uuid.UUID,
+    data: ContatoUpdate,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    return await _svc(session, tenant_id).atualizar_contato(pessoa_id, contato_id, data)
+
+
+@router.delete("/{pessoa_id}/contatos/{contato_id}", status_code=204)
+async def remover_contato(
+    pessoa_id: uuid.UUID,
+    contato_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    await _svc(session, tenant_id).remover_contato(pessoa_id, contato_id)
+
+
+# ── Dados Bancários ───────────────────────────────────────────────────────────
+
+@router.get("/{pessoa_id}/bancario", response_model=list[BancarioResponse])
+async def listar_bancario(
+    pessoa_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    return await _svc(session, tenant_id).listar_bancario(pessoa_id)
+
+
+@router.post("/{pessoa_id}/bancario", response_model=BancarioResponse, status_code=201)
+async def adicionar_bancario(
+    pessoa_id: uuid.UUID,
+    data: BancarioCreate,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    return await _svc(session, tenant_id).adicionar_bancario(pessoa_id, data)
+
+
+@router.patch("/{pessoa_id}/bancario/{bancario_id}", response_model=BancarioResponse)
+async def atualizar_bancario(
+    pessoa_id: uuid.UUID,
+    bancario_id: uuid.UUID,
+    data: BancarioUpdate,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    return await _svc(session, tenant_id).atualizar_bancario(pessoa_id, bancario_id, data)
+
+
+@router.delete("/{pessoa_id}/bancario/{bancario_id}", status_code=204)
+async def remover_bancario(
+    pessoa_id: uuid.UUID,
+    bancario_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    await _svc(session, tenant_id).remover_bancario(pessoa_id, bancario_id)
+
+
 # ── Relacionamentos ───────────────────────────────────────────────────────────
 
 @router.post("/{pessoa_id}/relacionamentos", response_model=RelacionamentoResponse, status_code=201)
@@ -172,6 +288,16 @@ async def adicionar_relacionamento(
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     return await _svc(session, tenant_id).adicionar_relacionamento(pessoa_id, data)
+
+
+@router.delete("/{pessoa_id}/relacionamentos/{rel_id}", status_code=204)
+async def remover_relacionamento(
+    pessoa_id: uuid.UUID,
+    rel_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    await _svc(session, tenant_id).remover_relacionamento(pessoa_id, rel_id)
 
 
 # ── Consentimentos ────────────────────────────────────────────────────────────

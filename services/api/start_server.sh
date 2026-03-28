@@ -34,8 +34,8 @@ echo "   - http://localhost:3000"
 echo "   - http://localhost:3001"
 echo "   - http://127.0.0.1:3000"
 echo "   - http://127.0.0.1:3001"
-echo "   - http://192.168.0.108:3000"
-echo "   - http://192.168.0.108:3001"
+echo "   - http://192.168.0.2:3000"
+echo "   - http://192.168.0.2:3001"
 echo ""
 
 uvicorn main:app --reload --host 0.0.0.0 --port 8000

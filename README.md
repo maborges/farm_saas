@@ -82,7 +82,7 @@ pnpm run dev
 * As bordas dos componentes devem ser rounded-xm 
 * Usar sidebar para os menus separando os itens por módulo e seus submodulos que devem expandir conforme selecionados  
 * Usar sidebar para navegação de menus que pode ser retraidos 
-* Procure sempre usar o datatables com pesquisa, ordenação de colunas, exportação para pdf e excel, quando houver a coluna de ações não colocar header na coluna, botões de ação sem bordas, sem texto, gap-0, cor pertinente à ação
+* Procure sempre usar o datatables com pesquisa, ordenação de colunas, exportação para pdf e excel. Quando houver a coluna de ações não colocar header na coluna, botões de ação sem bordas, sem texto, gap-0, cor e ícone pertinente à ação.
 
 - **Estética Agro**: Use paletas harmoniosas (Verde Esmeralda, Tons Terra) e Dark/Light Mode premiun e o usuário pode mudar.
 

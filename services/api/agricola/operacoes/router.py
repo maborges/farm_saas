@@ -7,7 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.dependencies import get_tenant_id, require_module, require_role
 from core.dependencies import get_session_with_tenant
 from core.utils.pdf_generator import generate_caderno_campo_pdf
-from agricola.operacoes.schemas import OperacaoAgricolaCreate, OperacaoAgricolaResponse, OperacaoAgricolaUpdate
+from agricola.operacoes.schemas import (
+    OperacaoAgricolaCreate, OperacaoAgricolaResponse, OperacaoAgricolaUpdate,
+    SafraOperacoesPorFaseResponse,
+)
 from agricola.operacoes.service import OperacaoService
 
 router = APIRouter(prefix="/operacoes", tags=["Operações Agrícolas"])
@@ -121,6 +124,38 @@ async def detalhar_operacao(
     svc = OperacaoService(session, tenant_id)
     operacao = await svc.get_or_fail(id)
     return OperacaoAgricolaResponse.model_validate(operacao)
+
+@router.get(
+    "/safra/{safra_id}/por-fase",
+    response_model=SafraOperacoesPorFaseResponse,
+    summary="KPIs e custo de operações agrupados por fase da safra",
+)
+async def operacoes_por_fase(
+    safra_id: UUID,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("A1")),
+):
+    svc = OperacaoService(session, tenant_id)
+    return await svc.resumo_por_fase(safra_id)
+
+
+@router.get(
+    "/safra/{safra_id}/fase/{fase}",
+    response_model=List[OperacaoAgricolaResponse],
+    summary="Lista operações de uma fase específica da safra",
+)
+async def operacoes_de_fase(
+    safra_id: UUID,
+    fase: str,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("A1")),
+):
+    svc = OperacaoService(session, tenant_id)
+    ops = await svc.listar_por_safra_e_fase(safra_id, fase.upper())
+    return [OperacaoAgricolaResponse.model_validate(o) for o in ops]
+
 
 @router.patch(
     "/{id}",

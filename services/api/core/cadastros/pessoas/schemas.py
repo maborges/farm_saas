@@ -5,6 +5,63 @@ from pydantic import BaseModel, EmailStr, field_validator
 import re
 
 
+# ── Contato ──────────────────────────────────────────────────────────────────
+
+class ContatoCreate(BaseModel):
+    tipo: str  # CELULAR | TELEFONE | EMAIL | WHATSAPP | SITE | OUTRO
+    valor: str
+    descricao: Optional[str] = None
+    principal: bool = False
+
+
+class ContatoUpdate(BaseModel):
+    tipo: Optional[str] = None
+    valor: Optional[str] = None
+    descricao: Optional[str] = None
+    principal: Optional[bool] = None
+
+
+class ContatoResponse(ContatoCreate):
+    id: uuid.UUID
+    verificado: bool
+    ativo: bool
+
+    model_config = {"from_attributes": True}
+
+
+# ── Bancário ─────────────────────────────────────────────────────────────────
+
+class BancarioCreate(BaseModel):
+    tipo_conta: str  # CORRENTE | POUPANCA | SALARIO | PIX
+    banco_codigo: Optional[str] = None
+    banco_nome: Optional[str] = None
+    agencia: Optional[str] = None
+    conta: Optional[str] = None
+    chave_pix: Optional[str] = None
+    titular_nome: Optional[str] = None
+    titular_cpf_cnpj: Optional[str] = None
+    principal: bool = False
+
+
+class BancarioUpdate(BaseModel):
+    tipo_conta: Optional[str] = None
+    banco_codigo: Optional[str] = None
+    banco_nome: Optional[str] = None
+    agencia: Optional[str] = None
+    conta: Optional[str] = None
+    chave_pix: Optional[str] = None
+    titular_nome: Optional[str] = None
+    titular_cpf_cnpj: Optional[str] = None
+    principal: Optional[bool] = None
+
+
+class BancarioResponse(BancarioCreate):
+    id: uuid.UUID
+    ativo: bool
+
+    model_config = {"from_attributes": True}
+
+
 # ── Endereço ─────────────────────────────────────────────────────────────────
 
 class EnderecoBase(BaseModel):
@@ -23,6 +80,18 @@ class EnderecoBase(BaseModel):
 
 class EnderecoCreate(EnderecoBase):
     pass
+
+
+class EnderecoUpdate(BaseModel):
+    tipo: Optional[str] = None
+    cep: Optional[str] = None
+    logradouro: Optional[str] = None
+    numero: Optional[str] = None
+    complemento: Optional[str] = None
+    bairro: Optional[str] = None
+    cidade: Optional[str] = None
+    estado: Optional[str] = None
+    principal: Optional[bool] = None
 
 
 class EnderecoResponse(EnderecoBase):
@@ -81,16 +150,13 @@ class PessoaPIIUpdate(BaseModel):
     cpf: Optional[str] = None
     rg: Optional[str] = None
     data_nascimento: Optional[date] = None
+    nome_mae: Optional[str] = None
     # PJ
     razao_social: Optional[str] = None
     nome_fantasia: Optional[str] = None
     cnpj: Optional[str] = None
     ie: Optional[str] = None
     data_fundacao: Optional[date] = None
-    # Contato
-    email: Optional[str] = None
-    telefone: Optional[str] = None
-    celular: Optional[str] = None
 
 
 class PessoaPIIResponse(PessoaPIIUpdate):
@@ -108,6 +174,8 @@ class PessoaCreate(BaseModel):
     reter_dados_ate: Optional[date] = None
     # PII embutida no create para conveniência
     pii: Optional[PessoaPIIUpdate] = None
+    # Contatos iniciais (email, celular, etc.)
+    contatos: list["ContatoCreate"] = []
     # Endereços iniciais
     enderecos: list[EnderecoCreate] = []
     # Relacionamentos iniciais

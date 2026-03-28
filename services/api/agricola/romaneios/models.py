@@ -11,13 +11,18 @@ class RomaneioColheita(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     safra_id: Mapped[UUID] = mapped_column(ForeignKey("safras.id", ondelete="CASCADE"), nullable=False, index=True)
-    talhao_id: Mapped[UUID] = mapped_column(ForeignKey("talhoes.id", ondelete="CASCADE"), nullable=False, index=True)
+    talhao_id: Mapped[UUID] = mapped_column(ForeignKey("cadastros_areas_rurais.id", ondelete="CASCADE"), nullable=False, index=True)
     
     numero_romaneio: Mapped[str | None] = mapped_column(String(30))
     data_colheita: Mapped[date] = mapped_column(Date, nullable=False)
     turno: Mapped[str | None] = mapped_column(String(10))
     maquina_colhedora_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
-    operador_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
+    operador_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("cadastros_pessoas.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Operador da colhedora"
+    )
     
     peso_bruto_kg: Mapped[float] = mapped_column(Numeric(12, 3), nullable=False)
     tara_kg: Mapped[float | None] = mapped_column(Numeric(12, 3), default=0)
@@ -31,7 +36,8 @@ class RomaneioColheita(Base):
     peso_liquido_padrao_kg: Mapped[float | None] = mapped_column(Numeric(12, 3))
     
     sacas_60kg: Mapped[float | None] = mapped_column(Numeric(12, 3))
-    
+    produtividade_sc_ha: Mapped[float | None] = mapped_column(Numeric(10, 3))
+
     destino: Mapped[str | None] = mapped_column(String(30)) # ARMAZEM, TERCESIRO...
     armazem_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)
     nf_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True)

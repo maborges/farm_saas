@@ -13,7 +13,7 @@ class LoteRastreabilidade(Base):
     
     codigo_lote: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
     safra_id: Mapped[UUID] = mapped_column(ForeignKey("safras.id", ondelete="CASCADE"), nullable=False)
-    talhao_id: Mapped[UUID] = mapped_column(ForeignKey("talhoes.id", ondelete="CASCADE"), nullable=False)
+    talhao_id: Mapped[UUID] = mapped_column(ForeignKey("cadastros_areas_rurais.id", ondelete="CASCADE"), nullable=False)
     
     produto: Mapped[str] = mapped_column(String(100), nullable=False)
     variedade: Mapped[str | None] = mapped_column(String(100))

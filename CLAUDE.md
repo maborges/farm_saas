@@ -350,7 +350,7 @@ Handlers defined in [main.py:129-145](services/api/main.py#L129-L145).
 3. **CORS Configuration:**
    - Frontend dev server runs on :3000 or :3001. CORS configured in [main.py:50-66](services/api/main.py#L50-L66)
    - **CRITICAL:** Mudanças em CORS **REQUEREM REINICIAR O SERVIDOR** - use `cd services/api && ./start_server.sh`
-   - Origens permitidas: localhost:3000, localhost:3001, 127.0.0.1:3000, 127.0.0.1:3001, 192.168.0.108:3000, 192.168.0.108:3001
+   - Origens permitidas: localhost:3000, localhost:3001, 127.0.0.1:3000, 127.0.0.1:3001, 192.168.0.2:3000, 192.168.0.2:3001
    - Para diagnóstico: `cd services/api && ./check_cors.sh`
    - Documentação: [services/api/CORS_TROUBLESHOOTING.md](services/api/CORS_TROUBLESHOOTING.md)
 

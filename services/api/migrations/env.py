@@ -24,6 +24,7 @@ from sqlalchemy import text
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from core.database import Base, DB_URL
+from rh.models import ColaboradorRH, LancamentoDiaria, Empreitada
 from core.models import (
     Tenant, Fazenda, Usuario, PerfilAcesso, TenantUsuario, FazendaUsuario,
     ConviteAcesso, PlanoAssinatura, AssinaturaTenant, Fatura, ChamadoSuporte,
@@ -32,25 +33,52 @@ from core.models import (
     PlanoPricing, MudancaPlano, CobrancaAsaas, HistoricoBloqueio
 )
 from agricola.talhoes.models import Talhao
-from agricola.safras.models import Safra
+from agricola.safras.models import Safra, SafraTalhao, SafraFaseHistorico
 from agricola.operacoes.models import OperacaoAgricola, InsumoOperacao
 from agricola.monitoramento.models import MonitoramentoPragas
+from agricola.monitoramento.catalogo_model import MonitoramentoCatalogo
+from agricola.analises_solo.models import AnaliseSolo
+from agricola.checklist.models import ChecklistTemplate, SafraChecklistItem
+from agricola.fenologia.models import FenologiaEscala, SafraTalhaoGrupo, SafraTalhaoGrupoItem, SafraFenologiaRegistro
 from agricola.romaneios.models import RomaneioColheita
+from agricola.beneficiamento.models import LoteBeneficiamento
 from agricola.previsoes.models import PrevisaoProdutividade
-from agricola.cadastros.models import Cultura
+# Cultura migrada para cadastros/produtos
 from agricola.a1_planejamento.models import ItemOrcamentoSafra
 
 # Pecuaria
-from pecuaria.models.piquete import Piquete
-from pecuaria.models.lote import LoteBovino
+from pecuaria.animal.models import LoteAnimal, Animal, EventoAnimal
+from pecuaria.producao.models import ProducaoLeite
 from pecuaria.models.manejo import ManejoLote
 
-# Pessoas
-from pessoas.models import Pessoa
+# Pessoas (migrado para core.cadastros.pessoas)
+from core.cadastros.pessoas.models import (
+    Pessoa, PessoaDocumento, PessoaContato, PessoaEndereco, PessoaBancario,
+    TipoRelacionamento, PessoaRelacionamento, PessoaConsentimento, PessoaAcessoLog,
+)
+
+# Propriedades / Áreas Rurais
+from core.cadastros.propriedades.models import AreaRural, MatriculaImovel, RegistroAmbiental
+
+# Equipamentos
+from core.cadastros.equipamentos.models import Equipamento
+from operacional.models.apontamento import ApontamentoUso
+from operacional.models.abastecimento import Abastecimento
+from operacional.models.checklist import ChecklistModelo, ChecklistRealizado
+from operacional.models.documento_equipamento import DocumentoEquipamento
+
+# Produtos (insumos / almoxarifado)
+from core.cadastros.produtos.models import (
+    Produto, ProdutoAgricola, ProdutoEstoque, ProdutoEPI, ProdutoCultura,
+)
+
+# Commodities (produtos de saída / receita)
+from core.cadastros.commodities.models import Commodity, CommodityClassificacao
 
 # Financeiro
 from financeiro.models.plano_conta import PlanoConta
 from financeiro.models.despesa import Despesa
+from financeiro.models.receita import Receita
 from financeiro.models.rateio import Rateio
 
 # add your model's MetaData object here

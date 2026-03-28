@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query, status
+import asyncio
+from loguru import logger
 from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -144,5 +146,10 @@ async def ws_notificacoes(
 
     except WebSocketDisconnect:
         manager.disconnect(tenant_id, websocket)
-    except Exception:
+    except Exception as exc:
+        logger.exception(f"WS notificacoes erro inesperado (tenant={tenant_id}): {exc}")
         manager.disconnect(tenant_id, websocket)
+        try:
+            await websocket.close(code=1011)
+        except Exception:
+            pass

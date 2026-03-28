@@ -5,7 +5,8 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.base_service import BaseService
 from core.exceptions import BusinessRuleError
-from operacional.models.frota import Maquinario, PlanoManutencao, OrdemServico, RegistroManutencao, ItemOrdemServico
+from core.cadastros.equipamentos.models import Equipamento as Maquinario
+from operacional.models.frota import PlanoManutencao, OrdemServico, RegistroManutencao, ItemOrdemServico
 from operacional.schemas.frota import (
     PlanoManutencaoCreate, OrdemServicoCreate, OrdemServicoUpdate,
     ItemOrdemServicoCreate

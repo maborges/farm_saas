@@ -27,8 +27,8 @@ O backend só aceita requisições de origens específicas configuradas em `main
 - `http://localhost:3001`
 - `http://127.0.0.1:3000`
 - `http://127.0.0.1:3001`
-- `http://192.168.0.108:3000`
-- `http://192.168.0.108:3001`
+- `http://192.168.0.2:3000`
+- `http://192.168.0.2:3001`
 
 **Verificar a URL do frontend:**
 ```bash
@@ -120,8 +120,8 @@ app.add_middleware(
         "http://localhost:3001",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
-        "http://192.168.0.108:3000",
-        "http://192.168.0.108:3001",
+        "http://192.168.0.2:3000",
+        "http://192.168.0.2:3001",
     ],
     allow_credentials=True,
     allow_methods=["*"],

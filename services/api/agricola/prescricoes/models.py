@@ -12,7 +12,7 @@ class PrescricaoVRA(Base):
     tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     
     nome: Mapped[str] = mapped_column(String(100), nullable=False)
-    talhao_id: Mapped[UUID] = mapped_column(ForeignKey("talhoes.id", ondelete="CASCADE"), nullable=False)
+    talhao_id: Mapped[UUID] = mapped_column(ForeignKey("cadastros_areas_rurais.id", ondelete="CASCADE"), nullable=False)
     safra_id: Mapped[UUID] = mapped_column(ForeignKey("safras.id", ondelete="CASCADE"), nullable=False)
     
     tipo_operacao: Mapped[str] = mapped_column(String(50)) # ADUBAÇÃO, SEMEADURA, DEFENSIVO

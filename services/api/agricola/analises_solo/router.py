@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_tenant_id, require_module, require_role
 from core.dependencies import get_session_with_tenant
-from agricola.analises_solo.schemas import AnaliseSoloCreate, AnaliseSoloResponse
+from agricola.analises_solo.schemas import AnaliseSoloCreate, AnaliseSoloUpdate, AnaliseSoloResponse
 from agricola.analises_solo.service import AnaliseSoloService
 
 router = APIRouter(prefix="/analises-solo", tags=["Análises de Solo"])
@@ -46,6 +46,35 @@ async def detalhar_analise(
     svc = AnaliseSoloService(session, tenant_id)
     analise = await svc.get_or_fail(id)
     return AnaliseSoloResponse.model_validate(analise)
+
+
+@router.patch("/{id}", response_model=AnaliseSoloResponse)
+async def atualizar_analise(
+    id: UUID,
+    dados: AnaliseSoloUpdate,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("A1")),
+    user: dict = Depends(require_role(["agronomo", "admin"])),
+):
+    svc = AnaliseSoloService(session, tenant_id)
+    analise = await svc.update(id, dados.model_dump(exclude_none=True))
+    await session.commit()
+    await session.refresh(analise)
+    return AnaliseSoloResponse.model_validate(analise)
+
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+async def deletar_analise(
+    id: UUID,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("A1")),
+    user: dict = Depends(require_role(["agronomo", "admin"])),
+):
+    svc = AnaliseSoloService(session, tenant_id)
+    await svc.hard_delete(id)
+    await session.commit()
 
 
 @router.get("/{id}/recomendacoes")

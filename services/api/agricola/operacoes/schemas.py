@@ -32,6 +32,7 @@ class OperacaoAgricolaCreate(BaseModel):
     tipo: str
     subtipo: str | None = None
     descricao: str = Field(..., min_length=3, max_length=500)
+    fase_safra: str | None = None  # None = auto-preenche com fase atual da safra
     data_prevista: date | None = None
     data_realizada: date
     hora_inicio: time | None = None
@@ -49,6 +50,7 @@ class OperacaoAgricolaUpdate(BaseModel):
     tipo: str | None = None
     subtipo: str | None = None
     descricao: str | None = Field(None, min_length=3, max_length=500)
+    fase_safra: str | None = None
     data_prevista: date | None = None
     data_realizada: date | None = None
     hora_inicio: time | None = None
@@ -59,6 +61,20 @@ class OperacaoAgricolaUpdate(BaseModel):
     operador_id: UUID | None = None
     status: str | None = None
     observacoes: str | None = None
+
+
+class OperacaoPorFaseKPI(BaseModel):
+    fase: str
+    total_operacoes: int
+    custo_total: float
+    custo_por_ha: float
+    area_total_ha: float
+
+
+class SafraOperacoesPorFaseResponse(BaseModel):
+    safra_id: UUID
+    fases: list[OperacaoPorFaseKPI]
+    custo_total_safra: float
 
 class OperacaoAgricolaResponse(BaseModel):
     id: UUID
@@ -83,6 +99,7 @@ class OperacaoAgricolaResponse(BaseModel):
     condicao_clima: str | None
     latitude: float | None
     longitude: float | None
+    fase_safra: str | None
     custo_total: float
     custo_por_ha: float
     status: str

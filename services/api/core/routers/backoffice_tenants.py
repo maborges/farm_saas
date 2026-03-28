@@ -279,7 +279,8 @@ async def criar_tenant(
             tenant_data = TenantResponse.model_validate(tenant)
             tenant_data.assinatura = {
                 "id": str(assinatura.id),
-                "plano_nome": plano.nome,
+                "plano": plano.nome,
+                "plano_id": str(plano.id),
                 "status": assinatura.status,
                 "usuarios_contratados": assinatura.usuarios_contratados,
                 "ciclo_pagamento": assinatura.ciclo_pagamento,
@@ -353,7 +354,8 @@ async def listar_tenants(
                 plano = planos.get(assinatura.plano_id)
                 tenant_data.assinatura = {
                     "id": str(assinatura.id),
-                    "plano_nome": plano.nome if plano else "N/A",
+                    "plano": plano.nome if plano else "N/A",
+                    "plano_id": str(assinatura.plano_id),
                     "status": assinatura.status,
                     "usuarios_contratados": assinatura.usuarios_contratados,
                     "ciclo_pagamento": assinatura.ciclo_pagamento,
@@ -399,7 +401,8 @@ async def obter_tenant(
             plano = await session.get(PlanoAssinatura, assinatura.plano_id)
             tenant_data.assinatura = {
                 "id": str(assinatura.id),
-                "plano_nome": plano.nome if plano else "N/A",
+                "plano": plano.nome if plano else "N/A",
+                "plano_id": str(assinatura.plano_id),
                 "status": assinatura.status,
                 "usuarios_contratados": assinatura.usuarios_contratados,
                 "ciclo_pagamento": assinatura.ciclo_pagamento,

@@ -33,7 +33,7 @@ class Receita(Base):
     # Vinculação com Pessoas (substitui campo texto livre cliente)
     pessoa_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("pessoas.id", ondelete="SET NULL"),
+        ForeignKey("cadastros_pessoas.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="Cliente/comprador cadastrado. Se NULL, usar campo cliente (texto livre)"
@@ -78,6 +78,16 @@ class Receita(Base):
     # Legado (mantido por compatibilidade — preferir pessoa_id)
     cliente: Mapped[str | None] = mapped_column(String(150), nullable=True)
     nota_fiscal: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # Rastreabilidade — origem do lançamento automático
+    origem_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True, index=True,
+        comment="ID do registro que gerou esta receita (ex: romaneios_colheita.id)"
+    )
+    origem_tipo: Mapped[str | None] = mapped_column(
+        String(40), nullable=True,
+        comment="Tipo da origem: ROMANEIO_COLHEITA, etc."
+    )
 
     observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)

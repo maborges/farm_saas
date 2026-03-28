@@ -11,7 +11,7 @@ class OperacaoAgricola(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     safra_id: Mapped[UUID] = mapped_column(ForeignKey("safras.id", ondelete="CASCADE"), nullable=False, index=True)
-    talhao_id: Mapped[UUID] = mapped_column(ForeignKey("talhoes.id", ondelete="CASCADE"), nullable=False, index=True)
+    talhao_id: Mapped[UUID] = mapped_column(ForeignKey("cadastros_areas_rurais.id", ondelete="CASCADE"), nullable=False, index=True)
 
     tipo: Mapped[str] = mapped_column(String(30), nullable=False)
     subtipo: Mapped[str | None] = mapped_column(String(50))
@@ -25,7 +25,12 @@ class OperacaoAgricola(Base):
     area_aplicada_ha: Mapped[float | None] = mapped_column(Numeric(12, 4))
     maquina_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True) # References maquinas(id) if exists
     implemento: Mapped[str | None] = mapped_column(String(100))
-    operador_id: Mapped[UUID | None] = mapped_column(Uuid, nullable=True) # References usuarios(id) if exists
+    operador_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("cadastros_pessoas.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Operador que realizou a operação agrícola"
+    )
 
     temperatura_c: Mapped[float | None] = mapped_column(Numeric(5, 2))
     umidade_rel: Mapped[float | None] = mapped_column(Numeric(5, 2))
@@ -39,6 +44,7 @@ class OperacaoAgricola(Base):
     custo_total: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     custo_por_ha: Mapped[float] = mapped_column(Numeric(12, 4), default=0)
 
+    fase_safra: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(20), default='REALIZADA')
     observacoes: Mapped[str | None] = mapped_column(Text)
     fotos: Mapped[list[str]] = mapped_column(JSON, default=list)

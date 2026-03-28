@@ -4,7 +4,7 @@
 
 ```bash
 # Conectar ao PostgreSQL no servidor remoto
-psql -h 192.168.0.108 -U postgres
+psql -h 192.168.0.2 -U postgres
 ```
 
 ## Passo 2: Criar o banco de dados e usuário
@@ -39,7 +39,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO borgus;
 
 ```bash
 # Testar conexão
-PGPASSWORD='num$sey01' psql -h 192.168.0.108 -U borgus -d farms -c "SELECT version();"
+PGPASSWORD='num$sey01' psql -h 192.168.0.2 -U borgus -d farms -c "SELECT version();"
 ```
 
 ## Passo 4: Verificar pg_hba.conf
@@ -70,7 +70,7 @@ ALTER USER borgus WITH PASSWORD 'numsey01';
 E atualizar o `.env.local`:
 
 ```env
-DATABASE_URL=postgresql+asyncpg://borgus:numsey01@192.168.0.108/farms
+DATABASE_URL=postgresql+asyncpg://borgus:numsey01@192.168.0.2/farms
 ```
 
 ## Troubleshooting
@@ -82,7 +82,7 @@ DATABASE_URL=postgresql+asyncpg://borgus:numsey01@192.168.0.108/farms
 3. Verifique o método de autenticação em `pg_hba.conf`
 4. Verifique se o PostgreSQL está aceitando conexões remotas em `postgresql.conf`:
    ```conf
-   listen_addresses = '*'  # ou '192.168.0.108'
+   listen_addresses = '*'  # ou '192.168.0.2'
    ```
 
 ### Erro: "database does not exist"

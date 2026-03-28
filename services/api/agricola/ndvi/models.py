@@ -10,7 +10,7 @@ class ImagemNDVI(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
-    talhao_id: Mapped[UUID] = mapped_column(ForeignKey("talhoes.id", ondelete="CASCADE"), nullable=False, index=True)
+    talhao_id: Mapped[UUID] = mapped_column(ForeignKey("cadastros_areas_rurais.id", ondelete="CASCADE"), nullable=False, index=True)
 
     data_captura: Mapped[date] = mapped_column(Date, nullable=False)
     cobertura_nuvens_pct: Mapped[float | None] = mapped_column(Numeric(5, 2))

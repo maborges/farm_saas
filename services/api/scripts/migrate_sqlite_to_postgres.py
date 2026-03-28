@@ -32,7 +32,7 @@ from financeiro.models.rateio import *
 
 # Conexões
 SQLITE_URL = "sqlite+aiosqlite:///./agrosaas.db"
-POSTGRES_URL = "postgresql+asyncpg://borgus:numsey01@192.168.0.108/farms"
+POSTGRES_URL = "postgresql+asyncpg://borgus:numsey01@192.168.0.2/farms"
 
 # Ordem correta para migração (respeitando foreign keys)
 MIGRATION_ORDER = [
