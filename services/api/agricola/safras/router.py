@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Query
 from typing import List
 from uuid import UUID
+from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
@@ -10,6 +11,7 @@ from agricola.safras.schemas import (
     SafraCreate, SafraResponse, SafraUpdate,
     SafraAvancarFase, SafraFaseHistoricoResponse,
     SafraTalhaoResponse, SafraTalhoesSincronizar,
+    EstoqueResumoResponse, MovimentacaoSafraResponse,
 )
 from agricola.safras.models import SAFRA_FASES_ORDEM, SAFRA_TRANSICOES
 from agricola.safras.service import SafraService
@@ -207,3 +209,58 @@ async def sincronizar_talhoes_safra(
     for t in talhoes:
         await session.refresh(t)
     return [SafraTalhaoResponse.model_validate(t) for t in talhoes]
+
+
+# ─── Estoque (Inventory) ──────────────────────────────────────────────────────
+
+@router.get(
+    "/{id}/estoque/saldo",
+    summary="Saldo atual de estoque para a safra",
+)
+async def get_estoque_saldo(
+    id: UUID,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("A1")),
+):
+    """
+    Retorna saldo atual de estoque agrupado por depósito e produto.
+    Útil para a aba de estoque no detalhe da safra.
+    """
+    svc = SafraService(session, tenant_id)
+    return await svc.get_saldo_safra(id)
+
+
+@router.get(
+    "/{id}/estoque/movimentacoes",
+    summary="Histórico de movimentações de estoque para a safra",
+)
+async def get_estoque_movimentacoes(
+    id: UUID,
+    tipo: str | None = Query(None, description="Tipo de movimentação: ENTRADA, SAIDA, AJUSTE, TRANSFERENCIA"),
+    deposito_id: UUID | None = Query(None, description="Filtrar por depósito"),
+    data_inicio: date | None = Query(None, description="Data inicial (YYYY-MM-DD)"),
+    data_fim: date | None = Query(None, description="Data final (YYYY-MM-DD)"),
+    numero_lote: str | None = Query(None, description="Número do lote (busca parcial)"),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("A1")),
+):
+    """
+    Retorna histórico de movimentações de estoque para a safra,
+    com filtros por tipo, depósito, período e lote.
+    Inclui informações da operação agrícola associada.
+    """
+    svc = SafraService(session, tenant_id)
+    return await svc.get_movimentacoes_safra(
+        id,
+        tipo=tipo,
+        deposito_id=deposito_id,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        numero_lote=numero_lote,
+        limit=limit,
+        offset=offset,
+    )

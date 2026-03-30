@@ -1,5 +1,5 @@
 from uuid import UUID
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -221,3 +221,204 @@ class SafraService(BaseService[Safra]):
             safra.talhao_id = talhao_ids[0]
 
         return novos
+
+    # ─── Estoque (Inventory) ───────────────────────────────────────────────────
+
+    async def get_saldo_safra(self, safra_id: UUID) -> dict:
+        """
+        Retorna saldo atual de estoque para uma safra.
+        Agrupa por depósito e produto.
+        """
+        from operacional.models.estoque import LoteEstoque, Deposito
+        from core.cadastros.produtos.models import Produto
+
+        # Validar tenant isolation
+        safra = await self.get_or_fail(safra_id)
+
+        # Query: Lotes ativos → agrupa por deposito + produto
+        stmt = (
+            select(
+                LoteEstoque.deposito_id,
+                LoteEstoque.produto_id,
+                Deposito.nome.label("deposito_nome"),
+                Produto.nome.label("produto_nome"),
+                Produto.unidade_estoque,
+                func.sum(LoteEstoque.quantidade_atual).label("quantidade_atual"),
+                func.count(LoteEstoque.id).label("num_lotes"),
+            )
+            .join(Deposito, LoteEstoque.deposito_id == Deposito.id)
+            .join(Produto, LoteEstoque.produto_id == Produto.id)
+            .where(
+                LoteEstoque.status == "ATIVO",
+                LoteEstoque.quantidade_atual > 0,
+                Deposito.tenant_id == self.tenant_id,
+            )
+            .group_by(
+                LoteEstoque.deposito_id,
+                LoteEstoque.produto_id,
+                Deposito.nome,
+                Produto.nome,
+                Produto.unidade_estoque,
+            )
+            .order_by(Deposito.nome, Produto.nome)
+        )
+
+        rows = await self.session.execute(stmt)
+        results = rows.all()
+
+        # Formata resposta
+        saldos_dict = {}
+        for row in results:
+            deposito_id = row.deposito_id
+            if deposito_id not in saldos_dict:
+                saldos_dict[deposito_id] = {
+                    "deposito_id": deposito_id,
+                    "deposito_nome": row.deposito_nome,
+                    "produtos": [],
+                }
+
+            saldos_dict[deposito_id]["produtos"].append({
+                "produto_id": row.produto_id,
+                "produto_nome": row.produto_nome,
+                "quantidade_atual": float(row.quantidade_atual or 0),
+                "unidade": row.unidade_estoque,
+                "num_lotes": row.num_lotes,
+            })
+
+        return {
+            "safra_id": safra_id,
+            "depositos": list(saldos_dict.values()),
+            "total_depositos": len(saldos_dict),
+            "total_produtos_ativos": sum(len(d["produtos"]) for d in saldos_dict.values()),
+        }
+
+    async def get_movimentacoes_safra(
+        self,
+        safra_id: UUID,
+        tipo: str | None = None,
+        deposito_id: UUID | None = None,
+        data_inicio: date | None = None,
+        data_fim: date | None = None,
+        numero_lote: str | None = None,
+        origem_id: UUID | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict:
+        """
+        Retorna histórico de movimentações de estoque para uma safra.
+        Filtra por tipo, depósito, período, lote, operação associada.
+        """
+        from operacional.models.estoque import MovimentacaoEstoque, LoteEstoque, Deposito
+        from core.cadastros.produtos.models import Produto
+        from agricola.operacoes.models import OperacaoAgricola
+
+        # Validar tenant isolation
+        safra = await self.get_or_fail(safra_id)
+
+        # Query base: MovimentacaoEstoque linked to safra via operacao
+        stmt = (
+            select(
+                MovimentacaoEstoque.id,
+                MovimentacaoEstoque.produto_id,
+                MovimentacaoEstoque.lote_id,
+                MovimentacaoEstoque.deposito_id,
+                MovimentacaoEstoque.tipo,
+                MovimentacaoEstoque.quantidade,
+                MovimentacaoEstoque.custo_unitario,
+                MovimentacaoEstoque.custo_total,
+                MovimentacaoEstoque.motivo,
+                MovimentacaoEstoque.origem_id,
+                MovimentacaoEstoque.origem_tipo,
+                MovimentacaoEstoque.data_movimentacao,
+                Produto.nome.label("produto_nome"),
+                Produto.unidade_estoque,
+                LoteEstoque.numero_lote,
+                Deposito.nome.label("deposito_nome"),
+                OperacaoAgricola.tipo.label("operacao_tipo"),
+            )
+            .join(Produto, MovimentacaoEstoque.produto_id == Produto.id, isouter=True)
+            .join(LoteEstoque, MovimentacaoEstoque.lote_id == LoteEstoque.id, isouter=True)
+            .join(Deposito, MovimentacaoEstoque.deposito_id == Deposito.id, isouter=True)
+            .join(
+                OperacaoAgricola,
+                (MovimentacaoEstoque.origem_id == OperacaoAgricola.id)
+                & (MovimentacaoEstoque.origem_tipo == "OPERACAO_AGRICOLA"),
+                isouter=True,
+            )
+            .where(
+                OperacaoAgricola.safra_id == safra_id,
+                OperacaoAgricola.tenant_id == self.tenant_id,
+            )
+        )
+
+        # Aplica filtros
+        if tipo:
+            stmt = stmt.where(MovimentacaoEstoque.tipo == tipo)
+        if deposito_id:
+            stmt = stmt.where(MovimentacaoEstoque.deposito_id == deposito_id)
+        if data_inicio:
+            stmt = stmt.where(MovimentacaoEstoque.data_movimentacao >= data_inicio)
+        if data_fim:
+            stmt = stmt.where(MovimentacaoEstoque.data_movimentacao <= data_fim)
+        if numero_lote:
+            stmt = stmt.where(LoteEstoque.numero_lote.ilike(f"%{numero_lote}%"))
+
+        # Ordem e paginação
+        stmt = stmt.order_by(MovimentacaoEstoque.data_movimentacao.desc()).limit(limit).offset(offset)
+
+        rows = await self.session.execute(stmt)
+        movimentacoes = rows.all()
+
+        # Conta total (sem limit/offset para saber se tem mais)
+        count_stmt = (
+            select(func.count(MovimentacaoEstoque.id))
+            .join(OperacaoAgricola,
+                  (MovimentacaoEstoque.origem_id == OperacaoAgricola.id)
+                  & (MovimentacaoEstoque.origem_tipo == "OPERACAO_AGRICOLA"),
+                  isouter=True)
+            .where(
+                OperacaoAgricola.safra_id == safra_id,
+                OperacaoAgricola.tenant_id == self.tenant_id,
+            )
+        )
+        if tipo:
+            count_stmt = count_stmt.where(MovimentacaoEstoque.tipo == tipo)
+        if deposito_id:
+            count_stmt = count_stmt.where(MovimentacaoEstoque.deposito_id == deposito_id)
+        if data_inicio:
+            count_stmt = count_stmt.where(MovimentacaoEstoque.data_movimentacao >= data_inicio)
+        if data_fim:
+            count_stmt = count_stmt.where(MovimentacaoEstoque.data_movimentacao <= data_fim)
+        if numero_lote:
+            count_stmt = count_stmt.where(LoteEstoque.numero_lote.ilike(f"%{numero_lote}%"))
+
+        total = (await self.session.execute(count_stmt)).scalar() or 0
+
+        return {
+            "safra_id": safra_id,
+            "movimentacoes": [
+                {
+                    "id": mov.id,
+                    "produto_id": mov.produto_id,
+                    "produto_nome": mov.produto_nome,
+                    "lote_id": mov.lote_id,
+                    "numero_lote": mov.numero_lote,
+                    "deposito_id": mov.deposito_id,
+                    "deposito_nome": mov.deposito_nome,
+                    "tipo": mov.tipo,
+                    "quantidade": float(mov.quantidade),
+                    "unidade": mov.unidade_estoque,
+                    "custo_unitario": float(mov.custo_unitario) if mov.custo_unitario else None,
+                    "custo_total": float(mov.custo_total) if mov.custo_total else None,
+                    "motivo": mov.motivo,
+                    "origem_id": mov.origem_id,
+                    "origem_tipo": mov.origem_tipo,
+                    "operacao_tipo": mov.operacao_tipo,
+                    "data_movimentacao": mov.data_movimentacao,
+                }
+                for mov in movimentacoes
+            ],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }

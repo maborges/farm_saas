@@ -110,3 +110,50 @@ class SafraTalhaoResponse(BaseModel):
 class SafraTalhoesSincronizar(BaseModel):
     talhao_ids: list[UUID]
     areas_ha: dict[str, float] | None = None  # area_id (str) → ha
+
+
+# ───── Estoque (Inventory) ─────────────────────────────────────────────────────
+
+class SaldoDepositoItem(BaseModel):
+    """Saldo atual de um produto em um depósito"""
+    produto_id: UUID
+    produto_nome: str
+    deposito_id: UUID
+    deposito_nome: str
+    quantidade_atual: float
+    unidade: str | None = None
+    status_lotes: str | None = None  # "ATIVO", "COM_VENCIDOS", "COM_ESGOTADOS"
+    preco_unitario_medio: float | None = None
+
+
+class EstoqueResumoResponse(BaseModel):
+    """Resumo de saldo de estoque para uma safra"""
+    safra_id: UUID
+    total_produtos_ativos: int
+    total_depositos: int
+    saldos: list[SaldoDepositoItem]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MovimentacaoSafraResponse(BaseModel):
+    """Histórico de movimentação de estoque para uma safra"""
+    id: UUID
+    produto_id: UUID
+    produto_nome: str
+    lote_id: UUID | None
+    numero_lote: str | None
+    deposito_id: UUID
+    deposito_nome: str
+    tipo: str  # ENTRADA, SAIDA, AJUSTE, TRANSFERENCIA
+    quantidade: float
+    unidade: str | None
+    custo_unitario: float | None
+    custo_total: float | None
+    motivo: str | None
+    origem_id: UUID | None
+    origem_tipo: str | None  # "OPERACAO_AGRICOLA", "PEDIDO_COMPRA", etc
+    operacao_tipo: str | None  # Ex: "PLANTIO", "COLHEITA" (se origem_tipo == OPERACAO_AGRICOLA)
+    data_movimentacao: datetime
+
+    model_config = ConfigDict(from_attributes=True)
