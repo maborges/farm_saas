@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from datetime import datetime, timezone, timedelta
 import uuid
 
 from core.dependencies import get_session, get_current_user_claims, get_tenant_id
@@ -7,6 +9,12 @@ from core.schemas.onboarding_schemas import AssinanteRegisterRequest, ConviteCre
 from core.services.onboarding_service import OnboardingService
 from core.services.auth_service import AuthService
 from core.schemas.auth_schemas import TokenResponse, UsuarioMeResponse
+from core.models.tenant import Tenant
+from core.models.auth import Usuario, TenantUsuario
+from core.models.fazenda import Fazenda
+from core.models.billing import AssinaturaTenant, Fatura, PlanoAssinatura
+from pydantic import BaseModel, EmailStr, Field
+from loguru import logger
 
 router = APIRouter(prefix="/onboarding", tags=["SaaS — Onboarding & Equipe"])
 
@@ -37,6 +45,192 @@ async def gerar_convite(
     
     convite = await onboard_svc.enviar_convite(tenant_id, invoker_id, dados)
     return convite
+
+# ============================================================================
+# ATIVAÇÃO DE CONTA — Fluxo pós-conversão de lead
+# ============================================================================
+
+class AtivarContaRequest(BaseModel):
+    """Dados confirmados/corrigidos pelo assinante + senha definitiva."""
+    nome_completo: str = Field(..., min_length=3)
+    telefone: str | None = None
+    senha: str = Field(..., min_length=6)
+
+
+class AtivarContaInfoResponse(BaseModel):
+    """Dados pré-preenchidos para o formulário de ativação."""
+    nome_tenant: str
+    email: str
+    nome_completo: str
+    telefone: str | None
+    fazendas: list[str]
+    plano_nome: str
+    ciclo_pagamento: str
+
+
+class AtivarContaCheckoutResponse(BaseModel):
+    checkout_url: str
+    message: str
+
+
+@router.get(
+    "/ativar/{token}",
+    response_model=AtivarContaInfoResponse,
+    summary="Valida token de ativação e retorna dados pré-preenchidos",
+)
+async def obter_dados_ativacao(token: str, session: AsyncSession = Depends(get_session)):
+    """Valida o token enviado por email e retorna os dados para o formulário de ativação."""
+    stmt = select(Tenant).where(Tenant.activation_token == token)
+    result = await session.execute(stmt)
+    tenant = result.scalar_one_or_none()
+
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Token de ativação inválido ou não encontrado")
+
+    if tenant.activation_expires_at and tenant.activation_expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Token de ativação expirado. Solicite um novo link ao suporte.")
+
+    if tenant.ativo:
+        raise HTTPException(status_code=409, detail="Esta conta já foi ativada.")
+
+    # Buscar usuário owner
+    stmt = select(Usuario).join(TenantUsuario, TenantUsuario.usuario_id == Usuario.id).where(
+        TenantUsuario.tenant_id == tenant.id,
+        TenantUsuario.is_owner == True,
+    )
+    result = await session.execute(stmt)
+    usuario = result.scalar_one_or_none()
+
+    # Buscar fazendas
+    stmt = select(Fazenda).where(Fazenda.tenant_id == tenant.id)
+    result = await session.execute(stmt)
+    fazendas = result.scalars().all()
+
+    # Buscar assinatura + plano
+    stmt = select(AssinaturaTenant).where(
+        AssinaturaTenant.tenant_id == tenant.id,
+        AssinaturaTenant.tipo_assinatura == "PRINCIPAL",
+    )
+    result = await session.execute(stmt)
+    assinatura = result.scalar_one_or_none()
+
+    plano_nome = "N/A"
+    if assinatura:
+        from core.models.billing import PlanoAssinatura
+        plano = await session.get(PlanoAssinatura, assinatura.plano_id)
+        if plano:
+            plano_nome = plano.nome
+
+    return AtivarContaInfoResponse(
+        nome_tenant=tenant.nome,
+        email=usuario.email if usuario else tenant.email_responsavel or "",
+        nome_completo=usuario.nome_completo if usuario else "",
+        telefone=tenant.telefone_responsavel,
+        fazendas=[f.nome for f in fazendas],
+        plano_nome=plano_nome,
+        ciclo_pagamento=assinatura.ciclo_pagamento if assinatura else "MENSAL",
+    )
+
+
+@router.post(
+    "/ativar/{token}",
+    response_model=AtivarContaCheckoutResponse,
+    summary="Confirma dados, define senha e gera checkout Stripe",
+)
+async def ativar_conta(
+    token: str,
+    dados: AtivarContaRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Confirma os dados do assinante, define a senha definitiva
+    e cria a sessão de checkout no Stripe para o primeiro pagamento.
+    """
+    stmt = select(Tenant).where(Tenant.activation_token == token)
+    result = await session.execute(stmt)
+    tenant = result.scalar_one_or_none()
+
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Token de ativação inválido")
+
+    if tenant.activation_expires_at and tenant.activation_expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Token expirado. Solicite um novo link ao suporte.")
+
+    if tenant.ativo:
+        raise HTTPException(status_code=409, detail="Conta já ativada.")
+
+    # Buscar usuário owner
+    stmt = select(Usuario).join(TenantUsuario, TenantUsuario.usuario_id == Usuario.id).where(
+        TenantUsuario.tenant_id == tenant.id,
+        TenantUsuario.is_owner == True,
+    )
+    result = await session.execute(stmt)
+    usuario = result.scalar_one_or_none()
+
+    if not usuario:
+        raise HTTPException(status_code=500, detail="Usuário owner não encontrado")
+
+    # Atualizar dados do usuário
+    auth_service = AuthService(session)
+    usuario.nome_completo = dados.nome_completo
+    usuario.senha_hash = auth_service.get_password_hash(dados.senha)
+    if dados.telefone:
+        tenant.telefone_responsavel = dados.telefone
+
+    # Buscar assinatura
+    stmt = select(AssinaturaTenant).where(
+        AssinaturaTenant.tenant_id == tenant.id,
+        AssinaturaTenant.tipo_assinatura == "PRINCIPAL",
+    )
+    result = await session.execute(stmt)
+    assinatura = result.scalar_one_or_none()
+
+    if not assinatura:
+        raise HTTPException(status_code=500, detail="Assinatura não encontrada")
+
+    # Criar checkout Stripe
+    from core.services.stripe_service import StripeService
+    stripe_svc = StripeService()
+    checkout_url = await stripe_svc.criar_checkout_assinatura(
+        tenant_id=str(tenant.id),
+        assinatura_id=str(assinatura.id),
+        email=usuario.email,
+        plano_id=str(assinatura.plano_id),
+        ciclo=assinatura.ciclo_pagamento,
+    )
+
+    # Criar fatura ABERTA para que o webhook possa baixá-la ao confirmar pagamento
+    fatura_existente = (await session.execute(
+        select(Fatura).where(
+            Fatura.assinatura_id == assinatura.id,
+            Fatura.status == "ABERTA",
+        )
+    )).scalar_one_or_none()
+
+    if not fatura_existente:
+        plano = await session.get(PlanoAssinatura, assinatura.plano_id)
+        valor = plano.preco_anual if assinatura.ciclo_pagamento == "ANUAL" else plano.preco_mensal
+        vencimento = (datetime.now(timezone.utc) + timedelta(days=3)).date()
+        nova_fatura = Fatura(
+            id=uuid.uuid4(),
+            tenant_id=tenant.id,
+            assinatura_id=assinatura.id,
+            valor=valor,
+            data_vencimento=vencimento,
+            status="ABERTA",
+        )
+        session.add(nova_fatura)
+        logger.info(f"Fatura ABERTA criada para assinatura {assinatura.id} — R${valor}")
+
+    await session.commit()
+
+    logger.info(f"Onboarding iniciado para tenant {tenant.id} ({tenant.nome}) — checkout Stripe criado")
+
+    return AtivarContaCheckoutResponse(
+        checkout_url=checkout_url,
+        message="Dados confirmados. Prossiga para o pagamento.",
+    )
+
 
 @router.post("/convites/aceitar", summary="Membro clica no link e aceita a vaga na empresa/fazenda")
 async def aceitar_convite(

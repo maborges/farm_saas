@@ -23,7 +23,7 @@ class FazendaAcessoResponse(BaseModel):
 class TenantAcessoResponse(BaseModel):
     tenant_id: UUID
     nome_tenant: str
-    perfil: PerfilSimplesResponse
+    perfil: Optional[PerfilSimplesResponse]
     fazendas: List[FazendaAcessoResponse]
     is_owner: bool
     plan_tier: str = "BASICO"

@@ -13,33 +13,25 @@ from operacional.schemas.abastecimento import (
     AbastecimentoCreate, AbastecimentoUpdate, AbastecimentoResponse
 )
 
+from operacional.services.abastecimento_service import AbastecimentoService
+
 router = APIRouter(
     prefix="/frota/abastecimentos",
     tags=["Frota — Abastecimentos"],
     dependencies=[Depends(require_module("O1"))],
 )
 
-
 @router.get("/", response_model=list[AbastecimentoResponse])
 @router.get("", response_model=list[AbastecimentoResponse])
 async def listar(
     equipamento_id: Optional[uuid.UUID] = Query(None),
-    data_inicio: Optional[date] = Query(None),
-    data_fim: Optional[date] = Query(None),
     session: AsyncSession = Depends(get_session),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
-    stmt = select(Abastecimento).where(Abastecimento.tenant_id == tenant_id)
+    service = AbastecimentoService(session, tenant_id)
     if equipamento_id:
-        stmt = stmt.where(Abastecimento.equipamento_id == equipamento_id)
-    if data_inicio:
-        stmt = stmt.where(Abastecimento.data >= data_inicio)
-    if data_fim:
-        stmt = stmt.where(Abastecimento.data <= data_fim)
-    stmt = stmt.order_by(Abastecimento.data.desc())
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
-
+        return await service.listar_por_equipamento(equipamento_id)
+    return await service.listar()
 
 @router.post("/", response_model=AbastecimentoResponse, status_code=201)
 @router.post("", response_model=AbastecimentoResponse, status_code=201)
@@ -48,84 +40,33 @@ async def criar(
     session: AsyncSession = Depends(get_session),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
-    eq = await session.get(Equipamento, data.equipamento_id)
-    if not eq or eq.tenant_id != tenant_id:
-        raise EntityNotFoundError("Equipamento não encontrado")
+    service = AbastecimentoService(session, tenant_id)
+    return await service.registrar(data)
 
-    custo_total = round(data.litros * data.preco_litro, 2)
-    payload = data.model_dump()
-    payload["custo_total"] = custo_total
-
-    ab = Abastecimento(tenant_id=tenant_id, **payload)
-    session.add(ab)
-
-    # Atualiza horímetro/km do equipamento
-    if data.horimetro_na_data > eq.horimetro_atual:
-        eq.horimetro_atual = data.horimetro_na_data
-    if data.km_na_data and data.km_na_data > eq.km_atual:
-        eq.km_atual = data.km_na_data
-
-    await session.commit()
-    await session.refresh(ab)
-    return ab
-
-
-@router.get("/{ab_id}", response_model=AbastecimentoResponse)
+@router.get("/{id}", response_model=AbastecimentoResponse)
 async def obter(
-    ab_id: uuid.UUID,
+    id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
-    result = await session.execute(
-        select(Abastecimento).where(
-            Abastecimento.id == ab_id, Abastecimento.tenant_id == tenant_id
-        )
-    )
-    obj = result.scalar_one_or_none()
-    if not obj:
-        raise EntityNotFoundError("Abastecimento não encontrado")
-    return obj
+    service = AbastecimentoService(session, tenant_id)
+    return await service.obter(id)
 
-
-@router.patch("/{ab_id}", response_model=AbastecimentoResponse)
+@router.patch("/{id}", response_model=AbastecimentoResponse)
 async def atualizar(
-    ab_id: uuid.UUID,
+    id: uuid.UUID,
     data: AbastecimentoUpdate,
     session: AsyncSession = Depends(get_session),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
-    result = await session.execute(
-        select(Abastecimento).where(
-            Abastecimento.id == ab_id, Abastecimento.tenant_id == tenant_id
-        )
-    )
-    obj = result.scalar_one_or_none()
-    if not obj:
-        raise EntityNotFoundError("Abastecimento não encontrado")
-    updates = data.model_dump(exclude_none=True)
-    for k, v in updates.items():
-        setattr(obj, k, v)
-    # Recalcula custo se litros ou preco_litro foram alterados
-    if "litros" in updates or "preco_litro" in updates:
-        obj.custo_total = round(obj.litros * obj.preco_litro, 2)
-    await session.commit()
-    await session.refresh(obj)
-    return obj
+    service = AbastecimentoService(session, tenant_id)
+    return await service.atualizar(id, data)
 
-
-@router.delete("/{ab_id}", status_code=204)
+@router.delete("/{id}", status_code=204)
 async def remover(
-    ab_id: uuid.UUID,
+    id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
-    result = await session.execute(
-        select(Abastecimento).where(
-            Abastecimento.id == ab_id, Abastecimento.tenant_id == tenant_id
-        )
-    )
-    obj = result.scalar_one_or_none()
-    if not obj:
-        raise EntityNotFoundError("Abastecimento não encontrado")
-    await session.delete(obj)
-    await session.commit()
+    service = AbastecimentoService(session, tenant_id)
+    await service.remover(id)

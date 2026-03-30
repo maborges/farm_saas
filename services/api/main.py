@@ -36,6 +36,7 @@ from core.routers import backoffice_sessions
 from core.routers import backoffice_crm
 from core.routers import backoffice_crm_ofertas
 from core.routers import backoffice_tabelas
+from core.routers import stripe_webhooks
 from operacional.routers import frota
 from operacional.routers import estoque
 from operacional.routers import oficina
@@ -101,6 +102,7 @@ app.include_router(backoffice_sessions.router, prefix="/api/v1")
 app.include_router(backoffice_crm.router, prefix="/api/v1")
 app.include_router(backoffice_crm_ofertas.router, prefix="/api/v1")
 app.include_router(backoffice_tabelas.router, prefix="/api/v1")
+app.include_router(stripe_webhooks.router, prefix="/api/v1")
 app.include_router(billing.router, prefix="/api/v1")
 app.include_router(plan_changes.router, prefix="/api/v1")
 app.include_router(backoffice_plan_changes.router, prefix="/api/v1")

@@ -41,6 +41,10 @@ class Tenant(Base):
         String(150), unique=True, index=True
     )
     
+    # Onboarding — token de ativação enviado por email após conversão de lead
+    activation_token: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    activation_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     # Guarda o JSON de cores, logo e tema do cliente
     branding: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 

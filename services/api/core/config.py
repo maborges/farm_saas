@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7 # 7 days
     
+    # Stripe Config
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    frontend_url: str = "http://localhost:3000"
+
     # SMTP Config
     smtp_host: str = "smtp.mailtrap.io"
     smtp_port: int = 2525

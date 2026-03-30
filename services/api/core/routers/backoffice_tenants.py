@@ -5,6 +5,8 @@ Permite admins SaaS criarem e gerenciarem tenants (assinantes).
 """
 from typing import Optional
 from uuid import UUID
+import uuid as uuid_module
+import secrets
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -13,9 +15,10 @@ from datetime import datetime, timezone, timedelta
 from core.database import async_session_maker
 from core.dependencies import get_current_admin, require_permission
 from core.models.tenant import Tenant
-from core.models.billing import PlanoAssinatura, AssinaturaTenant
+from core.models.billing import PlanoAssinatura, AssinaturaTenant, Fatura
 from core.models.auth import Usuario, PerfilAcesso, TenantUsuario, FazendaUsuario
 from core.models.fazenda import Fazenda
+from core.models.crm import LeadCRM
 from core.services.plan_pricing_service import PlanoPricingService
 from core.services.asaas_service import AsaasService
 from core.exceptions import BusinessRuleError, EntityNotFoundError
@@ -83,6 +86,36 @@ class AtivarDesativarTenantRequest(BaseModel):
     motivo: str = Field(..., min_length=10)
 
 
+class ConversaoFazenda(BaseModel):
+    nome: str = Field(..., min_length=2, max_length=150)
+
+
+class ConvertLeadRequest(BaseModel):
+    """Request para conversão de lead em assinante."""
+    # Dados confirmados/sobrescritos pelo admin (pré-preenchidos do lead)
+    nome_tenant: str = Field(..., min_length=3, max_length=150)
+    documento: str = Field(..., description="CPF ou CNPJ")
+    email_responsavel: EmailStr
+    nome_completo: str = Field(..., min_length=3, description="Nome do responsável")
+    telefone_responsavel: Optional[str] = None
+
+    # Plano e assinatura
+    plano_id: UUID
+    ciclo_pagamento: str = Field("MENSAL", description="MENSAL ou ANUAL")
+    usuarios_contratados: int = Field(5, ge=1)
+
+    # Fazendas — pelo menos uma obrigatória
+    fazendas: list[ConversaoFazenda] = Field(..., min_length=1)
+
+
+class ConvertLeadResponse(BaseModel):
+    tenant_id: UUID
+    assinatura_id: UUID
+    activation_token: str
+    activation_expires_at: datetime
+    message: str
+
+
 # ============================================================================
 # ENDPOINTS
 # ============================================================================
@@ -91,7 +124,7 @@ class AtivarDesativarTenantRequest(BaseModel):
     "",
     response_model=TenantResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Criar novo tenant (assinante)",
+    summary="Criar novo assinante",
     description="Cria tenant completo: usuário owner, fazenda, assinatura e cobrança",
     dependencies=[Depends(require_permission("backoffice:tenants:create"))]
 )
@@ -469,3 +502,211 @@ async def ativar_tenant(
         )
 
         return None
+
+
+@router.post(
+    "/leads/{lead_id}/converter",
+    response_model=ConvertLeadResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Converter lead em assinante",
+    description=(
+        "Converte um lead aprovado em tenant. Cria tenant, assinatura (PENDENTE_PAGAMENTO), "
+        "usuário admin e fazendas. Retorna token de ativação para envio ao assinante."
+    ),
+    dependencies=[Depends(require_permission("backoffice:tenants:create"))]
+)
+async def converter_lead(
+    lead_id: UUID,
+    request: ConvertLeadRequest,
+    current_admin: dict = Depends(get_current_admin)
+):
+    """
+    Fluxo de conversão de lead:
+
+    1. Valida que o lead está com status 'aprovado'
+    2. Cria Tenant (ativo=False — pendente de pagamento)
+    3. Cria AssinaturaTenant (status=PENDENTE_PAGAMENTO)
+    4. Cria Usuário owner com senha temporária aleatória
+    5. Cria Fazenda(s) conforme informado
+    6. Gera token de ativação (48h) armazenado no Tenant
+    7. Vincula lead ao tenant criado
+    8. Lead status permanece 'aprovado' — muda para 'convertido' somente após pagamento (webhook Stripe)
+    """
+    async with async_session_maker() as session:
+        try:
+            # 1. Buscar e validar lead
+            lead = await session.get(LeadCRM, lead_id)
+            if not lead:
+                raise HTTPException(status_code=404, detail="Lead não encontrado")
+            if lead.status in ("convertido", "perdido"):
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Lead com status '{lead.status}' não pode ser convertido."
+                )
+            if lead.tenant_convertido_id:
+                raise HTTPException(status_code=422, detail="Lead já foi convertido anteriormente")
+
+            # 2. Verificar documento único
+            stmt = select(Tenant).where(Tenant.documento == request.documento)
+            result = await session.execute(stmt)
+            if result.scalar_one_or_none():
+                raise BusinessRuleError(f"Documento {request.documento} já cadastrado")
+
+            # 3. Verificar email único
+            stmt = select(Usuario).where(Usuario.email == request.email_responsavel)
+            result = await session.execute(stmt)
+            if result.scalar_one_or_none():
+                raise BusinessRuleError(f"Email {request.email_responsavel} já cadastrado")
+
+            # 4. Buscar plano (deve estar disponível no CRM)
+            plano = await session.get(PlanoAssinatura, request.plano_id)
+            if not plano or not plano.ativo:
+                raise EntityNotFoundError("Plano não encontrado ou inativo")
+            if not plano.disponivel_crm:
+                raise BusinessRuleError("Este plano não está disponível para comercialização via CRM")
+
+            # 5. Validar quantidade de usuários
+            pricing_service = PlanoPricingService(session)
+            await pricing_service.validar_quantidade_usuarios(plano.id, request.usuarios_contratados)
+
+            # 6. Criar usuário owner com senha temporária
+            from core.services.auth_service import AuthService
+            auth_service = AuthService(session)
+            senha_temporaria = secrets.token_urlsafe(12)
+            senha_hash = auth_service.get_password_hash(senha_temporaria)
+
+            # Gerar username a partir do email
+            username_base = request.email_responsavel.split("@")[0].lower().replace(".", "_")
+            username = username_base
+            contador = 1
+            while True:
+                stmt = select(Usuario).where(Usuario.username == username)
+                result = await session.execute(stmt)
+                if not result.scalar_one_or_none():
+                    break
+                username = f"{username_base}_{contador}"
+                contador += 1
+
+            usuario = Usuario(
+                email=request.email_responsavel,
+                username=username,
+                nome_completo=request.nome_completo,
+                senha_hash=senha_hash
+            )
+            session.add(usuario)
+            await session.flush()
+
+            # 7. Criar tenant (inativo — ativa somente após pagamento)
+            activation_token = secrets.token_urlsafe(32)
+            activation_expires_at = datetime.now(timezone.utc) + timedelta(hours=48)
+
+            tenant = Tenant(
+                nome=request.nome_tenant,
+                documento=request.documento,
+                email_responsavel=request.email_responsavel,
+                telefone_responsavel=request.telefone_responsavel,
+                modulos_ativos=plano.modulos_inclusos,
+                max_usuarios_simultaneos=request.usuarios_contratados,
+                ativo=False,
+                activation_token=activation_token,
+                activation_expires_at=activation_expires_at
+            )
+            session.add(tenant)
+            await session.flush()
+
+            # 8. Criar perfil de acesso "Proprietário"
+            perfil = PerfilAcesso(
+                tenant_id=tenant.id,
+                nome="Proprietário",
+                is_custom=True,
+                permissoes={"global": "owner"}
+            )
+            session.add(perfil)
+            await session.flush()
+
+            # 9. Vincular usuário ao tenant como owner
+            tenant_usuario = TenantUsuario(
+                tenant_id=tenant.id,
+                usuario_id=usuario.id,
+                perfil_id=perfil.id,
+                is_owner=True
+            )
+            session.add(tenant_usuario)
+
+            # 10. Criar fazendas
+            for fazenda_data in request.fazendas:
+                fazenda = Fazenda(
+                    tenant_id=tenant.id,
+                    nome=fazenda_data.nome,
+                    ativo=True
+                )
+                session.add(fazenda)
+                await session.flush()
+
+                fazenda_usuario = FazendaUsuario(
+                    tenant_id=tenant.id,
+                    usuario_id=usuario.id,
+                    fazenda_id=fazenda.id
+                )
+                session.add(fazenda_usuario)
+
+            # 11. Criar assinatura com status PENDENTE_PAGAMENTO
+            data_inicio = datetime.now(timezone.utc)
+            dias_ciclo = 365 if request.ciclo_pagamento == "ANUAL" else 30
+            data_proxima_renovacao = data_inicio + timedelta(days=dias_ciclo)
+
+            assinatura = AssinaturaTenant(
+                tenant_id=tenant.id,
+                plano_id=plano.id,
+                tipo_assinatura="PRINCIPAL",
+                ciclo_pagamento=request.ciclo_pagamento,
+                usuarios_contratados=request.usuarios_contratados,
+                status="PENDENTE_PAGAMENTO",
+                data_inicio=data_inicio,
+                data_proxima_renovacao=data_proxima_renovacao
+            )
+            session.add(assinatura)
+            await session.flush()
+
+            # 12. Criar fatura ABERTA no backoffice financeiro
+            valor_fatura = plano.preco_anual if request.ciclo_pagamento == "ANUAL" else plano.preco_mensal
+            fatura = Fatura(
+                assinatura_id=assinatura.id,
+                tenant_id=tenant.id,
+                valor=valor_fatura,
+                data_vencimento=data_proxima_renovacao,
+                status="ABERTA",
+            )
+            session.add(fatura)
+
+            # 13. Vincular lead ao tenant
+            lead.tenant_convertido_id = tenant.id
+
+            await session.commit()
+
+            logger.info(
+                f"Lead {lead_id} convertido → Tenant {tenant.id} ({tenant.nome}) "
+                f"por admin {current_admin.get('sub', 'unknown')}. "
+                f"Plano: {plano.nome}, Fazendas: {len(request.fazendas)}"
+            )
+
+            return ConvertLeadResponse(
+                tenant_id=tenant.id,
+                assinatura_id=assinatura.id,
+                activation_token=activation_token,
+                activation_expires_at=activation_expires_at,
+                message=(
+                    f"Tenant criado com sucesso. Envie o link de ativação para {request.email_responsavel}. "
+                    f"Token expira em 48 horas."
+                )
+            )
+
+        except BusinessRuleError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except EntityNotFoundError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Erro ao converter lead {lead_id}: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail="Erro ao converter lead")

@@ -345,6 +345,35 @@ class EstoqueService(BaseService[SaldoEstoque]):
         await self.session.refresh(mov)
         return mov
 
+    async def registrar_saida_insumo_por_nome(
+        self,
+        nome_insumo: str,
+        quantidade: float,
+        fazenda_id: UUID,
+        origem_id: UUID,
+        origem_tipo: str = "OPERACAO_AGRICOLA",
+        motivo: str = "Uso em operação agrícola",
+    ) -> MovimentacaoEstoque:
+        """Busca o produto pelo nome e registra a saída."""
+        stmt = select(ProdutoCatalogo).where(
+            ProdutoCatalogo.tenant_id == self.tenant_id,
+            ProdutoCatalogo.nome.ilike(f"%{nome_insumo}%"),
+            ProdutoCatalogo.ativo == True
+        ).limit(1)
+        prod = (await self.session.execute(stmt)).scalars().first()
+        
+        if not prod:
+            raise EntityNotFoundError(f"Produto de estoque '{nome_insumo}' não encontrado para baixa.")
+
+        return await self.registrar_saida_insumo(
+            produto_id=prod.id,
+            quantidade=quantidade,
+            fazenda_id=fazenda_id,
+            origem_id=origem_id,
+            origem_tipo=origem_tipo,
+            motivo=motivo
+        )
+
     async def registrar_saida(self, data: SaidaEstoqueRequest) -> MovimentacaoEstoque:
         if data.deposito_id:
             stmt = select(SaldoEstoque).where(

@@ -156,8 +156,10 @@ class AuthService:
             tenant = (await self.session.execute(t_stmt)).scalar_one()
             
             # get perfil
-            p_stmt = select(PerfilAcesso).where(PerfilAcesso.id == tu.perfil_id)
-            perfil = (await self.session.execute(p_stmt)).scalar_one()
+            perfil = None
+            if tu.perfil_id:
+                p_stmt = select(PerfilAcesso).where(PerfilAcesso.id == tu.perfil_id)
+                perfil = (await self.session.execute(p_stmt)).scalar_one_or_none()
             
             # get fazendas
             fu_stmt = select(FazendaUsuario).where(FazendaUsuario.usuario_id == user.id, FazendaUsuario.tenant_id == tenant.id)
@@ -181,21 +183,21 @@ class AuthService:
                 .where(
                     AssinaturaTenant.tenant_id == tenant.id,
                     AssinaturaTenant.tipo_assinatura == "PRINCIPAL",
-                    AssinaturaTenant.status == "ATIVA",
+                    AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
                 )
                 .limit(1)
             )
             plan_row = (await self.session.execute(plan_stmt)).first()
             t_plan_tier = plan_row[0] if plan_row else "BASICO"
             t_max_fazendas = plan_row[1] if plan_row else 1
-            t_modulos = plan_row[2] if plan_row else ["CORE"]
+            t_modulos = plan_row[2] if plan_row else (tenant.modulos_ativos or ["CORE"])
             t_max_usuarios = plan_row[3] if plan_row else 2
 
             tenants_response.append(TenantAcessoResponse(
                 tenant_id=tenant.id,
                 nome_tenant=tenant.nome,
                 is_owner=tu.is_owner,
-                perfil=PerfilSimplesResponse(id=perfil.id, nome=perfil.nome, permissoes=perfil.permissoes),
+                perfil=PerfilSimplesResponse(id=perfil.id, nome=perfil.nome, permissoes=perfil.permissoes) if perfil else None,
                 fazendas=fazendas_resp,
                 plan_tier=t_plan_tier,
                 max_fazendas=t_max_fazendas,

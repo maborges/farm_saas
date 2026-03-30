@@ -61,6 +61,10 @@ class PlanoAssinatura(Base):
 
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # Controle de canal de comercialização (independentes entre si)
+    disponivel_site: Mapped[bool] = mapped_column(Boolean, default=False, comment="Visível no checkout/landing público")
+    disponivel_crm: Mapped[bool] = mapped_column(Boolean, default=True, comment="Visível no CRM para conversão de leads e ofertas personalizadas")
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
@@ -112,7 +116,10 @@ class AssinaturaTenant(Base):
     # Quantidade de usuários contratados (para pricing dinâmico)
     usuarios_contratados: Mapped[int] = mapped_column(Integer, default=5, comment="Quantidade de usuários simultâneos contratados")
 
-    status: Mapped[str] = mapped_column(String(30), default="PENDENTE") # PENDENTE, ATIVA, SUSPENSA, CANCELADA, BLOQUEADA
+    status: Mapped[str] = mapped_column(String(30), default="PENDENTE") # PENDENTE, PENDENTE_PAGAMENTO, ATIVA, SUSPENSA, CANCELADA, BLOQUEADA
+
+    # Stripe
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
 
     data_inicio: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     data_proxima_renovacao: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

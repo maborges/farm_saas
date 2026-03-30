@@ -12,6 +12,8 @@ class PlanoAssinaturaBase(BaseModel):
     preco_mensal: float = 0.0
     preco_anual: float = 0.0
     ativo: bool = True
+    disponivel_site: bool = False
+    disponivel_crm: bool = True
 
 class PlanoAssinaturaCreate(PlanoAssinaturaBase):
     pass
@@ -25,6 +27,8 @@ class PlanoAssinaturaUpdate(BaseModel):
     preco_mensal: Optional[float] = None
     preco_anual: Optional[float] = None
     ativo: Optional[bool] = None
+    disponivel_site: Optional[bool] = None
+    disponivel_crm: Optional[bool] = None
 
 class PlanoAssinaturaResponse(PlanoAssinaturaBase):
     id: uuid.UUID

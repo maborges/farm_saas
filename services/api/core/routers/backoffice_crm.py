@@ -613,6 +613,30 @@ async def reabrir_lead(
     return lead
 
 
+@router.patch(
+    "/leads/{lead_id}/approve",
+    response_model=LeadResponse,
+    dependencies=[Depends(require_permission("backoffice:crm:update"))],
+)
+async def aprovar_lead(
+    lead_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    current_admin: dict = Depends(get_current_admin),
+):
+    """Aprova um lead ativo, habilitando-o para conversão em tenant."""
+    lead = await session.get(LeadCRM, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead não encontrado")
+    if lead.status != "ativo":
+        raise HTTPException(status_code=422, detail=f"Somente leads com status 'ativo' podem ser aprovados. Status atual: '{lead.status}'")
+
+    lead.status = "aprovado"
+
+    await session.commit()
+    await session.refresh(lead, ["estagio"])
+    return lead
+
+
 # ==================== ENDPOINTS - ATIVIDADES ====================
 
 @router.get("/leads/{lead_id}/atividades", response_model=List[AtividadeResponse])

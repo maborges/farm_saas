@@ -1,5 +1,6 @@
 from uuid import UUID
 from datetime import datetime
+from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from core.exceptions import BusinessRuleError
@@ -47,3 +48,52 @@ class AgronomoService(BaseService[ConversaAgronomo]):
             "conversa_id": conversa.id,
             "mensagem": resposta_ia
         }
+
+from agricola.agronomo.models import RelatorioTecnico
+from agricola.agronomo.schemas import RelatorioTecnicoCreate, RelatorioTecnicoUpdate
+
+class RelatorioTecnicoService(BaseService[RelatorioTecnico]):
+    def __init__(self, session: AsyncSession, tenant_id: UUID):
+        super().__init__(RelatorioTecnico, session, tenant_id)
+
+    async def listar_por_safra(self, safra_id: UUID) -> List[RelatorioTecnico]:
+        query = select(RelatorioTecnico).where(
+            RelatorioTecnico.tenant_id == self.tenant_id,
+            RelatorioTecnico.safra_id == safra_id
+        ).order_by(RelatorioTecnico.data_visita.desc())
+        
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def criar_rat(self, usuario_id: UUID, dados: RelatorioTecnicoCreate) -> RelatorioTecnico:
+        novo_rat = RelatorioTecnico(
+            tenant_id=self.tenant_id,
+            usuario_id=usuario_id,
+            safra_id=dados.safra_id,
+            talhao_id=dados.talhao_id,
+            data_visita=dados.data_visita or datetime.now(),
+            estadio_fenologico=dados.estadio_fenologico,
+            condicao_climatica=dados.condicao_climatica,
+            observacoes_gerais=dados.observacoes_gerais,
+            recomendacoes=dados.recomendacoes,
+            constatacoes=[c.model_dump() for c in dados.constatacoes],
+            status=dados.status
+        )
+        self.session.add(novo_rat)
+        await self.session.commit()
+        await self.session.refresh(novo_rat)
+        return novo_rat
+
+    async def atualizar_rat(self, rat_id: UUID, dados: RelatorioTecnicoUpdate) -> RelatorioTecnico:
+        rat = await self.get_or_fail(rat_id)
+        
+        update_data = dados.model_dump(exclude_unset=True)
+        if "constatacoes" in update_data and update_data["constatacoes"] is not None:
+            update_data["constatacoes"] = [c.model_dump() if hasattr(c, 'model_dump') else c for c in update_data["constatacoes"]]
+
+        for key, value in update_data.items():
+            setattr(rat, key, value)
+            
+        await self.session.commit()
+        await self.session.refresh(rat)
+        return rat

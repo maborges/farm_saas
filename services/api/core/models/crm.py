@@ -74,7 +74,7 @@ class LeadCRM(Base):
     # Status
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="ativo",
-        comment="ativo, convertido, perdido"
+        comment="ativo, aprovado, convertido, perdido"
     )
     motivo_perda: Mapped[str | None] = mapped_column(Text, nullable=True)
     data_conversao: Mapped[date | None] = mapped_column(Date, nullable=True)
@@ -101,7 +101,7 @@ class LeadCRM(Base):
     # Relationships
     estagio: Mapped["PipelineEstagio"] = relationship("PipelineEstagio", lazy="joined")
     atividades: Mapped[list["AtividadeCRM"]] = relationship(
-        "AtividadeCRM", back_populates="lead", order_by="desc(AtividadeCRM.created_at)"
+        "AtividadeCRM", back_populates="lead", order_by="desc(AtividadeCRM.created_at)", lazy="selectin"
     )
 
 
