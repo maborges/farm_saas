@@ -17,7 +17,7 @@ from agricola.models import OperacaoTipoFase
 from core.cadastros.produtos.models import Produto
 from operacional.services import EstoqueService
 from operacional.models.estoque import MovimentacaoEstoque
-from operacional.services.estoque_fifo import consumir_lotes_fifo
+from operacional.services.estoque_fifo import consumir_lotes_fifo, atualizar_saldo_apos_consumo
 from financeiro.models.despesa import Despesa
 
 class OperacaoService(BaseService[OperacaoAgricola]):
@@ -104,11 +104,11 @@ class OperacaoService(BaseService[OperacaoAgricola]):
             # Custo real vem do FIFO (lotes históricos), não do preço médio
             custo_item = consumo.custo_total
 
-            # Record MovimentacaoEstoque for each lote consumed
+            # Record MovimentacaoEstoque for each lote consumed (includes deposito_id for audit trail)
             for lote_consumido in consumo.lotes_consumidos:
                 mov = MovimentacaoEstoque(
                     id=uuid.uuid4(),
-                    deposito_id=None,  # Will be set per lote if needed
+                    deposito_id=lote_consumido["deposito_id"],  # Required: audit trail of which deposit
                     produto_id=insumo.insumo_id,
                     usuario_id=None,
                     lote_id=lote_consumido["lote_id"],
@@ -122,8 +122,16 @@ class OperacaoService(BaseService[OperacaoAgricola]):
                     origem_tipo="OPERACAO_AGRICOLA",
                 )
                 self.session.add(mov)
+                logger.info(
+                    f"Batch consumed via FIFO: {lote_consumido['numero_lote']} × {lote_consumido['quantidade']}",
+                    lote_id=str(lote_consumido["lote_id"]),
+                    deposito_id=str(lote_consumido["deposito_id"]),
+                    quantidade=lote_consumido["quantidade"],
+                    custo=lote_consumido["custo"],
+                )
 
             # Record InsumoOperacao with actual FIFO cost
+            # custo_unitario = weighted average of all consumed batches
             insumo_op = InsumoOperacao(
                 id=uuid.uuid4(),
                 operacao_id=operacao.id,
@@ -134,12 +142,19 @@ class OperacaoService(BaseService[OperacaoAgricola]):
                 unidade=insumo.unidade,
                 area_aplicada=insumo.area_aplicada,
                 quantidade_total=quantidade_total,
-                custo_unitario=consumo.custo_total / quantidade_total if quantidade_total > 0 else 0.0,
+                custo_unitario=consumo.custo_total / quantidade_total if quantidade_total > 0 else 0.0,  # Weighted avg
                 custo_total=custo_item,
             )
 
             self.session.add(insumo_op)
             custo_total_operacao += custo_item
+
+            # Update SaldoEstoque after FIFO consumption (required for UI accuracy)
+            await atualizar_saldo_apos_consumo(
+                session=self.session,
+                produto_id=insumo.insumo_id,
+                quantidade_total=quantidade_total,
+            )
             
         operacao.custo_total = custo_total_operacao
         if operacao.area_aplicada_ha and operacao.area_aplicada_ha > 0:

@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import and_, join
+from loguru import logger
 
 from core.exceptions import BusinessRuleError
 from operacional.models.estoque import LoteEstoque, SaldoEstoque, MovimentacaoEstoque, Deposito
@@ -25,7 +26,7 @@ class EstoqueConsumidoFIFO:
     """Result of FIFO consumption - tracks what was consumed and cost."""
 
     def __init__(self):
-        self.lotes_consumidos: list[dict] = []  # [{"lote_id": uuid, "quantidade": float, "custo": float}]
+        self.lotes_consumidos: list[dict] = []  # [{"lote_id": uuid, "deposito_id": uuid, "quantidade": float, "custo": float, ...}]
         self.custo_total: float = 0.0
         self.quantidade_consumida: float = 0.0
 
@@ -97,9 +98,10 @@ async def consumir_lotes_fifo(
         # Calculate cost for this batch
         custo_do_lote = quantidade_do_lote * lote.custo_unitario
 
-        # Record consumption
+        # Record consumption (includes deposito_id for audit trail)
         resultado.lotes_consumidos.append({
             "lote_id": lote.id,
+            "deposito_id": lote.deposito_id,
             "numero_lote": lote.numero_lote,
             "quantidade": quantidade_do_lote,
             "custo_unitario": lote.custo_unitario,
@@ -117,18 +119,41 @@ async def consumir_lotes_fifo(
         # Mark as esgotado if no more quantity
         if lote.quantidade_atual <= 0:
             lote.status = "ESGOTADO"
+            logger.info(
+                f"Batch {lote.numero_lote} exhausted after FIFO deduction",
+                lote_id=str(lote.id),
+                deposito_id=str(lote.deposito_id),
+                quantidade_final=lote.quantidade_atual,
+            )
 
         session.add(lote)
 
     # 3. Check if we consumed enough
     if quantidade_pendente > 0:
         total_disponivel = sum(l.quantidade_atual for l in lotes)
+        logger.warning(
+            f"Insufficient inventory for product {produto_id}",
+            produto_id=str(produto_id),
+            necessario=quantidade_necessaria,
+            disponivel=resultado.quantidade_consumida,
+            faltando=quantidade_pendente,
+        )
         raise BusinessRuleError(
             f"Saldo insuficiente para produto {produto_id} (FIFO). "
             f"Necessário: {quantidade_necessaria}, "
             f"disponível: {resultado.quantidade_consumida}, "
             f"faltando: {quantidade_pendente}"
         )
+
+    # Log successful FIFO consumption
+    logger.info(
+        f"FIFO deduction completed: {resultado.quantidade_consumida} units @ R$ {resultado.custo_total:.2f}",
+        produto_id=str(produto_id),
+        quantidade_consumida=resultado.quantidade_consumida,
+        custo_total=resultado.custo_total,
+        num_lotes_consumidos=len(resultado.lotes_consumidos),
+        num_batches=len(resultado.lotes_consumidos),
+    )
 
     await session.flush()
     return resultado
