@@ -4,6 +4,7 @@ from sqlalchemy import select
 from typing import List, Optional
 import uuid
 from datetime import datetime, date, timezone
+from loguru import logger
 
 from core.dependencies import get_session, get_current_tenant, get_current_user_claims
 from core.exceptions import BusinessRuleError
@@ -18,7 +19,8 @@ from operacional.schemas.compras import (
 )
 from core.cadastros.models import ProdutoCatalogo
 from operacional.services.estoque_service import EstoqueService
-from operacional.schemas.estoque import EntradaEstoqueRequest
+from operacional.schemas.estoque import EntradaEstoqueRequest, LoteCreate
+from operacional.models.estoque import LoteEstoque
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/compras", tags=["Operacional — Compras"])
@@ -475,6 +477,43 @@ async def registrar_recebimento_parcial(
         else:
             item.status_item = "PARCIAL"
 
+        # P0.1: Create LoteEstoque on receipt (links purchase to inventory batch)
+        lote_id_criado = None
+        if deposito_id:
+            try:
+                # Create batch with invoice number as batch ID
+                numero_lote = data.numero_nf if data.numero_nf else f"RECEBIMENTO-{recebimento.id}"
+
+                lote = await estoque_svc.criar_lote(LoteCreate(
+                    produto_id=item.produto_id,
+                    deposito_id=deposito_id,
+                    numero_lote=numero_lote,
+                    data_fabricacao=data.data_recebimento or date.today(),
+                    data_validade=None,  # Could be populated if supplier provides it
+                    quantidade_inicial=item_data.quantidade_recebida,
+                    custo_unitario=item_data.preco_real_unitario or 0.0,
+                    nota_fiscal_ref=data.numero_nf,
+                ))
+                lote_id_criado = lote.id
+                rec_item.lote_id = lote_id_criado
+
+                logger.info(
+                    f"LoteEstoque created on receipt",
+                    lote_id=str(lote_id_criado),
+                    numero_lote=numero_lote,
+                    produto_id=str(item.produto_id),
+                    quantidade=item_data.quantidade_recebida,
+                    custo_unitario=item_data.preco_real_unitario,
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to create LoteEstoque on receipt",
+                    error=str(e),
+                    pedido_id=str(pedido_id),
+                    item_id=str(item.id),
+                )
+                raise HTTPException(status_code=422, detail=f"Erro ao criar lote no estoque: {str(e)}")
+
         # Entrada no estoque (se houver depósito destino)
         if deposito_id:
             await estoque_svc.registrar_entrada(EntradaEstoqueRequest(
@@ -485,7 +524,7 @@ async def registrar_recebimento_parcial(
                 motivo=f"Recebimento parcial — Pedido {pedido_id}",
                 origem_id=pedido_id,
                 origem_tipo="PEDIDO_COMPRA",
-                lote_id=item_data.lote_id,
+                lote_id=lote_id_criado or item_data.lote_id,  # Use newly created lote
             ))
 
     # Atualiza status do pedido
