@@ -14,10 +14,11 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import and_
+from sqlalchemy import and_, join
 
 from core.exceptions import BusinessRuleError
-from operacional.models.estoque import LoteEstoque, SaldoEstoque, MovimentacaoEstoque
+from operacional.models.estoque import LoteEstoque, SaldoEstoque, MovimentacaoEstoque, Deposito
+from core.cadastros.produtos.models import Produto
 
 
 class EstoqueConsumidoFIFO:
@@ -57,13 +58,17 @@ async def consumir_lotes_fifo(
     quantidade_pendente = quantidade_necessaria
 
     # 1. Find all active batches for product (OLDEST FIRST = FIFO)
-    stmt = select(LoteEstoque).where(
+    stmt = select(LoteEstoque).join(Deposito).where(
         and_(
             LoteEstoque.produto_id == produto_id,
             LoteEstoque.status == "ATIVO",
             LoteEstoque.quantidade_atual > 0,
         )
     )
+
+    # Filter by tenant_id if provided (multi-tenant isolation)
+    if tenant_id:
+        stmt = stmt.where(Deposito.tenant_id == tenant_id)
 
     # If deposito_id specified, filter to that deposit
     if deposito_id:

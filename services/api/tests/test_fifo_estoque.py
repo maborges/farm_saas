@@ -205,7 +205,7 @@ class TestFIFODeduction:
                 produto_id=produto_id,
                 quantidade_necessaria=100.0,
                 deposito_id=deposito.id,
-                tenant_id=tenant_id,
+                tenant_id=UUID(tenant_id),
             )
 
         assert "Saldo insuficiente" in str(exc_info.value)
