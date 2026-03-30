@@ -159,6 +159,99 @@ async def engine_memory():
                 FOREIGN KEY (plano_conta_id) REFERENCES planos_conta(id)
             )
         """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS fazendas (
+                id CHAR(32) PRIMARY KEY,
+                tenant_id CHAR(32) NOT NULL,
+                grupo_id CHAR(32),
+                nome VARCHAR(150) NOT NULL,
+                cnpj VARCHAR(20),
+                inscricao_estadual VARCHAR(50),
+                area_total_ha NUMERIC(10, 2),
+                coordenadas_sede VARCHAR(100),
+                geometria TEXT,
+                ativo BOOLEAN DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS cadastros_produtos (
+                id CHAR(32) PRIMARY KEY,
+                tenant_id CHAR(32),
+                nome VARCHAR(255) NOT NULL,
+                tipo VARCHAR(50),
+                unidade_estoque VARCHAR(20),
+                preco_medio NUMERIC(12, 2) DEFAULT 0.0,
+                ativo BOOLEAN DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS estoque_depositos (
+                id CHAR(32) PRIMARY KEY,
+                tenant_id CHAR(32) NOT NULL,
+                fazenda_id CHAR(32) NOT NULL,
+                nome VARCHAR(100) NOT NULL,
+                tipo VARCHAR(50) DEFAULT 'GERAL',
+                localizacao_desc VARCHAR(200),
+                ativo BOOLEAN DEFAULT 1,
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+                FOREIGN KEY (fazenda_id) REFERENCES fazendas(id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS estoque_lotes (
+                id CHAR(32) PRIMARY KEY,
+                produto_id CHAR(32) NOT NULL,
+                deposito_id CHAR(32) NOT NULL,
+                numero_lote VARCHAR(100) NOT NULL,
+                data_fabricacao DATE,
+                data_validade DATE,
+                quantidade_inicial NUMERIC(12, 2) DEFAULT 0.0,
+                quantidade_atual NUMERIC(12, 2) DEFAULT 0.0,
+                custo_unitario NUMERIC(12, 4) DEFAULT 0.0,
+                nota_fiscal_ref VARCHAR(100),
+                status VARCHAR(20) DEFAULT 'ATIVO',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (produto_id) REFERENCES cadastros_produtos(id),
+                FOREIGN KEY (deposito_id) REFERENCES estoque_depositos(id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS estoque_saldos (
+                id CHAR(32) PRIMARY KEY,
+                deposito_id CHAR(32) NOT NULL,
+                produto_id CHAR(32) NOT NULL,
+                quantidade_atual NUMERIC(12, 2) DEFAULT 0.0,
+                quantidade_reservada NUMERIC(12, 2) DEFAULT 0.0,
+                ultima_atualizacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (deposito_id) REFERENCES estoque_depositos(id),
+                FOREIGN KEY (produto_id) REFERENCES cadastros_produtos(id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS estoque_movimentacoes (
+                id CHAR(32) PRIMARY KEY,
+                deposito_id CHAR(32) NOT NULL,
+                produto_id CHAR(32) NOT NULL,
+                usuario_id CHAR(32),
+                lote_id CHAR(32),
+                tipo VARCHAR(20) NOT NULL,
+                quantidade NUMERIC(12, 2) NOT NULL,
+                data_movimentacao DATETIME DEFAULT CURRENT_TIMESTAMP,
+                custo_unitario NUMERIC(12, 4),
+                custo_total NUMERIC(15, 2),
+                motivo VARCHAR(255),
+                origem_id CHAR(32),
+                origem_tipo VARCHAR(50),
+                FOREIGN KEY (deposito_id) REFERENCES estoque_depositos(id),
+                FOREIGN KEY (produto_id) REFERENCES cadastros_produtos(id),
+                FOREIGN KEY (lote_id) REFERENCES estoque_lotes(id)
+            )
+        """))
 
     yield engine
     await engine.dispose()
@@ -201,8 +294,6 @@ async def fazenda_id(session: AsyncSession, tenant_id: str) -> str:
         id=uuid.uuid4(),
         tenant_id=uuid.UUID(tenant_id),
         nome="Fazenda Teste",
-        municipio="Bauru",
-        uf="SP",
         ativo=True,
     )
     session.add(fazenda)

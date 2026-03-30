@@ -1,6 +1,6 @@
 from uuid import UUID
 import uuid
-from datetime import date
+from datetime import date, datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
@@ -16,6 +16,8 @@ from agricola.safras.models import Safra
 from agricola.models import OperacaoTipoFase
 from core.cadastros.produtos.models import Produto
 from operacional.services import EstoqueService
+from operacional.models.estoque import MovimentacaoEstoque
+from operacional.services.estoque_fifo import consumir_lotes_fifo
 from financeiro.models.despesa import Despesa
 
 class OperacaoService(BaseService[OperacaoAgricola]):
@@ -78,27 +80,50 @@ class OperacaoService(BaseService[OperacaoAgricola]):
         self.session.add(operacao)
         await self.session.flush()
 
-        # 3. Processa insumos e baixa estoque
+        # 3. Processa insumos e baixa estoque (FIFO)
         for insumo in insumos_data:
             quantidade_total = insumo.dose_por_ha * (insumo.area_aplicada or dados.area_aplicada_ha or 1.0)
-            
-            # Busca produto para obter preço médio
+
+            # Busca produto
             produto = await self.session.get(Produto, insumo.insumo_id)
             if not produto:
                 raise EntityNotFoundError("Produto/Insumo", insumo.insumo_id)
-            
-            custo_unitario = produto.preco_medio or 0.0
-            custo_item = quantidade_total * custo_unitario
-            
-            # Baixa no estoque
-            await self.estoque_svc.registrar_saida_insumo(
-                produto_id=insumo.insumo_id,
-                quantidade=quantidade_total,
-                fazenda_id=fazenda_id,
-                origem_id=operacao.id,
-                origem_tipo="OPERACAO_AGRICOLA"
-            )
 
+            # FIFO: Consume oldest batches first
+            try:
+                consumo = await consumir_lotes_fifo(
+                    session=self.session,
+                    produto_id=insumo.insumo_id,
+                    quantidade_necessaria=quantidade_total,
+                    tenant_id=self.tenant_id,
+                )
+            except BusinessRuleError as e:
+                logger.warning(f"FIFO consumption failed for {insumo.insumo_id}: {e}")
+                raise
+
+            # Custo real vem do FIFO (lotes históricos), não do preço médio
+            custo_item = consumo.custo_total
+
+            # Record MovimentacaoEstoque for each lote consumed
+            for lote_consumido in consumo.lotes_consumidos:
+                mov = MovimentacaoEstoque(
+                    id=uuid.uuid4(),
+                    deposito_id=None,  # Will be set per lote if needed
+                    produto_id=insumo.insumo_id,
+                    usuario_id=None,
+                    lote_id=lote_consumido["lote_id"],
+                    tipo="SAIDA",
+                    quantidade=lote_consumido["quantidade"],
+                    data_movimentacao=datetime.now(timezone.utc),
+                    custo_unitario=lote_consumido["custo_unitario"],
+                    custo_total=lote_consumido["custo"],
+                    motivo=f"Aplicação em operação agrícola ({operacao.tipo})",
+                    origem_id=operacao.id,
+                    origem_tipo="OPERACAO_AGRICOLA",
+                )
+                self.session.add(mov)
+
+            # Record InsumoOperacao with actual FIFO cost
             insumo_op = InsumoOperacao(
                 id=uuid.uuid4(),
                 operacao_id=operacao.id,
@@ -109,12 +134,10 @@ class OperacaoService(BaseService[OperacaoAgricola]):
                 unidade=insumo.unidade,
                 area_aplicada=insumo.area_aplicada,
                 quantidade_total=quantidade_total,
-                custo_unitario=custo_unitario,
+                custo_unitario=consumo.custo_total / quantidade_total if quantidade_total > 0 else 0.0,
                 custo_total=custo_item,
             )
-            # InsumoOperacao model uses 'uuid' default in some cases, 
-            # but let's be explicitly safe if it's required.
-            
+
             self.session.add(insumo_op)
             custo_total_operacao += custo_item
             
