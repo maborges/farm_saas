@@ -305,6 +305,113 @@ async def engine_memory():
                 FOREIGN KEY (lote_id) REFERENCES estoque_lotes(id)
             )
         """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id CHAR(32) PRIMARY KEY,
+                tenant_id CHAR(32),
+                nome VARCHAR(255),
+                email VARCHAR(255),
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS compras_fornecedores (
+                id CHAR(32) PRIMARY KEY,
+                tenant_id CHAR(32) NOT NULL,
+                nome_fantasia VARCHAR(150) NOT NULL,
+                razao_social VARCHAR(150),
+                cnpj_cpf VARCHAR(20),
+                email VARCHAR(100),
+                telefone VARCHAR(20),
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS compras_pedidos (
+                id CHAR(32) PRIMARY KEY,
+                tenant_id CHAR(32) NOT NULL,
+                usuario_solicitante_id CHAR(32),
+                data_pedido DATETIME DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(30) DEFAULT 'ABERTO',
+                deposito_destino_id CHAR(32),
+                data_recebimento DATE,
+                observacoes VARCHAR(500),
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+                FOREIGN KEY (usuario_solicitante_id) REFERENCES usuarios(id),
+                FOREIGN KEY (deposito_destino_id) REFERENCES estoque_depositos(id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS compras_itens_pedido (
+                id CHAR(32) PRIMARY KEY,
+                pedido_id CHAR(32) NOT NULL,
+                produto_id CHAR(32) NOT NULL,
+                quantidade_solicitada NUMERIC(12, 2) NOT NULL,
+                preco_estimado_unitario NUMERIC(12, 2) DEFAULT 0.0,
+                quantidade_recebida NUMERIC(12, 2) DEFAULT 0.0,
+                preco_real_unitario NUMERIC(12, 2),
+                status_item VARCHAR(20) DEFAULT 'PENDENTE',
+                FOREIGN KEY (pedido_id) REFERENCES compras_pedidos(id),
+                FOREIGN KEY (produto_id) REFERENCES cadastros_produtos(id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS compras_recebimentos (
+                id CHAR(32) PRIMARY KEY,
+                pedido_id CHAR(32) NOT NULL,
+                data_recebimento DATETIME DEFAULT CURRENT_TIMESTAMP,
+                numero_nf VARCHAR(50),
+                chave_nfe VARCHAR(60),
+                recebido_por_id CHAR(32),
+                observacoes VARCHAR(500),
+                FOREIGN KEY (pedido_id) REFERENCES compras_pedidos(id),
+                FOREIGN KEY (recebido_por_id) REFERENCES usuarios(id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS compras_recebimentos_itens (
+                id CHAR(32) PRIMARY KEY,
+                recebimento_id CHAR(32) NOT NULL,
+                item_pedido_id CHAR(32) NOT NULL,
+                quantidade_recebida NUMERIC(12, 2) NOT NULL,
+                preco_real_unitario NUMERIC(12, 2) DEFAULT 0.0,
+                lote_id CHAR(32),
+                FOREIGN KEY (recebimento_id) REFERENCES compras_recebimentos(id),
+                FOREIGN KEY (item_pedido_id) REFERENCES compras_itens_pedido(id),
+                FOREIGN KEY (lote_id) REFERENCES estoque_lotes(id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS compras_devolucoes (
+                id CHAR(32) PRIMARY KEY,
+                tenant_id CHAR(32) NOT NULL,
+                pedido_id CHAR(32),
+                fornecedor_id CHAR(32) NOT NULL,
+                data_devolucao DATETIME DEFAULT CURRENT_TIMESTAMP,
+                motivo VARCHAR(30) NOT NULL,
+                status VARCHAR(20) DEFAULT 'ABERTA',
+                numero_nf_devolucao VARCHAR(50),
+                observacoes VARCHAR(500),
+                FOREIGN KEY (tenant_id) REFERENCES tenants(id),
+                FOREIGN KEY (pedido_id) REFERENCES compras_pedidos(id),
+                FOREIGN KEY (fornecedor_id) REFERENCES compras_fornecedores(id)
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS compras_devolucoes_itens (
+                id CHAR(32) PRIMARY KEY,
+                devolucao_id CHAR(32) NOT NULL,
+                produto_id CHAR(32) NOT NULL,
+                deposito_origem_id CHAR(32) NOT NULL,
+                lote_id CHAR(32),
+                quantidade NUMERIC(12, 2) NOT NULL,
+                custo_unitario NUMERIC(12, 2) DEFAULT 0.0,
+                FOREIGN KEY (devolucao_id) REFERENCES compras_devolucoes(id),
+                FOREIGN KEY (produto_id) REFERENCES cadastros_produtos(id),
+                FOREIGN KEY (deposito_origem_id) REFERENCES estoque_depositos(id),
+                FOREIGN KEY (lote_id) REFERENCES estoque_lotes(id)
+            )
+        """))
 
     yield engine
     await engine.dispose()
