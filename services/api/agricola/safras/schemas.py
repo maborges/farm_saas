@@ -157,3 +157,30 @@ class MovimentacaoSafraResponse(BaseModel):
     data_movimentacao: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class LoteItemResponse(BaseModel):
+    """Detalhe de um lote (batch) de estoque"""
+    id: UUID
+    numero_lote: str
+    produto_id: UUID
+    produto_nome: str
+    deposito_id: UUID
+    deposito_nome: str
+    quantidade_inicial: float
+    quantidade_atual: float
+    custo_unitario: float
+    status: str  # ATIVO, ESGOTADO
+    data_fabricacao: date | None
+    data_validade: date | None
+    nota_fiscal_ref: str | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LotesResponse(BaseModel):
+    """Resposta com lista de lotes consumidos em operações da safra"""
+    safra_id: UUID
+    total_lotes: int
+    lotes: list[LoteItemResponse]

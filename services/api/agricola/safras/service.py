@@ -422,3 +422,91 @@ class SafraService(BaseService[Safra]):
             "limit": limit,
             "offset": offset,
         }
+
+    async def get_lotes_safra(
+        self,
+        safra_id: UUID,
+        deposito_id: UUID | None = None,
+    ) -> dict:
+        """
+        Retorna lotes (batches) consumidos em operações da safra.
+        Mostra informações de rastreabilidade (numero_lote, fornecedor, custo histórico).
+        """
+        from operacional.models.estoque import LoteEstoque, Deposito, MovimentacaoEstoque
+        from core.cadastros.produtos.models import Produto
+        from agricola.operacoes.models import OperacaoAgricola
+
+        # Validar tenant isolation
+        safra = await self.get_or_fail(safra_id)
+
+        # Query: Lotes consumidos através de MovimentacaoEstoque com origem em operações
+        stmt = (
+            select(
+                LoteEstoque.id,
+                LoteEstoque.numero_lote,
+                LoteEstoque.produto_id,
+                LoteEstoque.deposito_id,
+                LoteEstoque.quantidade_inicial,
+                LoteEstoque.quantidade_atual,
+                LoteEstoque.custo_unitario,
+                LoteEstoque.status,
+                LoteEstoque.data_fabricacao,
+                LoteEstoque.data_validade,
+                LoteEstoque.nota_fiscal_ref,
+                LoteEstoque.created_at,
+                Produto.nome.label("produto_nome"),
+                Deposito.nome.label("deposito_nome"),
+            )
+            .join(Deposito, LoteEstoque.deposito_id == Deposito.id)
+            .join(Produto, LoteEstoque.produto_id == Produto.id)
+            .join(
+                MovimentacaoEstoque,
+                LoteEstoque.id == MovimentacaoEstoque.lote_id,
+                isouter=True,
+            )
+            .join(
+                OperacaoAgricola,
+                (MovimentacaoEstoque.origem_id == OperacaoAgricola.id)
+                & (MovimentacaoEstoque.origem_tipo == "OPERACAO_AGRICOLA"),
+                isouter=True,
+            )
+            .where(
+                OperacaoAgricola.safra_id == safra_id,
+                OperacaoAgricola.tenant_id == self.tenant_id,
+            )
+            .distinct()
+        )
+
+        # Filtro por depósito se especificado
+        if deposito_id:
+            stmt = stmt.where(LoteEstoque.deposito_id == deposito_id)
+
+        # Ordena por data de criação (mais recentes primeiro)
+        stmt = stmt.order_by(LoteEstoque.created_at.desc())
+
+        rows = await self.session.execute(stmt)
+        lotes = rows.all()
+
+        return {
+            "safra_id": safra_id,
+            "total_lotes": len(lotes),
+            "lotes": [
+                {
+                    "id": lote.id,
+                    "numero_lote": lote.numero_lote,
+                    "produto_id": lote.produto_id,
+                    "produto_nome": lote.produto_nome,
+                    "deposito_id": lote.deposito_id,
+                    "deposito_nome": lote.deposito_nome,
+                    "quantidade_inicial": float(lote.quantidade_inicial),
+                    "quantidade_atual": float(lote.quantidade_atual),
+                    "custo_unitario": float(lote.custo_unitario),
+                    "status": lote.status,
+                    "data_fabricacao": lote.data_fabricacao,
+                    "data_validade": lote.data_validade,
+                    "nota_fiscal_ref": lote.nota_fiscal_ref,
+                    "created_at": lote.created_at,
+                }
+                for lote in lotes
+            ],
+        }

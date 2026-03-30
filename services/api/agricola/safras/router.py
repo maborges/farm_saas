@@ -12,6 +12,7 @@ from agricola.safras.schemas import (
     SafraAvancarFase, SafraFaseHistoricoResponse,
     SafraTalhaoResponse, SafraTalhoesSincronizar,
     EstoqueResumoResponse, MovimentacaoSafraResponse,
+    LotesResponse,
 )
 from agricola.safras.models import SAFRA_FASES_ORDEM, SAFRA_TRANSICOES
 from agricola.safras.service import SafraService
@@ -264,3 +265,24 @@ async def get_estoque_movimentacoes(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get(
+    "/{id}/estoque/lotes",
+    response_model=LotesResponse,
+    summary="Lotes consumidos em operações da safra",
+)
+async def get_estoque_lotes(
+    id: UUID,
+    deposito_id: UUID | None = Query(None, description="Filtrar por depósito"),
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("A1")),
+):
+    """
+    Retorna lotes (batches) consumidos em operações agrícolas da safra.
+    Mostra o status de cada lote (quantidade restante, se esgotado, etc).
+    Útil para rastreabilidade de fornecedores e custo histórico.
+    """
+    svc = SafraService(session, tenant_id)
+    return await svc.get_lotes_safra(id, deposito_id=deposito_id)
