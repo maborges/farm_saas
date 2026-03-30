@@ -20,7 +20,7 @@ from operacional.schemas.compras import (
 from core.cadastros.models import ProdutoCatalogo
 from operacional.services.estoque_service import EstoqueService
 from operacional.schemas.estoque import EntradaEstoqueRequest, LoteCreate
-from operacional.models.estoque import LoteEstoque
+from operacional.models.estoque import LoteEstoque, MovimentacaoEstoque, SaldoEstoque
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/compras", tags=["Operacional — Compras"])
@@ -674,6 +674,75 @@ async def atualizar_status_devolucao(
     )).scalar_one_or_none()
     if not dev:
         raise HTTPException(status_code=404, detail="Devolução não encontrada")
+
+    # P0.3: When devolução becomes CONCLUIDA, reverse FIFO effects
+    if data.status == "CONCLUIDA" and dev.status != "CONCLUIDA":
+        try:
+            # Get all items being returned
+            itens_dev = (await session.execute(
+                select(ItemDevolucao).where(ItemDevolucao.devolucao_id == dev_id)
+            )).scalars().all()
+
+            for item_dev in itens_dev:
+                if not item_dev.lote_id:
+                    continue  # Skip items without explicit batch link
+
+                # Find the batch being returned
+                lote = await session.get(LoteEstoque, item_dev.lote_id)
+                if not lote:
+                    continue
+
+                # Restore quantity to batch
+                lote.quantidade_atual += item_dev.quantidade
+
+                # Reactivate if was exhausted
+                if lote.status == "ESGOTADO" and lote.quantidade_atual > 0:
+                    lote.status = "ATIVO"
+
+                session.add(lote)
+
+                # Create reverse MovimentacaoEstoque (SAIDA_REVERSA)
+                mov_reversa = MovimentacaoEstoque(
+                    id=uuid.uuid4(),
+                    deposito_id=item_dev.deposito_origem_id,
+                    produto_id=item_dev.produto_id,
+                    usuario_id=None,
+                    lote_id=item_dev.lote_id,
+                    tipo="SAIDA_REVERSA",
+                    quantidade=item_dev.quantidade,
+                    data_movimentacao=datetime.now(timezone.utc),
+                    custo_unitario=item_dev.custo_unitario,
+                    custo_total=item_dev.quantidade * item_dev.custo_unitario if item_dev.custo_unitario else 0.0,
+                    motivo=f"Devolução aprovada ({dev.motivo})",
+                    origem_id=dev.id,
+                    origem_tipo="DEVOLUCAO_FORNECEDOR",
+                )
+                session.add(mov_reversa)
+
+                # Update SaldoEstoque
+                saldo_stmt = select(SaldoEstoque).where(
+                    SaldoEstoque.deposito_id == item_dev.deposito_origem_id,
+                    SaldoEstoque.produto_id == item_dev.produto_id,
+                )
+                saldo = (await session.execute(saldo_stmt)).scalar_one_or_none()
+                if saldo:
+                    saldo.quantidade_atual += item_dev.quantidade
+                    saldo.ultima_atualizacao = datetime.now(timezone.utc)
+                    session.add(saldo)
+
+                logger.info(
+                    f"Batch inventory restored via devolução reversal",
+                    lote_id=str(item_dev.lote_id),
+                    deposito_id=str(item_dev.deposito_origem_id),
+                    quantidade_restaurada=item_dev.quantidade,
+                    devolucao_id=str(dev.id),
+                )
+
+        except Exception as e:
+            logger.error(f"P0.3 Devolução reversal failed: {e}", devolucao_id=str(dev_id))
+            await session.rollback()
+            raise HTTPException(status_code=500, detail=f"Erro ao processar devolução: {str(e)}")
+
     dev.status = data.status
     if data.numero_nf_devolucao:
         dev.numero_nf_devolucao = data.numero_nf_devolucao

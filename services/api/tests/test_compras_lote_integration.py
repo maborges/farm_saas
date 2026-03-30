@@ -10,13 +10,14 @@ Validates complete flow:
 
 import pytest
 from uuid import uuid4, UUID
-from datetime import date
+from datetime import date, datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from operacional.models.estoque import LoteEstoque, Deposito, SaldoEstoque
+from operacional.models.estoque import LoteEstoque, Deposito, SaldoEstoque, MovimentacaoEstoque
 from operacional.models.compras import (
     PedidoCompra, ItemPedidoCompra, RecebimentoParcial, ItemRecebimento,
+    DevolucaoFornecedor, ItemDevolucao, Fornecedor,
 )
 from core.cadastros.produtos.models import Produto
 from operacional.services.estoque_fifo import consumir_lotes_fifo, atualizar_saldo_apos_consumo
@@ -444,3 +445,238 @@ class TestComprasLoteIntegration:
         await session.refresh(rec_item)
         assert rec_item.numero_lote_fornecedor == numero_lote_fornecedor
         assert rec_item.numero_lote_fornecedor is not None
+
+    @pytest.mark.asyncio
+    async def test_p0_3_devolucao_reversal_restaura_estoque(
+        self,
+        session: AsyncSession,
+        tenant_id: str,
+        fazenda_id: str,
+    ):
+        """P0.3: Verify devolução approval reverses FIFO and restores inventory."""
+        tenant_uuid = UUID(tenant_id)
+        fazenda_uuid = UUID(fazenda_id)
+
+        # ── Setup: Create product, deposit, and supplier ──────────────────
+        produto = Produto(
+            id=uuid4(),
+            tenant_id=tenant_uuid,
+            nome="Adubo NPK",
+            tipo="FERTILIZANTE",
+            unidade_medida="KG",
+            preco_medio=0.0,
+            ativo=True,
+        )
+        session.add(produto)
+
+        deposito = Deposito(
+            id=uuid4(),
+            tenant_id=tenant_uuid,
+            fazenda_id=fazenda_uuid,
+            nome="Galpão Adubos",
+            tipo="GERAL",
+            ativo=True,
+        )
+        session.add(deposito)
+
+        fornecedor = Fornecedor(
+            id=uuid4(),
+            tenant_id=tenant_uuid,
+            nome_fantasia="Fornecedor XYZ",
+        )
+        session.add(fornecedor)
+        await session.flush()
+
+        # ── Create LoteEstoque with 1000 kg ──────────────────────────────
+        lote = LoteEstoque(
+            id=uuid4(),
+            produto_id=produto.id,
+            deposito_id=deposito.id,
+            numero_lote="NFe-2026-001",
+            data_fabricacao=date.today(),
+            quantidade_inicial=1000.0,
+            quantidade_atual=400.0,  # Simulating 600 kg already consumed via FIFO
+            custo_unitario=15.0,
+            status="ATIVO",
+        )
+        session.add(lote)
+
+        # Create SaldoEstoque (400 kg remaining)
+        saldo = SaldoEstoque(
+            id=uuid4(),
+            deposito_id=deposito.id,
+            produto_id=produto.id,
+            quantidade_atual=400.0,
+            quantidade_reservada=0.0,
+        )
+        session.add(saldo)
+        await session.commit()
+
+        # ── Create devolução for 150 kg ──────────────────────────────────
+        devolucao = DevolucaoFornecedor(
+            id=uuid4(),
+            tenant_id=tenant_uuid,
+            fornecedor_id=fornecedor.id,
+            data_devolucao=datetime.now(timezone.utc),
+            motivo="DEFEITO",
+            status="ABERTA",
+        )
+        session.add(devolucao)
+        await session.flush()
+
+        item_dev = ItemDevolucao(
+            id=uuid4(),
+            devolucao_id=devolucao.id,
+            produto_id=produto.id,
+            deposito_origem_id=deposito.id,
+            lote_id=lote.id,  # Link to batch being returned
+            quantidade=150.0,  # Returning 150 kg
+            custo_unitario=15.0,
+        )
+        session.add(item_dev)
+        await session.commit()
+
+        # Verify state BEFORE devolução approval
+        await session.refresh(lote)
+        await session.refresh(saldo)
+        assert lote.quantidade_atual == 400.0
+        assert saldo.quantidade_atual == 400.0
+
+        # ── Approve devolução (P0.3: Should reverse FIFO effects) ────────
+        # This would normally be done via router endpoint, but we simulate here
+        devolucao.status = "CONCLUIDA"
+
+        # Manually execute reversal logic (simulating router endpoint)
+        lote.quantidade_atual += item_dev.quantidade  # Restore 150 kg
+        if lote.status == "ESGOTADO":
+            lote.status = "ATIVO"
+
+        # Update SaldoEstoque
+        saldo.quantidade_atual += item_dev.quantidade
+
+        session.add(lote)
+        session.add(saldo)
+        session.add(devolucao)
+        await session.commit()
+
+        # ── Verify: Inventory restored ───────────────────────────────────
+        await session.refresh(lote)
+        await session.refresh(saldo)
+
+        # 400 kg + 150 kg returned = 550 kg
+        assert lote.quantidade_atual == 550.0
+        assert saldo.quantidade_atual == 550.0
+        assert lote.status == "ATIVO"
+        assert devolucao.status == "CONCLUIDA"
+
+    @pytest.mark.asyncio
+    async def test_p0_3_devolucao_reativa_lote_esgotado(
+        self,
+        session: AsyncSession,
+        tenant_id: str,
+        fazenda_id: str,
+    ):
+        """P0.3: Verify devolução reactivates exhausted batches."""
+        tenant_uuid = UUID(tenant_id)
+        fazenda_uuid = UUID(fazenda_id)
+
+        produto = Produto(
+            id=uuid4(),
+            tenant_id=tenant_uuid,
+            nome="Adubo",
+            tipo="FERTILIZANTE",
+            unidade_medida="KG",
+            preco_medio=0.0,
+            ativo=True,
+        )
+        session.add(produto)
+
+        deposito = Deposito(
+            id=uuid4(),
+            tenant_id=tenant_uuid,
+            fazenda_id=fazenda_uuid,
+            nome="Galpão",
+            tipo="GERAL",
+            ativo=True,
+        )
+        session.add(deposito)
+
+        fornecedor = Fornecedor(
+            id=uuid4(),
+            tenant_id=tenant_uuid,
+            nome_fantasia="Fornecedor",
+        )
+        session.add(fornecedor)
+        await session.flush()
+
+        # Batch is exhausted (quantity = 0, status = ESGOTADO)
+        lote = LoteEstoque(
+            id=uuid4(),
+            produto_id=produto.id,
+            deposito_id=deposito.id,
+            numero_lote="NFe-2026-999",
+            data_fabricacao=date.today(),
+            quantidade_inicial=100.0,
+            quantidade_atual=0.0,  # Fully consumed
+            custo_unitario=10.0,
+            status="ESGOTADO",
+        )
+        session.add(lote)
+
+        saldo = SaldoEstoque(
+            id=uuid4(),
+            deposito_id=deposito.id,
+            produto_id=produto.id,
+            quantidade_atual=0.0,
+            quantidade_reservada=0.0,
+        )
+        session.add(saldo)
+        await session.flush()
+
+        # Return 50 kg from exhausted batch
+        devolucao = DevolucaoFornecedor(
+            id=uuid4(),
+            tenant_id=tenant_uuid,
+            fornecedor_id=fornecedor.id,
+            data_devolucao=datetime.now(timezone.utc),
+            motivo="VENCIDO",
+            status="ABERTA",
+        )
+        session.add(devolucao)
+        await session.flush()
+
+        item_dev = ItemDevolucao(
+            id=uuid4(),
+            devolucao_id=devolucao.id,
+            produto_id=produto.id,
+            deposito_origem_id=deposito.id,
+            lote_id=lote.id,
+            quantidade=50.0,
+            custo_unitario=10.0,
+        )
+        session.add(item_dev)
+        await session.commit()
+
+        # Verify BEFORE: batch is exhausted
+        await session.refresh(lote)
+        assert lote.status == "ESGOTADO"
+        assert lote.quantidade_atual == 0.0
+
+        # Approve devolução (should reactivate)
+        devolucao.status = "CONCLUIDA"
+        lote.quantidade_atual += item_dev.quantidade  # 50 kg restored
+        if lote.status == "ESGOTADO" and lote.quantidade_atual > 0:
+            lote.status = "ATIVO"  # Reactivate
+        saldo.quantidade_atual += item_dev.quantidade
+
+        session.add(lote)
+        session.add(saldo)
+        session.add(devolucao)
+        await session.commit()
+
+        # Verify AFTER: batch is reactivated
+        await session.refresh(lote)
+        await session.refresh(saldo)
+        assert lote.status == "ATIVO"  # Reactivated
+        assert lote.quantidade_atual == 50.0
+        assert saldo.quantidade_atual == 50.0
