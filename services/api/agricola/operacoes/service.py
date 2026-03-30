@@ -4,6 +4,7 @@ from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
+from loguru import logger
 from core.exceptions import BusinessRuleError, EntityNotFoundError
 from core.base_service import BaseService
 
@@ -12,6 +13,7 @@ from agricola.operacoes.schemas import OperacaoAgricolaCreate, OperacaoAgricolaU
 from agricola.safras.models import SAFRA_FASES_ORDEM
 from agricola.talhoes.models import Talhao
 from agricola.safras.models import Safra
+from agricola.models import OperacaoTipoFase
 from core.cadastros.produtos.models import Produto
 from operacional.services import EstoqueService
 from financeiro.models.despesa import Despesa
@@ -33,6 +35,34 @@ class OperacaoService(BaseService[OperacaoAgricola]):
         if not safra_atual:
             raise EntityNotFoundError("Safra", dados.safra_id)
         fase_safra = dados.fase_safra or safra_atual.status
+
+        # 2.5. VALIDAÇÃO: Operação só permitida em fases específicas
+        # Busca lookup table para tipo de operação
+        tipo_fase_stmt = select(OperacaoTipoFase).where(
+            OperacaoTipoFase.tipo_operacao == dados.tipo
+        )
+        tipo_fase = (await self.session.execute(tipo_fase_stmt)).scalars().first()
+
+        if not tipo_fase:
+            logger.warning(f"Tipo de operação '{dados.tipo}' não cadastrado em lookup table")
+            raise BusinessRuleError(
+                f"Tipo de operação '{dados.tipo}' não está cadastrado no sistema. "
+                f"Tipos permitidos: PLANTIO, COLHEITA, PULVERIZAÇÃO, ADUBAÇÃO, etc."
+            )
+
+        # Validar se fase atual está permitida para este tipo
+        if fase_safra not in tipo_fase.fases_permitidas:
+            raise BusinessRuleError(
+                f"Operação '{dados.tipo}' não é permitida na fase '{fase_safra}'. "
+                f"Fases permitidas: {', '.join(tipo_fase.fases_permitidas)}"
+            )
+
+        # 2.6. VALIDAÇÃO: Data não pode ser futura
+        if dados.data_realizada > date.today():
+            raise BusinessRuleError(
+                f"Data da operação não pode ser futura. "
+                f"Informe a data em que a operação foi realmente realizada."
+            )
 
         # 3. Extrai insumos
         insumos_data = dados.insumos

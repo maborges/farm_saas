@@ -11,6 +11,10 @@ from agricola.fenologia.models import SafraFenologiaRegistro, FenologiaEscala
 from agricola.monitoramento.models import MonitoramentoPragas
 from agricola.romaneios.models import RomaneioColheita
 from agricola.safras.models import SAFRA_FASES_ORDEM
+from core.exceptions import EntityNotFoundError
+from financeiro.models.despesa import Despesa
+from financeiro.models.receita import Receita
+from agricola.dashboard.schemas import SafraResumoFinanceiro, FinanceiroResumo
 
 
 class DashboardAgricolaService:
@@ -166,3 +170,101 @@ class DashboardAgricolaService:
             "alertas_nde": alertas_nde,
             "fenologia_atual": fenologia_atual,
         }
+
+    async def resumo_financeiro_safra(self, safra_id: UUID) -> SafraResumoFinanceiro:
+        """
+        Resumo financeiro completo de uma safra:
+        - Operações e custos
+        - Despesas associadas (via origem_id)
+        - Romaneios e receita
+        - Receitas associadas (via origem_id)
+        - Cálculo de ROI e produtividade
+
+        Agrupa dados de múltiplas tabelas para visão financeira integrada.
+        """
+
+        # 1. Buscar safra
+        safra = await self.session.get(Safra, safra_id)
+        if not safra or safra.tenant_id != self.tenant_id:
+            raise EntityNotFoundError("Safra", safra_id)
+
+        # 2. Operações
+        stmt_ops = select(OperacaoAgricola).where(
+            OperacaoAgricola.safra_id == safra_id,
+            OperacaoAgricola.tenant_id == self.tenant_id
+        )
+        operacoes = list((await self.session.execute(stmt_ops)).scalars().all())
+        total_operacoes = len(operacoes)
+        custo_operacoes = sum(float(op.custo_total or 0) for op in operacoes)
+        custo_por_ha = (
+            custo_operacoes / float(safra.area_plantada_ha)
+            if safra.area_plantada_ha and safra.area_plantada_ha > 0
+            else 0
+        )
+
+        # 3. Despesas (vinculadas via origem_id)
+        operacao_ids = [op.id for op in operacoes]
+        stmt_despesas = select(Despesa).where(
+            Despesa.tenant_id == self.tenant_id,
+            Despesa.origem_tipo == "OPERACAO_AGRICOLA",
+            Despesa.origem_id.in_(operacao_ids) if operacao_ids else False
+        )
+        despesas = list((await self.session.execute(stmt_despesas)).scalars().all())
+        despesa_total = sum(float(d.valor_total or 0) for d in despesas)
+
+        # 4. Romaneios
+        stmt_romaneios = select(RomaneioColheita).where(
+            RomaneioColheita.safra_id == safra_id,
+            RomaneioColheita.tenant_id == self.tenant_id
+        )
+        romaneios = list((await self.session.execute(stmt_romaneios)).scalars().all())
+        total_romaneios = len(romaneios)
+        total_sacas = sum(float(r.sacas_60kg or 0) for r in romaneios)
+
+        # Produtividade (sacas/ha)
+        produtividade = (
+            total_sacas / float(safra.area_plantada_ha)
+            if safra.area_plantada_ha and safra.area_plantada_ha > 0
+            else None
+        )
+
+        # 5. Receitas (vinculadas via origem_id)
+        romaneio_ids = [r.id for r in romaneios]
+        stmt_receitas = select(Receita).where(
+            Receita.tenant_id == self.tenant_id,
+            Receita.origem_tipo == "ROMANEIO_COLHEITA",
+            Receita.origem_id.in_(romaneio_ids) if romaneio_ids else False
+        )
+        receitas = list((await self.session.execute(stmt_receitas)).scalars().all())
+        receita_total = sum(float(r.valor_total or 0) for r in receitas)
+
+        # 6. Cálculos financeiros
+        lucro_bruto = receita_total - despesa_total
+        roi_pct = (
+            (lucro_bruto / despesa_total * 100)
+            if despesa_total > 0
+            else None
+        )
+
+        # 7. Montar resposta
+        financeiro = FinanceiroResumo(
+            total_operacoes=total_operacoes,
+            custo_operacoes_total=round(custo_operacoes, 2),
+            custo_por_ha=round(custo_por_ha, 2),
+            total_romaneios=total_romaneios,
+            total_sacas=round(total_sacas, 3),
+            produtividade_sc_ha=round(produtividade, 3) if produtividade else None,
+            despesa_total=round(despesa_total, 2),
+            receita_total=round(receita_total, 2),
+            lucro_bruto=round(lucro_bruto, 2),
+            roi_pct=round(roi_pct, 2) if roi_pct is not None else None,
+        )
+
+        return SafraResumoFinanceiro(
+            id=safra.id,
+            cultura=safra.cultura,
+            ano_safra=safra.ano_safra,
+            status=safra.status,
+            area_plantada_ha=float(safra.area_plantada_ha or 0),
+            financeiro=financeiro
+        )
