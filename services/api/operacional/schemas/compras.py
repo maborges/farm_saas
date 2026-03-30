@@ -10,6 +10,7 @@ class ItemRecebimentoCreate(BaseModel):
     item_pedido_id: uuid.UUID
     quantidade_recebida: float = Field(..., gt=0)
     preco_real_unitario: float = Field(0.0, ge=0)
+    numero_lote_fornecedor: Optional[str] = Field(None, max_length=100, description="Supplier batch number")
     lote_id: Optional[uuid.UUID] = None
 
 
@@ -25,6 +26,7 @@ class ItemRecebimentoResponse(BaseModel):
     item_pedido_id: uuid.UUID
     quantidade_recebida: float
     preco_real_unitario: float
+    numero_lote_fornecedor: Optional[str]
     lote_id: Optional[uuid.UUID]
     model_config = ConfigDict(from_attributes=True)
 

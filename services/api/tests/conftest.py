@@ -375,6 +375,7 @@ async def engine_memory():
                 item_pedido_id CHAR(32) NOT NULL,
                 quantidade_recebida NUMERIC(12, 2) NOT NULL,
                 preco_real_unitario NUMERIC(12, 2) DEFAULT 0.0,
+                numero_lote_fornecedor VARCHAR(100),
                 lote_id CHAR(32),
                 FOREIGN KEY (recebimento_id) REFERENCES compras_recebimentos(id),
                 FOREIGN KEY (item_pedido_id) REFERENCES compras_itens_pedido(id),

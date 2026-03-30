@@ -465,6 +465,7 @@ async def registrar_recebimento_parcial(
             item_pedido_id=item.id,
             quantidade_recebida=item_data.quantidade_recebida,
             preco_real_unitario=item_data.preco_real_unitario,
+            numero_lote_fornecedor=item_data.numero_lote_fornecedor,  # P0.2: Supplier batch number
             lote_id=item_data.lote_id,
         )
         session.add(rec_item)
@@ -481,8 +482,12 @@ async def registrar_recebimento_parcial(
         lote_id_criado = None
         if deposito_id:
             try:
-                # Create batch with invoice number as batch ID
-                numero_lote = data.numero_nf if data.numero_nf else f"RECEBIMENTO-{recebimento.id}"
+                # P0.2: Create batch with composite numero_lote: "{invoice}:{supplier_batch}"
+                numero_base = data.numero_nf if data.numero_nf else f"RECEBIMENTO-{recebimento.id}"
+                if item_data.numero_lote_fornecedor:
+                    numero_lote = f"{numero_base}:{item_data.numero_lote_fornecedor}"
+                else:
+                    numero_lote = numero_base
 
                 lote = await estoque_svc.criar_lote(LoteCreate(
                     produto_id=item.produto_id,

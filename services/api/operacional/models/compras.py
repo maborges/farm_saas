@@ -68,6 +68,7 @@ class ItemRecebimento(Base):
     item_pedido_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("compras_itens_pedido.id"))
     quantidade_recebida: Mapped[float] = mapped_column(Float, nullable=False)
     preco_real_unitario: Mapped[float] = mapped_column(Float, default=0.0)
+    numero_lote_fornecedor: Mapped[str | None] = mapped_column(String(100), nullable=True)  # Supplier batch number
     lote_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("estoque_lotes.id"), nullable=True)
 
 

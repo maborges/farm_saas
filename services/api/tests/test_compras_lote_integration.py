@@ -302,3 +302,145 @@ class TestComprasLoteIntegration:
         assert lote.custo_unitario == preco_real
         assert lote.custo_unitario != preco_estimado
         assert lote.custo_unitario != produto.preco_medio
+
+    @pytest.mark.asyncio
+    async def test_p0_2_numero_lote_fornecedor_traceability(
+        self,
+        session: AsyncSession,
+        tenant_id: str,
+        fazenda_id: str,
+    ):
+        """P0.2: Validate supplier batch number (numero_lote_fornecedor) enables traceability."""
+        tenant_uuid = UUID(tenant_id)
+        fazenda_uuid = UUID(fazenda_id)
+
+        produto = Produto(
+            id=uuid4(),
+            tenant_id=tenant_uuid,
+            nome="Fertilizante",
+            tipo="FERTILIZANTE",
+            unidade_medida="KG",
+            preco_medio=0.0,
+            ativo=True,
+        )
+        session.add(produto)
+
+        deposito = Deposito(
+            id=uuid4(),
+            tenant_id=tenant_uuid,
+            fazenda_id=fazenda_uuid,
+            nome="Galpão",
+            tipo="GERAL",
+            ativo=True,
+        )
+        session.add(deposito)
+        await session.flush()
+
+        # Create LoteEstoque with composite numero_lote: "{nf}:{supplier_batch}"
+        numero_nf = "NFe-2026-001"
+        numero_lote_fornecedor = "BATCH-2026-ABC-123"
+        numero_lote_composite = f"{numero_nf}:{numero_lote_fornecedor}"
+
+        lote = LoteEstoque(
+            id=uuid4(),
+            produto_id=produto.id,
+            deposito_id=deposito.id,
+            numero_lote=numero_lote_composite,  # Composite: invoice:supplier_batch
+            data_fabricacao=date.today(),
+            quantidade_inicial=500.0,
+            quantidade_atual=500.0,
+            custo_unitario=25.0,
+            status="ATIVO",
+        )
+        session.add(lote)
+        await session.commit()
+
+        # Verify composite numero_lote persisted correctly
+        await session.refresh(lote)
+        assert lote.numero_lote == numero_lote_composite
+        assert numero_nf in lote.numero_lote
+        assert numero_lote_fornecedor in lote.numero_lote
+        assert ":" in lote.numero_lote  # Separator is present
+
+    @pytest.mark.asyncio
+    async def test_p0_2_supplier_batch_in_itemrecebimento(
+        self,
+        session: AsyncSession,
+        tenant_id: str,
+        fazenda_id: str,
+    ):
+        """P0.2: Verify numero_lote_fornecedor is captured in ItemRecebimento."""
+        tenant_uuid = UUID(tenant_id)
+        fazenda_uuid = UUID(fazenda_id)
+
+        produto = Produto(
+            id=uuid4(),
+            tenant_id=tenant_uuid,
+            nome="Fertilizante",
+            tipo="FERTILIZANTE",
+            unidade_medida="KG",
+            preco_medio=0.0,
+            ativo=True,
+        )
+        session.add(produto)
+
+        deposito = Deposito(
+            id=uuid4(),
+            tenant_id=tenant_uuid,
+            fazenda_id=fazenda_uuid,
+            nome="Galpão",
+            tipo="GERAL",
+            ativo=True,
+        )
+        session.add(deposito)
+        await session.flush()
+
+        # Create PO
+        pedido = PedidoCompra(
+            id=uuid4(),
+            tenant_id=tenant_uuid,
+            usuario_solicitante_id=uuid4(),
+            deposito_destino_id=deposito.id,
+            status="APROVADO",
+        )
+        session.add(pedido)
+        await session.flush()
+
+        item_pedido = ItemPedidoCompra(
+            id=uuid4(),
+            pedido_id=pedido.id,
+            produto_id=produto.id,
+            quantidade_solicitada=500.0,
+            preco_estimado_unitario=25.0,
+            status_item="PENDENTE",
+        )
+        session.add(item_pedido)
+        await session.flush()
+
+        # Create receipt with supplier batch number
+        numero_nf = "NFe-2026-002"
+        numero_lote_fornecedor = "LOTE-ABC-789"
+
+        recebimento = RecebimentoParcial(
+            id=uuid4(),
+            pedido_id=pedido.id,
+            numero_nf=numero_nf,
+        )
+        session.add(recebimento)
+        await session.flush()
+
+        rec_item = ItemRecebimento(
+            id=uuid4(),
+            recebimento_id=recebimento.id,
+            item_pedido_id=item_pedido.id,
+            quantidade_recebida=500.0,
+            preco_real_unitario=25.0,
+            numero_lote_fornecedor=numero_lote_fornecedor,  # P0.2: Capture supplier batch
+        )
+        session.add(rec_item)
+        await session.commit()
+
+        # Verify numero_lote_fornecedor persisted
+        await session.refresh(rec_item)
+        assert rec_item.numero_lote_fornecedor == numero_lote_fornecedor
+        assert rec_item.numero_lote_fornecedor is not None
