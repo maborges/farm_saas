@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(aegro.com.br)",
+      "WebFetch(www.myfarm.com.br)",
+      "WebFetch(sscrop.com)",
+      "WebFetch(agrotools.com.br)",
+      "WebFetch(eprodutor.com.br)"
+    ]
+  },
+  "$version": 3
+}
