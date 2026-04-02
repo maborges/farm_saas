@@ -51,7 +51,9 @@ class TestOperacaoDespesaWebhook:
         plano = PlanoConta(
             id=uuid4(),
             tenant_id=tenant_id,
-            descricao="Custeio - Operações Agrícolas",
+            codigo="3.01",
+            nome="Custeio - Operações Agrícolas",
+            tipo="DESPESA",
             categoria_rfb="CUSTEIO",
             natureza="ANALITICA",
             ativo=True
@@ -157,7 +159,9 @@ class TestOperacaoDespesaWebhook:
         plano = PlanoConta(
             id=uuid4(),
             tenant_id=tenant_id,
-            descricao="Custeio",
+            codigo="3.01",
+            nome="Custeio",
+            tipo="DESPESA",
             categoria_rfb="CUSTEIO",
             natureza="ANALITICA",
             ativo=True
@@ -257,7 +261,9 @@ class TestOperacaoDespesaWebhook:
         plano = PlanoConta(
             id=uuid4(),
             tenant_id=tenant_id,
-            descricao="Custeio",
+            codigo="3.01",
+            nome="Custeio",
+            tipo="DESPESA",
             categoria_rfb="CUSTEIO",
             natureza="ANALITICA",
             ativo=True
@@ -317,7 +323,9 @@ class TestOperacaoDespesaWebhook:
         plano = PlanoConta(
             id=uuid4(),
             tenant_id=tenant_id,
-            descricao="Custeio",
+            codigo="3.01",
+            nome="Custeio",
+            tipo="DESPESA",
             categoria_rfb="CUSTEIO",
             natureza="ANALITICA",
             ativo=True

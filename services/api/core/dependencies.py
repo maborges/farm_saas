@@ -280,7 +280,7 @@ def require_role(roles_allowed: List[str]):
         role = next((f.get("role") for f in fazendas_auth if f.get("id") == target_fazenda_id), None)
         if not role or role not in roles_allowed:
             raise HTTPException(status_code=403, detail="Role insuficiente nesta Fazenda de trabalho")
-        return role
+        return claims
     return _dependency
 
 def require_permission(permissao: str):

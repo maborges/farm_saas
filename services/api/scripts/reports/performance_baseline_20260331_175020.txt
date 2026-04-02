@@ -1,0 +1,156 @@
+================================================================================
+📊 RELATÓRIO DE PERFORMANCE BASELINE - AGROSAAS
+================================================================================
+Timestamp: 2026-03-31T17:50:20.861336
+Database: farms
+Tamanho do Banco: 15 MB
+Cache Hit Ratio: 99.90%
+
+--------------------------------------------------------------------------------
+📊 ESTATÍSTICAS DAS TABELAS PRINCIPAIS
+--------------------------------------------------------------------------------
+
+Tabela: fenologia_escalas | Rows: 91 | Dead: 0
+  Seq Scans: 3 (0 rows) | Idx Scans: 0 (0 rows)
+
+Tabela: checklist_templates | Rows: 47 | Dead: 0
+  Seq Scans: 5 (0 rows) | Idx Scans: 0 (0 rows)
+
+Tabela: cadastros_categorias_produto | Rows: 38 | Dead: 3
+  Seq Scans: 55 (1,616 rows) | Idx Scans: 152 (828 rows)
+
+Tabela: cadastros_marcas | Rows: 34 | Dead: 0
+  Seq Scans: 99 (3,196 rows) | Idx Scans: 156 (1,040 rows)
+
+Tabela: monitoramento_catalogo | Rows: 31 | Dead: 0
+  Seq Scans: 6 (0 rows) | Idx Scans: 0 (0 rows)
+
+Tabela: cadastros_modelos_produto | Rows: 17 | Dead: 0
+  Seq Scans: 52 (782 rows) | Idx Scans: 81 (395 rows)
+
+Tabela: perfis_acesso | Rows: 16 | Dead: 16
+  Seq Scans: 85 (963 rows) | Idx Scans: 510 (656 rows)
+
+Tabela: fazenda_usuarios | Rows: 14 | Dead: 5
+  Seq Scans: 30 (243 rows) | Idx Scans: 331 (488 rows)
+
+Tabela: fazendas | Rows: 13 | Dead: 5
+  Seq Scans: 374 (3,136 rows) | Idx Scans: 37 (37 rows)
+
+Tabela: usuarios | Rows: 11 | Dead: 9
+  Seq Scans: 362 (2,758 rows) | Idx Scans: 654 (648 rows)
+
+Tabela: tenant_usuarios | Rows: 10 | Dead: 5
+  Seq Scans: 41 (304 rows) | Idx Scans: 625 (629 rows)
+
+Tabela: cadastros_tipos_relacionamento | Rows: 10 | Dead: 1
+  Seq Scans: 110 (1,068 rows) | Idx Scans: 162 (168 rows)
+
+Tabela: crm_leads | Rows: 9 | Dead: 21
+  Seq Scans: 1,119 (6,129 rows) | Idx Scans: 140 (140 rows)
+
+Tabela: tenants | Rows: 9 | Dead: 18
+  Seq Scans: 967 (6,734 rows) | Idx Scans: 727 (718 rows)
+
+Tabela: agricola_operacao_tipo_fase | Rows: 8 | Dead: 0
+  Seq Scans: 3 (0 rows) | Idx Scans: 0 (0 rows)
+
+--------------------------------------------------------------------------------
+🎯 ÍNDICES MAIS UTILIZADOS
+--------------------------------------------------------------------------------
+
+planos_assinatura_pkey (planos_assinatura) | Scans: 1,875
+
+crm_pipeline_estagios_pkey (crm_pipeline_estagios) | Scans: 979
+
+tenants_pkey (tenants) | Scans: 719
+
+ix_tenant_usuarios_usuario_id (tenant_usuarios) | Scans: 507
+
+perfis_acesso_pkey (perfis_acesso) | Scans: 472
+
+usuarios_pkey (usuarios) | Scans: 416
+
+ix_fazenda_usuarios_usuario_id (fazenda_usuarios) | Scans: 313
+
+ix_usuarios_email (usuarios) | Scans: 231
+
+ix_cadastros_pessoas_tenant_id (cadastros_pessoas) | Scans: 169
+
+ix_cadastros_pessoa_relacionamentos_pessoa_id (cadastros_pessoa_relacionamentos) | Scans: 158
+
+--------------------------------------------------------------------------------
+⚠️  ÍNDICES NÃO UTILIZADOS (Candidatos a remoção)
+--------------------------------------------------------------------------------
+
+ix_cadastros_produtos_codigo_interno (cadastros_produtos) | Size: 16 kB
+
+ix_cadastros_pessoa_relacionamentos_tipo_id (cadastros_pessoa_relacionamentos) | Size: 16 kB
+
+ix_fazendas_grupo_id (fazendas) | Size: 16 kB
+
+ix_cadastros_culturas_tenant_id (cadastros_culturas) | Size: 16 kB
+
+ix_cadastros_produtos_tipo (cadastros_produtos) | Size: 16 kB
+
+ix_cadastros_pessoa_relacionamentos_fazenda_id (cadastros_pessoa_relacionamentos) | Size: 16 kB
+
+ix_safras_talhao_id (safras) | Size: 16 kB
+
+ix_assinaturas_tenant_grupo_fazendas_id (assinaturas_tenant) | Size: 16 kB
+
+ix_cadastros_culturas_nome (cadastros_culturas) | Size: 16 kB
+
+ix_email_templates_codigo (email_templates) | Size: 16 kB
+
+--------------------------------------------------------------------------------
+🔒 LOCKS PENDENTES
+--------------------------------------------------------------------------------
+
+Nenhum lock pendente encontrado.
+
+--------------------------------------------------------------------------------
+📈 PADRÃO DE SCAN DAS TABELAS
+--------------------------------------------------------------------------------
+
+tenants: Seq Scan Dominante
+  Seq Scans: 967 | Rows Lidas: 6,734
+
+crm_leads: Seq Scan Dominante
+  Seq Scans: 1,119 | Rows Lidas: 6,129
+
+assinaturas_tenant: Seq Scan Dominante
+  Seq Scans: 999 | Rows Lidas: 5,835
+
+cadastros_marcas: Index Scan Dominante
+  Seq Scans: 99 | Rows Lidas: 3,196
+
+fazendas: Seq Scan Dominante
+  Seq Scans: 374 | Rows Lidas: 3,136
+
+usuarios: Index Scan Dominante
+  Seq Scans: 362 | Rows Lidas: 2,758
+
+cadastros_categorias_produto: Index Scan Dominante
+  Seq Scans: 55 | Rows Lidas: 1,616
+
+planos_assinatura: Index Scan Dominante
+  Seq Scans: 530 | Rows Lidas: 1,585
+
+cadastros_tipos_relacionamento: Index Scan Dominante
+  Seq Scans: 110 | Rows Lidas: 1,068
+
+crm_pipeline_estagios: Index Scan Dominante
+  Seq Scans: 227 | Rows Lidas: 1,035
+
+================================================================================
+RECOMENDAÇÕES
+================================================================================
+
+⚠️  1 tabelas com muitas seq scans. Criar índices.
+
+ℹ️  20 índices não utilizados. Considerar remoção.
+
+================================================================================
+FIM DO RELATÓRIO
+================================================================================

@@ -23,9 +23,13 @@ class ColaboradorRH(Base):
     fazenda_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    pessoa_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("cadastros_pessoas.id", ondelete="CASCADE"), nullable=False, index=True
+    pessoa_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cadastros_pessoas.id", ondelete="CASCADE"), nullable=True, index=True
     )
+
+    # Dados de identificação (denormalizados para uso sem cadastros_pessoas)
+    nome: Mapped[str] = mapped_column(String(200), nullable=False)
+    cpf: Mapped[str | None] = mapped_column(String(14), nullable=True, index=True)
 
     # Dados exclusivos do contexto RH (não existem em Pessoa)
     cargo: Mapped[str | None] = mapped_column(String(100), nullable=True)

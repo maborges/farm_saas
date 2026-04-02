@@ -149,8 +149,47 @@ from agricola.rastreabilidade.router import router as router_rastreabilidade
 from agricola.rastreabilidade.public_router import router as router_rastreabilidade_publica
 from agricola.prescricoes.router import router as router_prescricoes
 from agricola.a1_planejamento.router import router as router_a1_planejamento
+# Amostragem de Solo
+from agricola.amostragem_solo.routers.amostras import router as amostras_solo_router
+from agricola.amostragem_solo.routers.mapas_fertilidade import router as mapas_fertilidade_router
+from agricola.amostragem_solo.routers.prescricoes_vra import router as prescricoes_vra_router
 
-from financeiro.routers import despesas, receitas, planos_conta, relatorios as relatorios_fin, integracao as integracao_fin
+# NDVI e Irrigação
+from agricola.ndvi_avancado.routers.ndvi import router as ndvi_router
+from agricola.ndvi_avancado.routers.irrigacao import router as irrigacao_router
+from agricola.ndvi_avancado.routers.meteorologia import router as meteorologia_router
+
+# IA Diagnóstico
+from ia_diagnostico.routers.pragas_doencas import router as ia_pragas_doencas_router
+from ia_diagnostico.routers.tratamentos import router as ia_tratamentos_router
+from ia_diagnostico.routers.diagnosticos import router as ia_diagnosticos_router
+
+# IoT Integração
+from iot_integracao.routers.john_deere import router as john_deere_router
+from iot_integracao.routers.case_ih import router as case_ih_router
+from iot_integracao.routers.whatsapp import router as whatsapp_router
+from iot_integracao.routers.comparador_precos import router as comparador_precos_router
+from iot_integracao.new_holland.routers import router as sprint26_router
+
+# API Pública
+from core.api_publica.routers.keys import router as api_keys_router
+from core.api_publica.routers.logs import router as api_logs_router
+from core.api_publica.routers.versions import router as api_versions_router
+
+# Enterprise (COMENTADO - Usa Session síncrono, requer migração para AsyncSession)
+# from enterprise.routers.sap import router as sap_router
+# from enterprise.routers.powerbi import router as powerbi_router
+# from enterprise.routers.benchmarks import router as benchmarks_router
+# from enterprise.routers.preditivo import router as preditivo_router
+from enterprise.routers.sprints_27_33_router import router as sprints_27_33_router
+from integracoes.sankhya.routers import router as sankhya_router
+
+# Contabilidade (COMENTADO - Usa Session síncrono, requer migração para AsyncSession)
+# from contabilidade.routers.integracoes import router as contabilidade_integracoes_router
+# from contabilidade.routers.exportacoes import router as contabilidade_exportacoes_router
+# from contabilidade.routers.lancamentos import router as contabilidade_lancamentos_router
+
+from financeiro.routers import despesas, receitas, planos_conta, relatorios as relatorios_fin, integracao as integracao_fin, conciliacao
 from rh.router import router as router_rh
 from notificacoes.router import router as router_notificacoes
 from pecuaria.routers import lotes
@@ -175,6 +214,47 @@ app.include_router(router_rastreabilidade, prefix="/api/v1")
 app.include_router(router_rastreabilidade_publica, prefix="/api/v1")
 app.include_router(router_prescricoes, prefix="/api/v1")
 app.include_router(router_a1_planejamento, prefix="/api/v1")
+
+# Amostragem de Solo
+app.include_router(amostras_solo_router, prefix="/api/v1/amostragem-solo")
+app.include_router(mapas_fertilidade_router, prefix="/api/v1/amostragem-solo")
+app.include_router(prescricoes_vra_router, prefix="/api/v1/amostragem-solo")
+
+# NDVI e Irrigação
+app.include_router(ndvi_router, prefix="/api/v1/agricultura-precisao")
+app.include_router(irrigacao_router, prefix="/api/v1/agricultura-precisao")
+app.include_router(meteorologia_router, prefix="/api/v1/agricultura-precisao")
+
+# IA Diagnóstico
+app.include_router(ia_pragas_doencas_router, prefix="/api/v1/ia-diagnostico")
+app.include_router(ia_tratamentos_router, prefix="/api/v1/ia-diagnostico")
+app.include_router(ia_diagnosticos_router, prefix="/api/v1/ia-diagnostico")
+
+# IoT Integração
+app.include_router(john_deere_router, prefix="/api/v1/iot")
+app.include_router(case_ih_router, prefix="/api/v1/iot")
+app.include_router(whatsapp_router, prefix="/api/v1/iot")
+app.include_router(comparador_precos_router, prefix="/api/v1/iot")
+app.include_router(sprint26_router, prefix="/api/v1")
+
+# API Pública
+app.include_router(api_keys_router, prefix="/api/v1/api-publica")
+app.include_router(api_logs_router, prefix="/api/v1/api-publica")
+app.include_router(api_versions_router, prefix="/api/v1/api-publica")
+
+# Enterprise
+# Enterprise (COMENTADO)
+# app.include_router(sap_router, prefix="/api/v1/enterprise")
+# app.include_router(powerbi_router, prefix="/api/v1/enterprise")
+# app.include_router(benchmarks_router, prefix="/api/v1/enterprise")
+# app.include_router(preditivo_router, prefix="/api/v1/enterprise")
+app.include_router(sprints_27_33_router, prefix="/api/v1/enterprise")
+app.include_router(sankhya_router, prefix="/api/v1/integracoes")
+
+# Contabilidade (COMENTADO)
+# app.include_router(contabilidade_integracoes_router, prefix="/api/v1/contabilidade")
+# app.include_router(contabilidade_exportacoes_router, prefix="/api/v1/contabilidade")
+# app.include_router(contabilidade_lancamentos_router, prefix="/api/v1/contabilidade")
 app.include_router(router_rh, prefix="/api/v1")
 app.include_router(router_notificacoes, prefix="/api/v1")
 app.include_router(despesas.router, prefix="/api/v1/financeiro")
@@ -184,6 +264,7 @@ app.include_router(receitas.router, prefix="/api/v1/financeiro")
 app.include_router(planos_conta.router, prefix="/api/v1/financeiro")
 app.include_router(relatorios_fin.router, prefix="/api/v1")
 app.include_router(integracao_fin.router, prefix="/api/v1/financeiro")
+app.include_router(conciliacao.router, prefix="/api/v1/financeiro")
 app.include_router(frota_router.router, prefix="/api/v1")
 
 # --- EXCEPTION HANDLERS GLOBAIS ---

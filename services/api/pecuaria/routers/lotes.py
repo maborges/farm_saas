@@ -43,4 +43,6 @@ async def criar_lote(
 ):
     """Registra a fundação de um novo Lote na fazenda (Compra ou Nascimento)."""
     svc = LoteBovinoService(tenant_id)
-    return await svc.create_lote(db, obj_in=payload)
+    lote = await svc.create_lote(db, obj_in=payload)
+    await db.commit()
+    return lote

@@ -1,5 +1,6 @@
 from datetime import date
 from fastapi import APIRouter, Depends, status, Query
+from pydantic import BaseModel
 from typing import List, Optional
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -111,3 +112,29 @@ async def excluir_despesa(
     despesa.ativo = False
     db.add(despesa)
     await db.commit()
+
+
+class BaixaDespesaRequest(BaseModel):
+    data_pagamento: date
+    valor_pago: float
+    forma_pagamento: str
+
+
+@router.post("/{despesa_id}/baixar", response_model=DespesaResponse)
+async def baixar_despesa(
+    despesa_id: uuid.UUID,
+    payload: BaixaDespesaRequest,
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_session),
+):
+    """Marca a despesa como PAGO."""
+    svc = DespesaService(db, tenant_id)
+    despesa = await svc.get_or_fail(despesa_id)
+    despesa.data_pagamento = payload.data_pagamento
+    despesa.valor_pago = payload.valor_pago
+    despesa.forma_pagamento = payload.forma_pagamento
+    despesa.status = "PAGO"
+    db.add(despesa)
+    await db.commit()
+    await db.refresh(despesa)
+    return despesa

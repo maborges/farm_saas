@@ -34,6 +34,7 @@ async def criar_safra(
 ):
     svc = SafraService(session, tenant_id)
     safra = await svc.criar(dados)
+    await session.commit()
     return SafraResponse.model_validate(safra)
 
 
@@ -91,6 +92,7 @@ async def atualizar_safra(
 ):
     svc = SafraService(session, tenant_id)
     safra = await svc.atualizar(id, dados)
+    await session.commit()
     return SafraResponse.model_validate(safra)
 
 @router.get(
@@ -134,6 +136,7 @@ async def avancar_fase_safra(
         observacao=dados.observacao,
         dados_fase=dados.dados_fase,
     )
+    await session.commit()
     return SafraResponse.model_validate(safra)
 
 

@@ -1,5 +1,6 @@
 from datetime import date
 from fastapi import APIRouter, Depends, status, Query
+from pydantic import BaseModel
 from typing import List, Optional
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -110,3 +111,29 @@ async def excluir_receita(
     receita.ativo = False
     db.add(receita)
     await db.commit()
+
+
+class BaixaReceitaRequest(BaseModel):
+    data_recebimento: date
+    valor_recebido: float
+    forma_recebimento: str
+
+
+@router.post("/{receita_id}/baixar", response_model=ReceitaResponse)
+async def baixar_receita(
+    receita_id: uuid.UUID,
+    payload: BaixaReceitaRequest,
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+    db: AsyncSession = Depends(get_session),
+):
+    """Marca a receita como RECEBIDO."""
+    svc = ReceitaService(db, tenant_id)
+    receita = await svc.get_or_fail(receita_id)
+    receita.data_recebimento = payload.data_recebimento
+    receita.valor_recebido = payload.valor_recebido
+    receita.forma_recebimento = payload.forma_recebimento
+    receita.status = "RECEBIDO"
+    db.add(receita)
+    await db.commit()
+    await db.refresh(receita)
+    return receita

@@ -24,6 +24,34 @@ Esta pasta contém a documentação técnica completa do sistema AgroSaaS, organ
 
 ---
 
+### Fases do Projeto
+
+| Fase | Período | Status | Documentos |
+|------|---------|--------|------------|
+| **Fase 1** | Jan-Mar 2026 | ✅ Concluída | [`10-sprint-backlog-fase1.md`](./10-sprint-backlog-fase1.md), [`11-conclusao-fase-1.md`](./11-conclusao-fase-1.md) |
+| **Fase 2** | Abr-Jun 2026 | ✅ Concluída | [`11-sprint-backlog-fase2.md`](./11-sprint-backlog-fase2.md), [`12-conclusao-fase-2.md`](./12-conclusao-fase-2.md) |
+| **Fase 3** | Jul-Set 2026 | ✅ Concluída | [`12-sprint-backlog-fase3.md`](./12-sprint-backlog-fase3.md), [`14-conclusao-fase-3.md`](./14-conclusao-fase-3.md) |
+| **Fase 4** | Jul 2026-Mar 2027 | 🟡 Em Andamento | [`13-sprint-backlog-fase4.md`](./13-sprint-backlog-fase4.md), [`20-status-fase-4.md`](./20-status-fase-4.md) |
+
+---
+
+### Documentação da Fase 4 (Polimento e Lançamento)
+
+| # | Arquivo | Título | Descrição |
+|---|---------|--------|-----------|
+| 20 | [`20-status-fase-4.md`](./20-status-fase-4.md) | **Status da Fase 4** | Visão geral, acompanhamento e métricas da Fase 4 |
+| 21 | [`21-sprint-35-kickoff.md`](./21-sprint-35-kickoff.md) | **Sprint 35 Kickoff** | Planejamento detalhado da Sprint 35 (Performance - DB) |
+| 22 | [`22-guia-performance-profiling.md`](./22-guia-performance-profiling.md) | **Guia de Performance** | Instruções de profiling e otimização de queries PostgreSQL |
+| 23 | [`23-template-relatorio-performance.md`](./23-template-relatorio-performance.md) | **Template de Relatório** | Template para documentar otimizações de performance |
+| 24 | [`24-resumo-fase-4-kickoff.md`](./24-resumo-fase-4-kickoff.md) | **Resumo de Kickoff** | Resumo executivo de kickoff da Fase 4 |
+| 25 | [`25-checklist-sprint-35.md`](./25-checklist-sprint-35.md) | **Checklist Sprint 35** | Checklist diário para acompanhamento da sprint |
+| 26 | [`26-sumario-executivo-fase-4.md`](./26-sumario-executivo-fase-4.md) | **Sumário Executivo** | Visão executiva da Fase 4 para stakeholders |
+| 27 | [`27-relatorio-execucao-setup.md`](./27-relatorio-execucao-setup.md) | **Relatório de Execução** | Relatório técnico do setup da Sprint 35 |
+| 28 | [`28-pendencia-dba-performance.md`](./28-pendencia-dba-performance.md) | **Pendência DBA** | Registro da pendência de setup de performance |
+| 29 | [`29-entrega-setup-fase-4.md`](./29-entrega-setup-fase-4.md) | **Entrega Setup** | Resumo consolidado da entrega |
+
+---
+
 ## 🎯 Como Usar Esta Documentação
 
 ### Para Novos Desenvolvedores
@@ -206,6 +234,10 @@ Esta pasta contém a documentação técnica completa do sistema AgroSaaS, organ
 
 | Data | Versão | Descrição |
 |------|--------|-----------|
+| 2026-03-31 | 1.4.0 | Adicionado resumo de entrega (1 documento) |
+| 2026-03-31 | 1.3.0 | Adicionada pendência do DBA (1 documento) |
+| 2026-03-31 | 1.2.0 | Adicionado relatório de execução do setup (1 documento) |
+| 2026-03-31 | 1.1.0 | Adicionada documentação completa da Fase 4 (7 documentos) |
 | 2026-03-31 | 1.0.0 | Criação inicial completa da documentação |
 
 ---
@@ -218,4 +250,4 @@ Para dúvidas sobre a documentação:
 
 ---
 
-**Última atualização:** 2026-03-31
+**Última atualização:** 2026-03-31 (Fase 4 - Setup ENTREGUE | 10 documentos | Pendência DBA: 1)

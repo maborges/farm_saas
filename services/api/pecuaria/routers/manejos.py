@@ -37,4 +37,6 @@ async def registrar_evento(
     """Registra um evento de manejo: nascimento, morte, pesagem, vacinação ou transferência."""
     svc = ManejoLoteService(tenant_id)
     svc.session = db
-    return await svc.registrar_evento(db, obj_in=payload)
+    evento = await svc.registrar_evento(db, obj_in=payload)
+    await db.commit()
+    return evento

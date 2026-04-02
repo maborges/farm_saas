@@ -6,6 +6,7 @@ export * from "./admin-schemas";
 export * from "./team-schemas";
 export * from "./role-schemas";
 export * from "./grupo-schemas";
+export * from "./fazenda-schemas";
 export * from "./plan-schemas";
 
 // Domínios de negócio

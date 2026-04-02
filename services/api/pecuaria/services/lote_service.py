@@ -30,7 +30,11 @@ class LoteBovinoService(BaseService[LoteBovino]):
             if not piquete:
                 raise BusinessRuleError("O Piquete selecionado não existe ou não pertence a esta fazenda.")
         
-        # 2. Persiste Lote Principal
+        # 2. Mapeia piquete_id → area_id (nome do campo no modelo)
+        if "piquete_id" in obj_data:
+            obj_data["area_id"] = obj_data.pop("piquete_id")
+
+        # 3. Persiste Lote Principal
         db_lote = LoteBovino(**obj_data, tenant_id=self.tenant_id)
         db.add(db_lote)
         await db.flush()

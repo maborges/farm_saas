@@ -1,0 +1,757 @@
+{
+  "timestamp": "2026-03-31T17:50:20.861336",
+  "database": "farms",
+  "database_size": "15 MB",
+  "cache_hit_ratio": "99.90",
+  "table_stats": [
+    {
+      "schemaname": "farms",
+      "table_name": "fenologia_escalas",
+      "row_count": 91,
+      "dead_rows": 0,
+      "seq_scan": 3,
+      "seq_tup_read": 0,
+      "idx_scan": 0,
+      "idx_tup_fetch": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "checklist_templates",
+      "row_count": 47,
+      "dead_rows": 0,
+      "seq_scan": 5,
+      "seq_tup_read": 0,
+      "idx_scan": 0,
+      "idx_tup_fetch": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_categorias_produto",
+      "row_count": 38,
+      "dead_rows": 3,
+      "seq_scan": 55,
+      "seq_tup_read": 1616,
+      "idx_scan": 152,
+      "idx_tup_fetch": 828
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_marcas",
+      "row_count": 34,
+      "dead_rows": 0,
+      "seq_scan": 99,
+      "seq_tup_read": 3196,
+      "idx_scan": 156,
+      "idx_tup_fetch": 1040
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "monitoramento_catalogo",
+      "row_count": 31,
+      "dead_rows": 0,
+      "seq_scan": 6,
+      "seq_tup_read": 0,
+      "idx_scan": 0,
+      "idx_tup_fetch": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_modelos_produto",
+      "row_count": 17,
+      "dead_rows": 0,
+      "seq_scan": 52,
+      "seq_tup_read": 782,
+      "idx_scan": 81,
+      "idx_tup_fetch": 395
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "perfis_acesso",
+      "row_count": 16,
+      "dead_rows": 16,
+      "seq_scan": 85,
+      "seq_tup_read": 963,
+      "idx_scan": 510,
+      "idx_tup_fetch": 656
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "fazenda_usuarios",
+      "row_count": 14,
+      "dead_rows": 5,
+      "seq_scan": 30,
+      "seq_tup_read": 243,
+      "idx_scan": 331,
+      "idx_tup_fetch": 488
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "fazendas",
+      "row_count": 13,
+      "dead_rows": 5,
+      "seq_scan": 374,
+      "seq_tup_read": 3136,
+      "idx_scan": 37,
+      "idx_tup_fetch": 37
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "usuarios",
+      "row_count": 11,
+      "dead_rows": 9,
+      "seq_scan": 362,
+      "seq_tup_read": 2758,
+      "idx_scan": 654,
+      "idx_tup_fetch": 648
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "tenant_usuarios",
+      "row_count": 10,
+      "dead_rows": 5,
+      "seq_scan": 41,
+      "seq_tup_read": 304,
+      "idx_scan": 625,
+      "idx_tup_fetch": 629
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_tipos_relacionamento",
+      "row_count": 10,
+      "dead_rows": 1,
+      "seq_scan": 110,
+      "seq_tup_read": 1068,
+      "idx_scan": 162,
+      "idx_tup_fetch": 168
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_leads",
+      "row_count": 9,
+      "dead_rows": 21,
+      "seq_scan": 1119,
+      "seq_tup_read": 6129,
+      "idx_scan": 140,
+      "idx_tup_fetch": 140
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "tenants",
+      "row_count": 9,
+      "dead_rows": 18,
+      "seq_scan": 967,
+      "seq_tup_read": 6734,
+      "idx_scan": 727,
+      "idx_tup_fetch": 718
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "agricola_operacao_tipo_fase",
+      "row_count": 8,
+      "dead_rows": 0,
+      "seq_scan": 3,
+      "seq_tup_read": 0,
+      "idx_scan": 0,
+      "idx_tup_fetch": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "assinaturas_tenant",
+      "row_count": 8,
+      "dead_rows": 4,
+      "seq_scan": 999,
+      "seq_tup_read": 5835,
+      "idx_scan": 6,
+      "idx_tup_fetch": 5
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_produtos",
+      "row_count": 6,
+      "dead_rows": 1,
+      "seq_scan": 10,
+      "seq_tup_read": 30,
+      "idx_scan": 7,
+      "idx_tup_fetch": 7
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_precificacao_modulo",
+      "row_count": 6,
+      "dead_rows": 0,
+      "seq_scan": 3,
+      "seq_tup_read": 0,
+      "idx_scan": 1,
+      "idx_tup_fetch": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_pipeline_estagios",
+      "row_count": 5,
+      "dead_rows": 0,
+      "seq_scan": 227,
+      "seq_tup_read": 1035,
+      "idx_scan": 979,
+      "idx_tup_fetch": 974
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "configuracoes_tenant",
+      "row_count": 3,
+      "dead_rows": 0,
+      "seq_scan": 4,
+      "seq_tup_read": 3,
+      "idx_scan": 12,
+      "idx_tup_fetch": 36
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_planos_comerciais",
+      "row_count": 3,
+      "dead_rows": 0,
+      "seq_scan": 24,
+      "seq_tup_read": 57,
+      "idx_scan": 0,
+      "idx_tup_fetch": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_atividades",
+      "row_count": 3,
+      "dead_rows": 0,
+      "seq_scan": 95,
+      "seq_tup_read": 264,
+      "idx_scan": 104,
+      "idx_tup_fetch": 29
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "planos_assinatura",
+      "row_count": 3,
+      "dead_rows": 2,
+      "seq_scan": 530,
+      "seq_tup_read": 1585,
+      "idx_scan": 1875,
+      "idx_tup_fetch": 1875
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_areas_rurais",
+      "row_count": 2,
+      "dead_rows": 0,
+      "seq_scan": 8,
+      "seq_tup_read": 2,
+      "idx_scan": 42,
+      "idx_tup_fetch": 46
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_pessoas_enderecos",
+      "row_count": 2,
+      "dead_rows": 2,
+      "seq_scan": 3,
+      "seq_tup_read": 0,
+      "idx_scan": 35,
+      "idx_tup_fetch": 25
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_culturas",
+      "row_count": 2,
+      "dead_rows": 0,
+      "seq_scan": 5,
+      "seq_tup_read": 3,
+      "idx_scan": 2,
+      "idx_tup_fetch": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "talhoes",
+      "row_count": 2,
+      "dead_rows": 0,
+      "seq_scan": 3,
+      "seq_tup_read": 2,
+      "idx_scan": 33,
+      "idx_tup_fetch": 1
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "email_templates",
+      "row_count": 2,
+      "dead_rows": 0,
+      "seq_scan": 26,
+      "seq_tup_read": 48,
+      "idx_scan": 0,
+      "idx_tup_fetch": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_pessoas_bancario",
+      "row_count": 1,
+      "dead_rows": 0,
+      "seq_scan": 2,
+      "seq_tup_read": 0,
+      "idx_scan": 13,
+      "idx_tup_fetch": 7
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_pessoas",
+      "row_count": 1,
+      "dead_rows": 1,
+      "seq_scan": 4,
+      "seq_tup_read": 1,
+      "idx_scan": 178,
+      "idx_tup_fetch": 168
+    }
+  ],
+  "index_stats": [
+    {
+      "schemaname": "farms",
+      "table_name": "planos_assinatura",
+      "index_name": "planos_assinatura_pkey",
+      "index_scans": 1875,
+      "tuples_read": 1875,
+      "tuples_fetched": 1875
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_pipeline_estagios",
+      "index_name": "crm_pipeline_estagios_pkey",
+      "index_scans": 979,
+      "tuples_read": 974,
+      "tuples_fetched": 974
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "tenants",
+      "index_name": "tenants_pkey",
+      "index_scans": 719,
+      "tuples_read": 718,
+      "tuples_fetched": 718
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "tenant_usuarios",
+      "index_name": "ix_tenant_usuarios_usuario_id",
+      "index_scans": 507,
+      "tuples_read": 504,
+      "tuples_fetched": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "perfis_acesso",
+      "index_name": "perfis_acesso_pkey",
+      "index_scans": 472,
+      "tuples_read": 472,
+      "tuples_fetched": 457
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "usuarios",
+      "index_name": "usuarios_pkey",
+      "index_scans": 416,
+      "tuples_read": 417,
+      "tuples_fetched": 416
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "fazenda_usuarios",
+      "index_name": "ix_fazenda_usuarios_usuario_id",
+      "index_scans": 313,
+      "tuples_read": 463,
+      "tuples_fetched": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "usuarios",
+      "index_name": "ix_usuarios_email",
+      "index_scans": 231,
+      "tuples_read": 228,
+      "tuples_fetched": 227
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_pessoas",
+      "index_name": "ix_cadastros_pessoas_tenant_id",
+      "index_scans": 169,
+      "tuples_read": 160,
+      "tuples_fetched": 159
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_pessoa_relacionamentos",
+      "index_name": "ix_cadastros_pessoa_relacionamentos_pessoa_id",
+      "index_scans": 158,
+      "tuples_read": 240,
+      "tuples_fetched": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_leads",
+      "index_name": "crm_leads_pkey",
+      "index_scans": 140,
+      "tuples_read": 160,
+      "tuples_fetched": 140
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_tipos_relacionamento",
+      "index_name": "cadastros_tipos_relacionamento_pkey",
+      "index_scans": 122,
+      "tuples_read": 122,
+      "tuples_fetched": 122
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "tenant_usuarios",
+      "index_name": "ix_tenant_usuarios_tenant_id",
+      "index_scans": 118,
+      "tuples_read": 125,
+      "tuples_fetched": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_marcas",
+      "index_name": "ix_cadastros_marcas_nome",
+      "index_scans": 102,
+      "tuples_read": 68,
+      "tuples_fetched": 68
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_atividades",
+      "index_name": "ix_crm_atividades_lead_id",
+      "index_scans": 101,
+      "tuples_read": 26,
+      "tuples_fetched": 26
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "notificacoes",
+      "index_name": "ix_notificacoes_tenant_id",
+      "index_scans": 97,
+      "tuples_read": 0,
+      "tuples_fetched": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_produtos",
+      "index_name": "ix_cadastros_produtos_tenant_id",
+      "index_scans": 82,
+      "tuples_read": 1,
+      "tuples_fetched": 1
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_categorias_produto",
+      "index_name": "ix_cadastros_categorias_produto_parent_id",
+      "index_scans": 58,
+      "tuples_read": 155,
+      "tuples_fetched": 155
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "safras",
+      "index_name": "ix_safras_tenant_id",
+      "index_scans": 53,
+      "tuples_read": 0,
+      "tuples_fetched": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "fin_receitas",
+      "index_name": "ix_fin_receitas_tenant_id",
+      "index_scans": 52,
+      "tuples_read": 0,
+      "tuples_fetched": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_modelos_produto",
+      "index_name": "ix_cadastros_modelos_produto_nome",
+      "index_scans": 51,
+      "tuples_read": 34,
+      "tuples_fetched": 34
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "alembic_version",
+      "index_name": "alembic_version_pkc",
+      "index_scans": 50,
+      "tuples_read": 50,
+      "tuples_fetched": 50
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_categorias_produto",
+      "index_name": "cadastros_categorias_produto_pkey",
+      "index_scans": 48,
+      "tuples_read": 48,
+      "tuples_fetched": 48
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "operacoes_agricolas",
+      "index_name": "ix_operacoes_agricolas_tenant_id",
+      "index_scans": 47,
+      "tuples_read": 0,
+      "tuples_fetched": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "fin_despesas",
+      "index_name": "ix_fin_despesas_tenant_id",
+      "index_scans": 44,
+      "tuples_read": 0,
+      "tuples_fetched": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "estoque_depositos",
+      "index_name": "ix_estoque_depositos_tenant_id",
+      "index_scans": 40,
+      "tuples_read": 0,
+      "tuples_fetched": 0
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_equipamentos",
+      "index_name": "ix_cadastros_equipamentos_tenant_id",
+      "index_scans": 39,
+      "tuples_read": 19,
+      "tuples_fetched": 19
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "perfis_acesso",
+      "index_name": "ix_perfis_acesso_tenant_id",
+      "index_scans": 38,
+      "tuples_read": 204,
+      "tuples_fetched": 199
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_tipos_relacionamento",
+      "index_name": "ix_cadastros_tipos_relacionamento_codigo",
+      "index_scans": 36,
+      "tuples_read": 18,
+      "tuples_fetched": 18
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "talhoes",
+      "index_name": "ix_talhoes_tenant_id",
+      "index_scans": 32,
+      "tuples_read": 0,
+      "tuples_fetched": 0
+    }
+  ],
+  "unused_indexes": [
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_produtos",
+      "index_name": "ix_cadastros_produtos_codigo_interno",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_pessoa_relacionamentos",
+      "index_name": "ix_cadastros_pessoa_relacionamentos_tipo_id",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "fazendas",
+      "index_name": "ix_fazendas_grupo_id",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_culturas",
+      "index_name": "ix_cadastros_culturas_tenant_id",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_produtos",
+      "index_name": "ix_cadastros_produtos_tipo",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_pessoa_relacionamentos",
+      "index_name": "ix_cadastros_pessoa_relacionamentos_fazenda_id",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "safras",
+      "index_name": "ix_safras_talhao_id",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "assinaturas_tenant",
+      "index_name": "ix_assinaturas_tenant_grupo_fazendas_id",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_culturas",
+      "index_name": "ix_cadastros_culturas_nome",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "email_templates",
+      "index_name": "ix_email_templates_codigo",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_leads",
+      "index_name": "ix_crm_leads_estagio_id",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "admin_users",
+      "index_name": "ix_admin_users_email",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_leads",
+      "index_name": "ix_crm_leads_nome",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_pessoas",
+      "index_name": "ix_cadastros_pessoas_nome_exibicao",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "tenants",
+      "index_name": "ix_tenants_slug",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_leads",
+      "index_name": "ix_crm_leads_responsavel_id",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "convites_acesso",
+      "index_name": "ix_convites_acesso_token_convite",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "tenants",
+      "index_name": "ix_tenants_dominio_customizado",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "configuracoes_tenant",
+      "index_name": "ix_configuracoes_tenant_tenant_id",
+      "index_size": "16 kB"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_produtos",
+      "index_name": "ix_cadastros_produtos_nome",
+      "index_size": "16 kB"
+    }
+  ],
+  "long_running_queries": [],
+  "locks": [],
+  "slow_query_simulation": [
+    {
+      "schemaname": "farms",
+      "table_name": "tenants",
+      "seq_scan": 967,
+      "seq_tup_read": 6734,
+      "idx_scan": 727,
+      "scan_type": "Seq Scan Dominante"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_leads",
+      "seq_scan": 1119,
+      "seq_tup_read": 6129,
+      "idx_scan": 140,
+      "scan_type": "Seq Scan Dominante"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "assinaturas_tenant",
+      "seq_scan": 999,
+      "seq_tup_read": 5835,
+      "idx_scan": 6,
+      "scan_type": "Seq Scan Dominante"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_marcas",
+      "seq_scan": 99,
+      "seq_tup_read": 3196,
+      "idx_scan": 156,
+      "scan_type": "Index Scan Dominante"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "fazendas",
+      "seq_scan": 374,
+      "seq_tup_read": 3136,
+      "idx_scan": 37,
+      "scan_type": "Seq Scan Dominante"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "usuarios",
+      "seq_scan": 362,
+      "seq_tup_read": 2758,
+      "idx_scan": 654,
+      "scan_type": "Index Scan Dominante"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_categorias_produto",
+      "seq_scan": 55,
+      "seq_tup_read": 1616,
+      "idx_scan": 152,
+      "scan_type": "Index Scan Dominante"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "planos_assinatura",
+      "seq_scan": 530,
+      "seq_tup_read": 1585,
+      "idx_scan": 1875,
+      "scan_type": "Index Scan Dominante"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "cadastros_tipos_relacionamento",
+      "seq_scan": 110,
+      "seq_tup_read": 1068,
+      "idx_scan": 162,
+      "scan_type": "Index Scan Dominante"
+    },
+    {
+      "schemaname": "farms",
+      "table_name": "crm_pipeline_estagios",
+      "seq_scan": 227,
+      "seq_tup_read": 1035,
+      "idx_scan": 979,
+      "scan_type": "Index Scan Dominante"
+    }
+  ],
+  "note": "pg_stat_statements n\u00e3o dispon\u00edvel. Solicitar ao DBA: CREATE EXTENSION pg_stat_statements;"
+}

@@ -1,9 +1,10 @@
 import uuid
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
 from core.dependencies import get_session, get_tenant_id
 from core.exceptions import EntityNotFoundError
@@ -400,7 +401,11 @@ async def criar_produto(
         produto.detalhe_epi = ProdutoEPI(**data.detalhe_epi.model_dump())
 
     session.add(produto)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Produto com este código interno já existe neste tenant.")
 
     # Reload com relacionamentos
     result = await session.execute(

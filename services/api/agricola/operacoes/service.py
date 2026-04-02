@@ -33,7 +33,8 @@ class OperacaoService(BaseService[OperacaoAgricola]):
             raise EntityNotFoundError("Talhão", dados.talhao_id)
 
         # 2. Auto-preenche fase_safra com fase atual da safra (override permitido)
-        safra_atual = await self.session.get(Safra, dados.safra_id)
+        safra_stmt = select(Safra).where(Safra.id == dados.safra_id, Safra.tenant_id == self.tenant_id)
+        safra_atual = (await self.session.execute(safra_stmt)).scalar_one_or_none()
         if not safra_atual:
             raise EntityNotFoundError("Safra", dados.safra_id)
         fase_safra = dados.fase_safra or safra_atual.status

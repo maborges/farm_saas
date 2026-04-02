@@ -39,6 +39,8 @@ cd services/api
 source .venv/bin/activate
 uvicorn main:app --reload
 
+./start_server.sh
+
 
 ### Frontend
 1. Navegue até `apps/web`.
@@ -46,6 +48,10 @@ uvicorn main:app --reload
 
 cd apps/web
 pnpm run dev
+
+
+### Matar processo do servidor
+pkill -f "uvicorn main:app" && sleep 2 && echo "✅ Processo uvicorn parado" (Parar processo uvicorn travado)
 
 
 

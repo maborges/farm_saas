@@ -54,7 +54,9 @@ class TestDashboardFinanceiroSafra:
         plano_despesa = PlanoConta(
             id=uuid4(),
             tenant_id=tenant_id,
-            descricao="Custeio",
+            codigo="3.01",
+            nome="Custeio",
+            tipo="DESPESA",
             categoria_rfb="CUSTEIO",
             natureza="ANALITICA",
             ativo=True
@@ -62,7 +64,9 @@ class TestDashboardFinanceiroSafra:
         plano_receita = PlanoConta(
             id=uuid4(),
             tenant_id=tenant_id,
-            descricao="Receita Venda",
+            codigo="4.01",
+            nome="Receita Venda",
+            tipo="RECEITA",
             categoria_rfb="RECEITA_ATIVIDADE",
             natureza="ANALITICA",
             ativo=True
@@ -272,7 +276,9 @@ class TestDashboardFinanceiroSafra:
         plano = PlanoConta(
             id=uuid4(),
             tenant_id=tenant_id,
-            descricao="Receita",
+            codigo="4.01",
+            nome="Receita",
+            tipo="RECEITA",
             categoria_rfb="RECEITA_ATIVIDADE",
             natureza="ANALITICA",
             ativo=True
@@ -334,7 +340,9 @@ class TestDashboardFinanceiroSafra:
         plano_despesa = PlanoConta(
             id=uuid4(),
             tenant_id=tenant_id,
-            descricao="Custeio",
+            codigo="3.02",
+            nome="Custeio",
+            tipo="DESPESA",
             categoria_rfb="CUSTEIO",
             natureza="ANALITICA",
             ativo=True
@@ -342,7 +350,9 @@ class TestDashboardFinanceiroSafra:
         plano_receita = PlanoConta(
             id=uuid4(),
             tenant_id=tenant_id,
-            descricao="Receita",
+            codigo="4.02",
+            nome="Receita",
+            tipo="RECEITA",
             categoria_rfb="RECEITA_ATIVIDADE",
             natureza="ANALITICA",
             ativo=True

@@ -51,7 +51,9 @@ class TestRomaneioReceitaWebhook:
         plano = PlanoConta(
             id=uuid4(),
             tenant_id=tenant_id,
-            descricao="Receita de Venda de Grãos",
+            codigo="4.01",
+            nome="Receita de Venda de Grãos",
+            tipo="RECEITA",
             categoria_rfb="RECEITA_ATIVIDADE",
             natureza="ANALITICA",
             ativo=True
@@ -157,7 +159,9 @@ class TestRomaneioReceitaWebhook:
         plano = PlanoConta(
             id=uuid4(),
             tenant_id=tenant_id,
-            descricao="Receita Soja",
+            codigo="4.01",
+            nome="Receita Soja",
+            tipo="RECEITA",
             categoria_rfb="RECEITA_ATIVIDADE",
             natureza="ANALITICA",
             ativo=True
@@ -257,7 +261,9 @@ class TestRomaneioReceitaWebhook:
         plano = PlanoConta(
             id=uuid4(),
             tenant_id=tenant_id,
-            descricao="Receita Milho",
+            codigo="4.01",
+            nome="Receita Milho",
+            tipo="RECEITA",
             categoria_rfb="RECEITA_ATIVIDADE",
             natureza="ANALITICA",
             ativo=True
@@ -322,7 +328,9 @@ class TestRomaneioReceitaWebhook:
         plano = PlanoConta(
             id=uuid4(),
             tenant_id=tenant_id,
-            descricao="Receita Soja",
+            codigo="4.01",
+            nome="Receita Soja",
+            tipo="RECEITA",
             categoria_rfb="RECEITA_ATIVIDADE",
             natureza="ANALITICA",
             ativo=True

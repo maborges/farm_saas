@@ -38,7 +38,7 @@ async_session_maker = async_sessionmaker(
 # Base para os Models do ORM
 Base = declarative_base()
 
-# Event Listener do SQLAlchemy para RLS (Row Level Security) 
+# Event Listener do SQLAlchemy para RLS (Row Level Security)
 # Injetamos o tenant_id no escopo local do postgres toda vez que a sessão abre
 @event.listens_for(engine.sync_engine, "connect")
 def set_tenant_context(dbapi_connection, connection_record):
@@ -46,3 +46,33 @@ def set_tenant_context(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
         cursor.execute("SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL READ COMMITTED")
         cursor.close()
+
+
+# Dependência para injetar sessão do banco de dados (Dependency Injection)
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Dependência do FastAPI para injetar sessão do banco de dados.
+    
+    Usage:
+        @router.get("/endpoint")
+        async def endpoint(db: AsyncSession = Depends(get_db)):
+            ...
+    """
+    db = async_session_maker()
+    try:
+        yield db
+    finally:
+        await db.close()
+
+
+# Função utilitária para obter sessão única (para scripts e testes)
+async def get_db_session() -> AsyncSession:
+    """
+    Obtém uma sessão única do banco de dados.
+    
+    Usage:
+        db = await get_db_session()
+        # ... usar db ...
+        await db.close()
+    """
+    return async_session_maker()

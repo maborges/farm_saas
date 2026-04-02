@@ -1,7 +1,7 @@
 """Model para lookup de tipos de operação e fases permitidas."""
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Text, JSON, DateTime
+from sqlalchemy import String, Text, JSON, DateTime, text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import Uuid as UUID
 from core.database import Base
@@ -45,7 +45,7 @@ class OperacaoTipoFase(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default="CURRENT_TIMESTAMP",
+        server_default=text("CURRENT_TIMESTAMP"),
         nullable=False
     )
 

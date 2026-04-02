@@ -19,6 +19,20 @@ dependencies = [
     "python-multipart>=0.0.9",
     "geoalchemy2>=0.14.0",
     "shapely>=2.0.0",
+    "pynfe>=0.4",
+    "reportlab>=4.0.0",
+    "cryptography>=42.0.0",
+    # ML/DL para IA de diagnóstico
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "pillow>=10.0.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "scikit-learn>=1.3.0",
+    # GIS para agricultura de precisão
+    "rasterio>=1.3.0",
+    "geopandas>=0.14.0",
+    "pyproj>=3.6.0",
 ]
 
 [project.optional-dependencies]
@@ -44,4 +58,6 @@ ignore_missing_imports = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]

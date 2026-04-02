@@ -81,6 +81,12 @@ from financeiro.models.despesa import Despesa
 from financeiro.models.receita import Receita
 from financeiro.models.rateio import Rateio
 
+# IA Diagnóstico
+from ia_diagnostico.models import PragasDoencas, Tratamentos, Diagnosticos, Recomendacoes, ModelosMl
+
+# IoT Integração
+from iot_integracao.models import JohnDeere, CaseIh, Whatsapp, ComparadorPrecos
+
 # add your model's MetaData object here
 target_metadata = Base.metadata
 

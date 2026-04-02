@@ -1,14 +1,25 @@
-# Sprint Backlog - Fase 3: Excelência e Inovação
+# Sprint Backlog - Fase 3: Excelência e Inovação (Refatorado com Sankhya)
 
-**Versão:** 1.0.0
+**Versão:** 2.0.0
 **Data:** 2026-03-31
-**Status:** Aprovado para Execução
+**Status:** Aprovado para Execução (Refatorado)
+
+---
+
+## 🔄 Mudanças Principais
+
+### Adicionado:
+- **ERP Sankhya** como integração prioritária
+- **WS Sankhya** (Web Services)
+- **Importação/Exportação de dados**
+- **Sincronização de cadastros**
+- **Integração financeira e fiscal**
 
 ---
 
 ## 📅 Sprint 25 (Semana 49-50)
-**Tema:** Ecossistema - Integrações Contábeis
-**Objetivo:** Integrar sistemas contábeis (Domínio, Fortes, Contmatic)
+**Tema:** Integrações Contábeis + **Sankhya ERP**
+**Objetivo:** Integrar sistemas contábeis e **ERP Sankhya**
 
 ### Tarefas
 
@@ -20,22 +31,32 @@
 | S25.T4 | Implementar exportação Fortes | Backend | 8 | Backend | ⬜ | Arquivo gerado |
 | S25.T5 | Estudar formato Contmatic | Backend | 5 | Backend | ⬜ | Formato compreendido |
 | S25.T6 | Implementar exportação Contmatic | Backend | 8 | Backend | ⬜ | Arquivo gerado |
-| S25.T7 | Agendar exportação automática | Backend | 5 | Backend | ⬜ | Exportação agendada |
-| S25.T8 | Frontend: Configurar integração | Frontend | 8 | Frontend | ⬜ | Configuração salva |
-| S25.T9 | Frontend: Histórico de exportações | Frontend | 5 | Frontend | ⬜ | Histórico visível |
-| S25.T10 | Testes de integração contábil | QA | 5 | QA | ⬜ | Arquivos validados |
+| **S25.T7** | **Estudar WS Sankhya (BPM)** | **Backend** | **8** | **Backend** | ⬜ | **WS compreendido** |
+| **S25.T8** | **Configurar autenticação Sankhya** | **Backend** | **5** | **Backend** | ⬜ | **Auth funcionando** |
+| **S25.T9** | **Sincronizar cadastros (Pessoas)** | **Backend** | **8** | **Backend** | ⬜ | **Sincronização OK** |
+| **S25.T10** | **Sincronizar cadastros (Produtos)** | **Backend** | **8** | **Backend** | ⬜ | **Sincronização OK** |
+| **S25.T11** | **Exportar notas fiscais para Sankhya** | **Backend** | **8** | **Backend** | ⬜ | **NFs exportadas** |
+| **S25.T12** | **Importar lançamentos financeiros** | **Backend** | **8** | **Backend** | ⬜ | **Lançamentos importados** |
+| S25.T13 | Agendar exportação automática | Backend | 5 | Backend | ⬜ | Exportação agendada |
+| S25.T14 | Frontend: Configurar integração Sankhya | Frontend | 8 | Frontend | ⬜ | Configuração salva |
+| S25.T15 | Frontend: Histórico de sincronizações | Frontend | 5 | Frontend | ⬜ | Histórico visível |
+| S25.T16 | Testes de integração contábil | QA | 5 | QA | ⬜ | Arquivos validados |
+| **S25.T17** | **Testes de integração Sankhya** | **QA** | **8** | **QA** | ⬜ | **Sincronização validada** |
 
 **Definição de Pronto:**
 - [ ] Exportação Domínio funcionando
 - [ ] Exportação Fortes funcionando
 - [ ] Exportação Contmatic funcionando
+- [ ] **Sankhya WS configurado**
+- [ ] **Cadastros sincronizados**
+- [ ] **Notas fiscais exportadas**
 - [ ] Exportação automática agendada
 
 ---
 
 ## 📅 Sprint 26 (Semana 51-52)
-**Tema:** Ecossistema - New Holland e Marketplace
-**Objetivo:** Integrar New Holland PLM e criar marketplace
+**Tema:** Ecossistema - New Holland, Marketplace e **Sankhya Fiscal**
+**Objetivo:** Integrar New Holland PLM, criar marketplace e **aprofundar Sankhya**
 
 ### Tarefas
 
@@ -52,18 +73,21 @@
 | S26.T9 | Pegada de carbono (escopo 1) | Backend | 8 | Backend | ⬜ | Cálculo feito |
 | S26.T10 | Pegada de carbono (escopo 2) | Backend | 5 | Backend | ⬜ | Cálculo feito |
 | S26.T11 | Frontend: Dashboard carbono | Frontend | 8 | Frontend | ⬜ | Dashboard exibido |
-| S26.T12 | Testes New Holland | QA | 5 | QA | ⬜ | Testes aprovados |
+| **S26.T12** | **Sankhya: Importar NFe de entrada** | **Backend** | **8** | **Backend** | ⬜ | **NFe importadas** |
+| **S26.T13** | **Sankhya: Exportar NFe de saída** | **Backend** | **8** | **Backend** | ⬜ | **NFe exportadas** |
+| **S26.T14** | **Sankhya: Sincronizar CFOP/NCM** | **Backend** | **5** | **Backend** | ⬜ | **Tabelas sincronizadas** |
+| S26.T15 | Testes New Holland | QA | 5 | QA | ⬜ | Testes aprovados |
 
 **Definição de Pronto:**
 - [ ] New Holland PLM integrado
 - [ ] Marketplace de integrações no ar
 - [ ] Pegada de carbono calculada
+- [ ] **Sankhya Fiscal integrado (NFe)**
 
 ---
 
 ## 📅 Sprint 27 (Semana 53-54)
 **Tema:** Sustentabilidade - MRV e Carbono
-**Objetivo:** Implementar MRV e créditos de carbono
 
 ### Tarefas
 
@@ -90,26 +114,25 @@
 
 ## 📅 Sprint 28 (Semana 55-56)
 **Tema:** Sustentabilidade - ESG e Piscicultura
-**Objetivo:** Implementar relatórios ESG e módulo de piscicultura
 
 ### Tarefas
 
 | ID | Tarefa | Tipo | Pontos | Responsável | Status | Critério de Aceite |
 |----|--------|------|--------|-------------|--------|-------------------|
-| S27.T1 | Estudar padrão GRI | Backend | 5 | Backend | ⬜ | Padrão compreendido |
-| S27.T2 | Estudar padrão SASB | Backend | 5 | Backend | ⬜ | Padrão compreendido |
-| S27.T3 | Criar modelo RelatorioESG | Backend | 3 | Backend | ⬜ | Migration criada |
-| S27.T4 | Indicadores ambientais (E) | Backend | 8 | Backend | ⬜ | Indicadores calculados |
-| S27.T5 | Indicadores sociais (S) | Backend | 8 | Backend | ⬜ | Indicadores calculados |
-| S27.T6 | Indicadores governança (G) | Backend | 8 | Backend | ⬜ | Indicadores calculados |
-| S27.T7 | Gerar relatório ESG (PDF) | Backend | 5 | Backend | ⬜ | PDF gerado |
-| S27.T8 | Criar modelo TanqueRede | Backend | 3 | Backend | ⬜ | Migration criada |
-| S27.T9 | Piscicultura: Gestão de tanques | Backend | 8 | Backend | ⬜ | Gestão funcional |
-| S27.T10 | Piscicultura: Arraçoamento | Backend | 8 | Backend | ⬜ | Arraçoamento registrado |
-| S27.T11 | Piscicultura: Pesagem | Backend | 5 | Backend | ⬜ | Pesagem registrada |
-| S27.T12 | Frontend: Relatório ESG | Frontend | 8 | Frontend | ⬜ | Relatório visível |
-| S27.T13 | Frontend: Gestão piscicultura | Frontend | 8 | Frontend | ⬜ | Gestão completa |
-| S27.T14 | Testes ESG e piscicultura | QA | 5 | QA | ⬜ | Testes aprovados |
+| S28.T1 | Estudar padrão GRI | Backend | 5 | Backend | ⬜ | Padrão compreendido |
+| S28.T2 | Estudar padrão SASB | Backend | 5 | Backend | ⬜ | Padrão compreendido |
+| S28.T3 | Criar modelo RelatorioESG | Backend | 3 | Backend | ⬜ | Migration criada |
+| S28.T4 | Indicadores ambientais (E) | Backend | 8 | Backend | ⬜ | Indicadores calculados |
+| S28.T5 | Indicadores sociais (S) | Backend | 8 | Backend | ⬜ | Indicadores calculados |
+| S28.T6 | Indicadores governança (G) | Backend | 8 | Backend | ⬜ | Indicadores calculados |
+| S28.T7 | Gerar relatório ESG (PDF) | Backend | 5 | Backend | ⬜ | PDF gerado |
+| S28.T8 | Criar modelo TanqueRede | Backend | 3 | Backend | ⬜ | Migration criada |
+| S28.T9 | Piscicultura: Gestão de tanques | Backend | 8 | Backend | ⬜ | Gestão funcional |
+| S28.T10 | Piscicultura: Arraçoamento | Backend | 8 | Backend | ⬜ | Arraçoamento registrado |
+| S28.T11 | Piscicultura: Pesagem | Backend | 5 | Backend | ⬜ | Pesagem registrada |
+| S28.T12 | Frontend: Relatório ESG | Frontend | 8 | Frontend | ⬜ | Relatório visível |
+| S28.T13 | Frontend: Gestão piscicultura | Frontend | 8 | Frontend | ⬜ | Gestão completa |
+| S28.T14 | Testes ESG e piscicultura | QA | 5 | QA | ⬜ | Testes aprovados |
 
 **Definição de Pronto:**
 - [ ] Relatório ESG gerado (padrão GRI/SASB)
@@ -120,7 +143,6 @@
 
 ## 📅 Sprint 29 (Semana 57-58)
 **Tema:** Pecuária Avançada - Confinamento e Leite
-**Objetivo:** Implementar confinamento avançado e produção leiteira
 
 ### Tarefas
 
@@ -151,7 +173,6 @@
 
 ## 📅 Sprint 30 (Semana 59-60)
 **Tema:** Pecuária - Genética e Treinamentos
-**Objetivo:** Implementar DEPs e plataforma de treinamentos
 
 ### Tarefas
 
@@ -180,8 +201,7 @@
 ---
 
 ## 📅 Sprint 31 (Semana 61-62)
-**Tema:** Financeiro - Hedging e Futuros
-**Objetivo:** Implementar módulo de hedging e contratos futuros
+**Tema:** Financeiro - Hedging, Futuros e **Sankhya Financeiro**
 
 ### Tarefas
 
@@ -194,21 +214,25 @@
 | S31.T5 | Fixação de preços | Backend | 5 | Backend | ⬜ | Fixação registrada |
 | S31.T6 | Integrar com B3 (cotações) | Backend | 8 | Backend | ⬜ | Cotações obtidas |
 | S31.T7 | Calcular resultado de hedge | Backend | 5 | Backend | ⬜ | Resultado calculado |
-| S31.T8 | Frontend: Gestão de contratos | Frontend | 8 | Frontend | ⬜ | Gestão completa |
-| S31.T9 | Frontend: Dashboard de hedge | Frontend | 8 | Frontend | ⬜ | Dashboard exibido |
-| S31.T10 | Testes de hedging | QA | 5 | QA | ⬜ | Testes aprovados |
+| **S31.T8** | **Sankhya: Integrar contas a pagar** | **Backend** | **8** | **Backend** | ⬜ | **Contas sincronizadas** |
+| **S31.T9** | **Sankhya: Integrar contas a receber** | **Backend** | **8** | **Backend** | ⬜ | **Contas sincronizadas** |
+| **S31.T10** | **Sankhya: Exportar rateios** | **Backend** | **5** | **Backend** | ⬜ | **Rateios exportados** |
+| S31.T11 | Frontend: Gestão de contratos | Frontend | 8 | Frontend | ⬜ | Gestão completa |
+| S31.T12 | Frontend: Dashboard de hedge | Frontend | 8 | Frontend | ⬜ | Dashboard exibido |
+| S31.T13 | Testes de hedging | QA | 5 | QA | ⬜ | Testes aprovados |
+| **S31.T14** | **Testes integração Sankhya Financeiro** | **QA** | **5** | **QA** | ⬜ | **Financeiro validado** |
 
 **Definição de Pronto:**
 - [ ] Contratos futuros cadastrados
 - [ ] Hedge de preço registrado
 - [ ] Barter implementado
 - [ ] Cotações B3 integradas
+- [ ] **Sankhya Financeiro integrado**
 
 ---
 
 ## 📅 Sprint 32 (Semana 63-64)
 **Tema:** IoT - Sensores e Automação
-**Objetivo:** Implementar sensores IoT e automação
 
 ### Tarefas
 
@@ -236,7 +260,6 @@
 
 ## 📅 Sprint 33 (Semana 65-66)
 **Tema:** Inovação - ILPF e App Colaboradores
-**Objetivo:** Implementar ILPF e app para colaboradores
 
 ### Tarefas
 
@@ -277,42 +300,50 @@
 | S34.T4 | Otimizar queries ESG | Backend | 5 | Backend | ⬜ | Queries < 300ms |
 | S34.T5 | Melhorar UX app colaboradores | Mobile | 5 | Mobile | ⬜ | Feedback incorporado |
 | S34.T6 | Documentar APIs Fase 3 | Backend | 5 | Backend | ⬜ | Docs completas |
-| S34.T7 | Treinar suporte (Fase 3) | Suporte | 5 | Suporte | ⬜ | Treinamento realizado |
-| S34.T8 | Coletar feedback clientes | Produto | 5 | Produto | ⬜ | Feedback documentado |
-| S34.T9 | Planejar Fase 4 (Polimento) | Todos | 5 | Todos | ⬜ | Planejamento aprovado |
-| S34.T10 | Testes de carga (IoT) | QA | 8 | QA | ⬜ | 5000 dispositivos |
-| S34.T11 | Testes de carga (MRV) | QA | 8 | QA | ⬜ | 100 req/min |
-| S34.T12 | Bug bash (time todo) | Todos | 5 | Todos | ⬜ | Bugs corrigidos |
+| **S34.T7** | **Documentar integração Sankhya** | **Backend** | **8** | **Backend** | ⬜ | **Docs completas** |
+| S34.T8 | Treinar suporte (Fase 3) | Suporte | 5 | Suporte | ⬜ | Treinamento realizado |
+| S34.T9 | Coletar feedback clientes | Produto | 5 | Produto | ⬜ | Feedback documentado |
+| S34.T10 | Planejar Fase 4 (Polimento) | Todos | 5 | Todos | ⬜ | Planejamento aprovado |
+| S34.T11 | Testes de carga (IoT) | QA | 8 | QA | ⬜ | 5000 dispositivos |
+| S34.T12 | Testes de carga (MRV) | QA | 8 | QA | ⬜ | 100 req/min |
+| **S34.T13** | **Testes de carga (Sankhya)** | **QA** | **8** | **QA** | ⬜ | **1000 req/min** |
+| S34.T14 | Bug bash (time todo) | Todos | 5 | Todos | ⬜ | Bugs corrigidos |
 
 **Definição de Pronto:**
 - [ ] Bugs críticos resolvidos
 - [ ] Performance otimizada
 - [ ] Documentação completa
+- [ ] **Integração Sankhya documentada**
 - [ ] Fase 4 planejada
 
 ---
 
-## 📊 Resumo da Fase 3
+## 📊 Resumo da Fase 3 (Refatorado)
 
-| Sprint | Pontos | Entregáveis Principais |
-|--------|--------|----------------------|
-| 25 | 57 | Integrações contábeis |
-| 26 | 76 | New Holland, Marketplace |
-| 27 | 61 | MRV, Créditos carbono |
-| 28 | 76 | Relatórios ESG, Piscicultura |
-| 29 | 81 | Confinamento, Leite |
-| 30 | 81 | Genética (DEPs), Treinamentos |
-| 31 | 60 | Hedging, Futuros |
-| 32 | 67 | Sensores IoT, Automação |
-| 33 | 67 | ILPF, App colaboradores |
-| 34 | 70 | Estabilização |
-| **TOTAL** | **696** | **10 sprints** |
+| Sprint | Pontos Originais | Pontos Adicionais (Sankhya) | Total | Entregáveis Principais |
+|--------|-----------------|---------------------------|-------|----------------------|
+| 25 | 57 | +33 | 90 | Integrações contábeis + **Sankhya ERP** |
+| 26 | 76 | +21 | 97 | New Holland, Marketplace + **Sankhya Fiscal** |
+| 27 | 61 | - | 61 | MRV, Créditos carbono |
+| 28 | 76 | - | 76 | Relatórios ESG, Piscicultura |
+| 29 | 81 | - | 81 | Confinamento, Leite |
+| 30 | 81 | - | 81 | Genética (DEPs), Treinamentos |
+| 31 | 60 | +26 | 86 | Hedging, Futuros + **Sankhya Financeiro** |
+| 32 | 67 | - | 67 | Sensores IoT, Automação |
+| 33 | 67 | - | 67 | ILPF, App colaboradores |
+| 34 | 70 | +21 | 91 | Estabilização + **Docs Sankhya** |
+| **TOTAL** | **696** | **+101** | **797** | **10 sprints** |
 
 ---
 
-## 🎯 Critérios de Aceite da Fase 3
+## 🎯 Critérios de Aceite da Fase 3 (Refatorado)
 
 - [ ] Integrações contábeis (Domínio, Fortes, Contmatic)
+- [ ] **ERP Sankhya integrado (Cadastros, Fiscal, Financeiro)**
+- [ ] **WS Sankhya BPM configurado**
+- [ ] **Sincronização de cadastros (Pessoas, Produtos)**
+- [ ] **Exportação/Importação de Notas Fiscais**
+- [ ] **Integração Contas a Pagar/Receber**
 - [ ] New Holland PLM integrado
 - [ ] Marketplace de integrações no ar
 - [ ] MRV implementado
@@ -329,7 +360,65 @@
 
 ---
 
+## 🔗 Integração Sankhya - Detalhes Técnicos
+
+### Web Services Sankhya (BPM)
+
+**Autenticação:**
+```python
+# WS Sankhya usa autenticação básica
+# Endpoint: https://<servidor>/bpm/ws
+# Usuário/Senha do Sankhya
+```
+
+**Principais Endpoints:**
+```
+- PessoaFisica.save
+- PessoaJuridica.save
+- Produto.save
+- NFe.save
+- LancamentoFinanceiro.save
+- Rateio.save
+```
+
+**Sincronização:**
+- **Bidirecional:** AgroSaaS ↔ Sankhya
+- **Agendada:** Cada 15 minutos (configurável)
+- **Logs:** Todas as sincronizações são logadas
+
+**Tratamento de Erros:**
+- Retry automático (3 tentativas)
+- Fila de erros para revisão manual
+- Alertas por e-mail em caso de falha crítica
+
+---
+
+## 📋 Documentação Técnica Sankhya
+
+### Arquivos a Criar:
+1. `docs/qwen/SANKHYA_INTEGRACAO.md` - Guia completo de integração
+2. `services/api/integracoes/sankhya/README.md` - README técnico
+3. `services/api/integracoes/sankhya/models.py` - Modelos Sankhya
+4. `services/api/integracoes/sankhya/service.py` - Service de integração
+5. `services/api/integracoes/sankhya/sync.py` - Sincronização
+
+### Configurações Necessárias:
+```python
+# settings.py
+SANKHYA_WS_URL = "https://<servidor>/bpm/ws"
+SANKHYA_USERNAME = "usuario"
+SANKHYA_PASSWORD = "senha"
+SANKHYA_SYNC_INTERVAL = 900  # 15 minutos
+```
+
+---
+
 **Aprovado por:** _______________________
 **Data:** ___/___/_____
 **Scrum Master:** _______________________
 **Product Owner:** _______________________
+
+---
+
+**Versão:** 2.0.0 - Refatorado com ERP Sankhya
+**Data da Refatoração:** 2026-03-31

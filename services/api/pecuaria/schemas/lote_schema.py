@@ -17,7 +17,7 @@ class LoteBovinoResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
     fazenda_id: uuid.UUID
-    piquete_id: Optional[uuid.UUID]
+    piquete_id: Optional[uuid.UUID] = Field(None, validation_alias="area_id")
     identificacao: str
     categoria: str
     raca: str

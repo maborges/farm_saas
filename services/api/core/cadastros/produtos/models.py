@@ -282,6 +282,10 @@ class Produto(Base):
     detalhe_estoque: Mapped["ProdutoEstoque | None"] = relationship(back_populates="produto", lazy="noload", uselist=False, cascade="all, delete-orphan")
     detalhe_epi: Mapped["ProdutoEPI | None"] = relationship(back_populates="produto", lazy="noload", uselist=False, cascade="all, delete-orphan")
 
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "codigo_interno", name="uq_produto_tenant_codigo_interno"),
+    )
+
 
 # ---------------------------------------------------------------------------
 # ProdutoAgricola — extensão para defensivos, sementes, fertilizantes

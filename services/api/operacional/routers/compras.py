@@ -17,7 +17,7 @@ from operacional.schemas.compras import (
     RecebimentoCreate, RecebimentoResponse,
     DevolucaoCreate, DevolucaoStatusUpdate, DevolucaoResponse,
 )
-from core.cadastros.models import ProdutoCatalogo
+from core.cadastros.models import ProdutoCatalogo as Produto
 from operacional.services.estoque_service import EstoqueService
 from operacional.schemas.estoque import EntradaEstoqueRequest, LoteCreate
 from operacional.models.estoque import LoteEstoque, MovimentacaoEstoque, SaldoEstoque
@@ -143,6 +143,32 @@ async def create_pedido(
     await session.commit()
     await session.refresh(novo_pedido)
     return novo_pedido
+
+@router.post("/pedidos/{pedido_id}/aprovar", response_model=PedidoResponse)
+async def aprovar_pedido(
+    pedido_id: uuid.UUID,
+    tenant: Tenant = Depends(get_current_tenant),
+    session: AsyncSession = Depends(get_session)
+):
+    """Aprova um pedido de compra, mudando status para APROVADO."""
+    from sqlalchemy import select as sa_select
+    result = await session.execute(
+        sa_select(PedidoCompra).where(
+            PedidoCompra.id == pedido_id,
+            PedidoCompra.tenant_id == tenant.id,
+        )
+    )
+    pedido = result.scalar_one_or_none()
+    if not pedido:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado.")
+    if pedido.status not in ("ABERTO", "RASCUNHO", "PENDENTE"):
+        raise HTTPException(status_code=422, detail=f"Pedido no status '{pedido.status}' não pode ser aprovado.")
+    pedido.status = "APROVADO"
+    session.add(pedido)
+    await session.commit()
+    await session.refresh(pedido)
+    return pedido
+
 
 @router.get("/pedidos/{pedido_id}/itens", response_model=List[ItemPedidoResponse])
 async def list_itens_pedido(

@@ -1,0 +1,64 @@
+# Configuration file for pytest
+# https://docs.pytest.org/en/latest/reference/reference.html
+
+[tool.pytest.ini_options]
+# Test discovery
+testpaths = ["tests", "services/api/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Async support
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+# Output format
+addopts = [
+    "-v",                    # Verbose output
+    "--tb=short",            # Shorter traceback format
+    "--strict-markers",      # Raise errors for unknown markers
+    "--disable-warnings",    # Hide deprecation warnings from dependencies
+]
+
+# Custom markers
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "e2e: marks tests as end-to-end tests",
+    "requires_db: marks tests that require database",
+    "requires_api: marks tests that require API running",
+    "core: tests for core module",
+    "agricola: tests for agricultural module",
+    "financeiro: tests for financial module",
+    "operacional: tests for operational module",
+    "pecuaria: tests for livestock module",
+    "rh: tests for HR module",
+]
+
+# Coverage report (when using pytest-cov)
+[tool.coverage.run]
+source = ["services/api"]
+omit = [
+    "*/tests/*",
+    "*/.venv/*",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+    "*/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+# Fail if coverage is too low
+fail_under = 70
+
+# Show missing lines
+show_missing = true
