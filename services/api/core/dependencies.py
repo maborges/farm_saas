@@ -778,4 +778,103 @@ def check_limit_soft(limit_type: str) -> dict:
             "atingido": atingido,
         }
 
+
+# ==============================================================================
+# ACESSO EXPLÍCITO POR FAZENDA (BL-03)
+# ==============================================================================
+
+def require_fazenda_access(fazenda_id_param: str = "fazenda_id"):
+    """
+    Dependency que verifica se o usuário tem acesso explícito à fazenda.
+
+    Regras:
+    - is_owner (TenantUsuario) → acesso irrestrito
+    - FazendaUsuario existe com vigencia_fim NULL ou >= hoje → acesso permitido
+    - Caso contrário → 403
+
+    Uso:
+        @router.get("/{fazenda_id}/dados")
+        async def endpoint(
+            fazenda_id: uuid.UUID,
+            _: bool = Depends(require_fazenda_access("fazenda_id")),
+            ...
+        )
+    """
+    async def _dependency(
+        request: Request,
+        claims: dict = Depends(get_current_user_claims),
+        session: AsyncSession = Depends(get_session),
+    ) -> bool:
+        from core.models.auth import TenantUsuario, FazendaUsuario
+        from datetime import date as date_type
+
+        tenant_id_str = claims.get("tenant_id")
+        user_id_str = claims.get("sub")
+        if not tenant_id_str or not user_id_str:
+            raise HTTPException(status_code=403, detail="Contexto de tenant/usuário ausente")
+
+        tenant_id = uuid.UUID(tenant_id_str)
+        user_id = uuid.UUID(user_id_str)
+
+        # Resolve fazenda_id do path param ou header
+        fazenda_id_value = request.path_params.get(fazenda_id_param) or request.headers.get("x-fazenda-id")
+        if not fazenda_id_value:
+            return True  # Sem contexto de fazenda — deixa passar (outro gate cuida)
+
+        try:
+            fazenda_id = uuid.UUID(str(fazenda_id_value))
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Parâmetro '{fazenda_id_param}' inválido")
+
+        # is_owner → acesso total
+        tu_result = await session.execute(
+            select(TenantUsuario).where(
+                TenantUsuario.tenant_id == tenant_id,
+                TenantUsuario.usuario_id == user_id,
+                TenantUsuario.status == "ATIVO",
+                TenantUsuario.is_owner == True,
+            )
+        )
+        if tu_result.scalar_one_or_none():
+            return True
+
+        # Verificar FazendaUsuario com vigência válida
+        hoje = date_type.today()
+        fu_result = await session.execute(
+            select(FazendaUsuario).where(
+                FazendaUsuario.tenant_id == tenant_id,
+                FazendaUsuario.usuario_id == user_id,
+                FazendaUsuario.fazenda_id == fazenda_id,
+            )
+        )
+        fu = fu_result.scalar_one_or_none()
+
+        if not fu:
+            logger.warning(
+                f"require_fazenda_access: user {user_id} tentou acessar fazenda {fazenda_id} "
+                f"sem FazendaUsuario. tenant={tenant_id}"
+            )
+            raise HTTPException(status_code=403, detail="Acesso negado: sem permissão para esta propriedade")
+
+        # Verificar vigência em runtime (não depende do JWT)
+        if fu.vigencia_fim and fu.vigencia_fim < hoje:
+            logger.warning(
+                f"require_fazenda_access: acesso expirado — user {user_id} fazenda {fazenda_id} "
+                f"vigencia_fim={fu.vigencia_fim}"
+            )
+            raise HTTPException(
+                status_code=403,
+                detail=f"Acesso expirado em {fu.vigencia_fim.strftime('%d/%m/%Y')}. "
+                       "Contate o gestor da assinatura para renovar."
+            )
+
+        if fu.vigencia_inicio and fu.vigencia_inicio > hoje:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Acesso liberado apenas a partir de {fu.vigencia_inicio.strftime('%d/%m/%Y')}."
+            )
+
+        return True
+    return _dependency
+
     return _dependency

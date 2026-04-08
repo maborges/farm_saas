@@ -86,6 +86,10 @@ class FazendaUsuario(Base):
         comment="Se NULL, usa o perfil do TenantUsuario. Se preenchido, sobrescreve para esta fazenda."
     )
 
+    # Vigência do acesso a esta fazenda (opcional — NULL = permanente)
+    vigencia_inicio: Mapped[date | None] = mapped_column(Date, nullable=True, comment="Início da vigência do acesso. NULL = imediato")
+    vigencia_fim: Mapped[date | None] = mapped_column(Date, nullable=True, comment="Fim da vigência do acesso. NULL = permanente", index=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
