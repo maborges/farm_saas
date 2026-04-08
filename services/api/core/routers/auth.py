@@ -4,7 +4,7 @@ from sqlalchemy import select
 import uuid
 
 from core.dependencies import get_session, get_current_user_claims, get_current_user
-from core.schemas.auth_schemas import LoginRequest, UserCreateRequest, TokenResponse, UsuarioMeResponse
+from core.schemas.auth_schemas import LoginRequest, UserCreateRequest, UserUpdateRequest, TokenResponse, UsuarioMeResponse
 from core.schemas.auth_schemas import (
     LoginDesbloqueioRequest, LoginDesbloqueioResponse,
     LoginTentativasInfoResponse
@@ -67,6 +67,33 @@ async def login(request: Request, dados: LoginRequest, session: AsyncSession = D
 async def get_me(claims: dict = Depends(get_current_user_claims), session: AsyncSession = Depends(get_session)):
     svc = AuthService(session)
     user_id = uuid.UUID(claims["sub"])
+    return await svc.get_user_me(user_id)
+
+
+@router.put("/me", response_model=UsuarioMeResponse, summary="Atualiza dados do perfil do usuário logado")
+async def update_me(
+    dados: UserUpdateRequest,
+    claims: dict = Depends(get_current_user_claims),
+    session: AsyncSession = Depends(get_session),
+):
+    """Permite ao usuário atualizar nome, telefone e foto de perfil."""
+    user_id = uuid.UUID(claims["sub"])
+    result = await session.execute(select(Usuario).where(Usuario.id == user_id))
+    usuario = result.scalar_one_or_none()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    if dados.nome_completo is not None:
+        usuario.nome_completo = dados.nome_completo
+    if dados.telefone is not None:
+        usuario.telefone = dados.telefone
+    if dados.foto_perfil_url is not None:
+        usuario.foto_perfil_url = dados.foto_perfil_url
+
+    await session.commit()
+    await session.refresh(usuario)
+
+    svc = AuthService(session)
     return await svc.get_user_me(user_id)
 
 

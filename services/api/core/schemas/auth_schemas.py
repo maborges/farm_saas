@@ -1,4 +1,5 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from core.utils.cpf_cnpj import validar_cpf
 from uuid import UUID
 from datetime import datetime, date
 from typing import List, Optional
@@ -84,6 +85,16 @@ class UserCreateRequest(BaseModel):
     senha: str
     cpf: Optional[str] = Field(None, min_length=11, max_length=11, description="CPF sem formatação, 11 dígitos")
     telefone: Optional[str] = None
+
+    @field_validator("cpf")
+    @classmethod
+    def cpf_valido(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        digits = "".join(c for c in v if c.isdigit())
+        if not validar_cpf(digits):
+            raise ValueError("CPF inválido — verifique os dígitos verificadores")
+        return digits
 
 class UserUpdateRequest(BaseModel):
     nome_completo: Optional[str] = None
