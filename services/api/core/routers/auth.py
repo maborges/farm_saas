@@ -70,6 +70,15 @@ async def get_me(claims: dict = Depends(get_current_user_claims), session: Async
     return await svc.get_user_me(user_id)
 
 
+@router.get("/my-tenants", summary="Lista os tenants acessíveis pelo usuário logado (sem validação de billing)")
+async def get_my_tenants(claims: dict = Depends(get_current_user_claims), session: AsyncSession = Depends(get_session)):
+    """Endpoint leve para o TenantSwitcher — retorna apenas tenant_id e nome_tenant."""
+    svc = AuthService(session)
+    user_id = uuid.UUID(claims["sub"])
+    me = await svc.get_user_me(user_id)
+    return {"tenants": [{"tenant_id": str(t.tenant_id), "nome_tenant": t.nome_tenant, "is_owner": t.is_owner, "fazendas": [{"fazenda_id": str(f.fazenda_id), "nome": f.nome} for f in t.fazendas]} for t in me.tenants]}
+
+
 @router.put("/me", response_model=UsuarioMeResponse, summary="Atualiza dados do perfil do usuário logado")
 async def update_me(
     dados: UserUpdateRequest,
