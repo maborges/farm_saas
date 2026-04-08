@@ -233,7 +233,7 @@ async def _get_modulos_do_grupo(
         .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
         .where(
             AssinaturaTenant.tenant_id == tenant_id,
-            AssinaturaTenant.status == "ATIVA",
+            AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
             AssinaturaTenant.tipo_assinatura == "GRUPO",
         )
     )
@@ -319,7 +319,7 @@ def require_tier(minimum_tier: "PlanTier"):
                 .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
                 .where(
                     AssinaturaTenant.tenant_id == tenant_id,
-                    AssinaturaTenant.status == "ATIVA",
+                    AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
                     AssinaturaTenant.tipo_assinatura == "GRUPO",
                 )
             )
@@ -584,8 +584,8 @@ def require_limit(limit_type: str):
             .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
             .where(
                 AssinaturaTenant.tenant_id == tenant_id,
-                AssinaturaTenant.status == "ATIVA",
-                AssinaturaTenant.tipo_assinatura == "GRUPO",
+                AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
+                AssinaturaTenant.tipo_assinatura.in_(["GRUPO", "PRINCIPAL"]),
             )
         )
         if grupo_id:
@@ -720,7 +720,7 @@ def check_limit_soft(limit_type: str) -> dict:
             .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
             .where(
                 AssinaturaTenant.tenant_id == tenant_id,
-                AssinaturaTenant.status == "ATIVA",
+                AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
                 AssinaturaTenant.tipo_assinatura == "GRUPO",
             )
         )
