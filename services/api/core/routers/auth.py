@@ -4,7 +4,7 @@ from sqlalchemy import select
 import uuid
 
 from core.dependencies import get_session, get_current_user_claims, get_current_user
-from core.schemas.auth_schemas import LoginRequest, UserCreateRequest, UserUpdateRequest, TokenResponse, UsuarioMeResponse
+from core.schemas.auth_schemas import LoginRequest, UserCreateRequest, UserUpdateRequest, TokenResponse, UsuarioMeResponse, CreateSubscriptionRequest, CreateSubscriptionResponse
 from core.schemas.auth_schemas import (
     LoginDesbloqueioRequest, LoginDesbloqueioResponse,
     LoginTentativasInfoResponse
@@ -77,6 +77,33 @@ async def get_my_tenants(claims: dict = Depends(get_current_user_claims), sessio
     user_id = uuid.UUID(claims["sub"])
     me = await svc.get_user_me(user_id)
     return {"tenants": [{"tenant_id": str(t.tenant_id), "nome_tenant": t.nome_tenant, "is_owner": t.is_owner, "fazendas": [{"fazenda_id": str(f.fazenda_id), "nome": f.nome} for f in t.fazendas]} for t in me.tenants]}
+
+
+@router.post("/create-subscription", response_model=CreateSubscriptionResponse, summary="Cria nova assinatura (tenant) para usuário logado")
+async def create_subscription(
+    data: CreateSubscriptionRequest,
+    request: Request,
+    claims: dict = Depends(get_current_user_claims),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Permite que um usuário já autenticado crie uma nova assinatura (novo produtor/tenant).
+    Retorna um JWT no contexto do tenant recém-criado para switch automático.
+    """
+    user_id = uuid.UUID(claims["sub"])
+    svc = AuthService(session)
+    ip = request.client.host if request.client else None
+    ua = request.headers.get("user-agent")
+    result = await svc.create_tenant_for_user(
+        user_id=user_id,
+        nome=data.nome,
+        plano_id=data.plano_id,
+        ciclo=data.ciclo,
+        cpf_cnpj=data.cpf_cnpj,
+        ip_address=ip,
+        user_agent=ua,
+    )
+    return result
 
 
 @router.put("/me", response_model=UsuarioMeResponse, summary="Atualiza dados do perfil do usuário logado")

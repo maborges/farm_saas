@@ -656,6 +656,101 @@ class AuthService:
         )
         return response
 
+    # ==================== CRIAÇÃO DE NOVA ASSINATURA ====================
+
+    async def create_tenant_for_user(
+        self,
+        user_id: uuid.UUID,
+        nome: str,
+        plano_id: uuid.UUID,
+        ciclo: str = "MENSAL",
+        cpf_cnpj: str | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> dict:
+        """
+        Cria um novo tenant (assinatura/produtor) para um usuário já autenticado.
+        Retorna um novo JWT no contexto do tenant recém-criado.
+        """
+        from core.models.grupo_fazendas import GrupoFazendas
+
+        # Verificar plano
+        plano = (await self.session.execute(
+            select(PlanoAssinatura).where(PlanoAssinatura.id == plano_id, PlanoAssinatura.ativo == True)
+        )).scalar_one_or_none()
+        if not plano:
+            raise HTTPException(status_code=404, detail="Plano não encontrado")
+
+        agora = datetime.now(timezone.utc)
+
+        # 1. Criar Tenant
+        tenant = Tenant(nome=nome, documento=cpf_cnpj or "", slug="", ativo=True)
+        self.session.add(tenant)
+        await self.session.flush()  # gera tenant.id
+
+        # 2. Vincular usuário como owner
+        tu = TenantUsuario(
+            tenant_id=tenant.id,
+            usuario_id=user_id,
+            is_owner=True,
+            status="ATIVO",
+        )
+        self.session.add(tu)
+
+        # 3. Criar grupo default
+        grupo = GrupoFazendas(
+            tenant_id=tenant.id,
+            nome=nome,
+            ativo=True,
+        )
+        self.session.add(grupo)
+        await self.session.flush()
+
+        # 4. Vincular usuário ao grupo
+        gu = GrupoUsuario(
+            tenant_id=tenant.id,
+            grupo_id=grupo.id,
+            user_id=user_id,
+        )
+        self.session.add(gu)
+
+        # 5. Criar assinatura
+        is_trial = not plano.is_free and plano.tem_trial
+        if plano.is_free:
+            status_assin = "ATIVA"
+            trial_expira_em = None
+            primeiro_vencimento = None
+        else:
+            status_assin = "PENDENTE_PAGAMENTO"
+            trial_expira_em = agora + timedelta(days=plano.dias_trial)
+            # Vencimento = último dia do trial
+            primeiro_vencimento = trial_expira_em.date()
+
+        assin = AssinaturaTenant(
+            tenant_id=tenant.id,
+            plano_id=plano.id,
+            grupo_fazendas_id=grupo.id,
+            tipo_assinatura="GRUPO",
+            ciclo_pagamento=ciclo,
+            status=status_assin,
+            data_inicio=agora,
+            data_proxima_renovacao=trial_expira_em,
+        )
+        self.session.add(assin)
+        await self.session.commit()
+
+        # 6. Gerar token no contexto do novo tenant
+        token = await self.generate_token_for_tenant(user_id, tenant.id, ip_address, user_agent)
+
+        return {
+            "access_token": token,
+            "tenant_id": tenant.id,
+            "nome_tenant": nome,
+            "is_trial": is_trial,
+            "trial_expira_em": trial_expira_em,
+            "data_primeiro_vencimento": primeiro_vencimento,
+        }
+
     # ==================== RECUPERAÇÃO DE SENHA ====================
 
     async def create_password_reset_token(self, email: str, ip_address: Optional[str] = None) -> dict:

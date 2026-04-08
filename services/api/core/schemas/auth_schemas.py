@@ -101,6 +101,21 @@ class UserUpdateRequest(BaseModel):
     telefone: Optional[str] = None
     foto_perfil_url: Optional[str] = None
 
+class CreateSubscriptionRequest(BaseModel):
+    """Criação de nova assinatura (tenant) por um usuário já logado."""
+    nome: str = Field(..., min_length=2, max_length=200, description="Nome do produtor ou empresa")
+    cpf_cnpj: Optional[str] = Field(None, description="CPF ou CNPJ — opcional no cadastro inicial")
+    plano_id: UUID
+    ciclo: str = Field("MENSAL", pattern="^(MENSAL|ANUAL)$")
+
+class CreateSubscriptionResponse(BaseModel):
+    access_token: str
+    tenant_id: UUID
+    nome_tenant: str
+    is_trial: bool
+    trial_expira_em: Optional[datetime] = None
+    data_primeiro_vencimento: Optional[date] = None
+
 # ==================== SCHEMAS PARA RECUPERAÇÃO DE SENHA ====================
 
 class ForgotPasswordRequest(BaseModel):
