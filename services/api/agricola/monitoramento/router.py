@@ -24,7 +24,7 @@ async def listar_catalogo(
     cultura: str | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
 ):
     svc = MonitoramentoCatalogoService(session, tenant_id)
     items = await svc.listar(tipo=tipo, cultura=cultura)
@@ -36,7 +36,7 @@ async def criar_catalogo(
     dados: MonitoramentoCatalogoCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = MonitoramentoCatalogoService(session, tenant_id)
@@ -51,7 +51,7 @@ async def criar_monitoramento(
     dados: MonitoramentoPragasCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
     user: dict = Depends(require_role(["agronomo", "admin", "operador"])),
 ):
     svc = MonitoramentoService(session, tenant_id)
@@ -69,7 +69,7 @@ async def listar_por_safra(
     talhao_id: UUID | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
 ):
     svc = MonitoramentoService(session, tenant_id)
     registros = await svc.listar_por_safra(safra_id, tipo=tipo, talhao_id=talhao_id)
@@ -81,7 +81,7 @@ async def detalhar_monitoramento(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
 ):
     svc = MonitoramentoService(session, tenant_id)
     return MonitoramentoPragasResponse.model_validate(await svc.get_or_fail(id))
@@ -93,7 +93,7 @@ async def atualizar_monitoramento(
     dados: MonitoramentoPragasUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = MonitoramentoService(session, tenant_id)
@@ -108,7 +108,7 @@ async def deletar_monitoramento(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = MonitoramentoService(session, tenant_id)
@@ -121,7 +121,7 @@ async def diagnosticar_avulso(
     foto: UploadFile = File(...),
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
     user: dict = Depends(require_role(["agronomo", "admin", "operador"])),
 ):
     """Diagnóstico IA rápido antes de salvar o registro."""

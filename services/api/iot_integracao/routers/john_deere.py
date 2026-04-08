@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from core.database import get_db
-from core.dependencies import get_current_tenant
+from core.dependencies import get_current_tenant, require_module
 
-router = APIRouter(prefix="/john_deere", tags=["John_Deere"])
+router = APIRouter(prefix="/john_deere", tags=["John_Deere"], dependencies=[Depends(require_module("EXT_IOT"))])
 
 
 @router.get("/")

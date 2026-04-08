@@ -3,7 +3,7 @@ from typing import List, Optional
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_session, get_tenant_id, require_module
+from core.dependencies import get_session, get_tenant_id, require_module, require_limit
 from financeiro.schemas.plano_conta_schema import (
     PlanoContaCreate,
     PlanoContaUpdate,
@@ -15,7 +15,10 @@ from financeiro.services.plano_conta_service import PlanoContaService
 router = APIRouter(
     prefix="/planos-conta",
     tags=["Financeiro - Plano de Contas (F1)"],
-    dependencies=[Depends(require_module("F1"))],
+    dependencies=[
+        Depends(require_module("F1_TESOURARIA")),
+        Depends(require_limit("max_categorias_plano")),  # ← Valida limite de categorias!
+    ],
 )
 
 

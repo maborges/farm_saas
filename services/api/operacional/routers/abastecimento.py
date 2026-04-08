@@ -18,7 +18,7 @@ from operacional.services.abastecimento_service import AbastecimentoService
 router = APIRouter(
     prefix="/frota/abastecimentos",
     tags=["Frota — Abastecimentos"],
-    dependencies=[Depends(require_module("O1"))],
+    dependencies=[Depends(require_module("O1_FROTA"))],
 )
 
 @router.get("/", response_model=list[AbastecimentoResponse])

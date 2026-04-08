@@ -14,7 +14,7 @@ router = APIRouter(prefix="/agricola/dashboard", tags=["Dashboard Agrícola"])
 async def dashboard_agricola(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = DashboardAgricolaService(session, tenant_id)
     return await svc.resumo()
@@ -55,7 +55,7 @@ async def verificar_alertas(
     background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     async def _run():
         svc = AlertasAgricolasService(session, tenant_id)

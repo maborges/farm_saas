@@ -65,7 +65,7 @@ class EmailService:
                     username=user,
                     password=pwd,
                     use_tls=port == 465,
-                    starttls=port == 587
+                    start_tls=port == 587
                 )
             else:
                 await aiosmtplib.send(message, hostname=host, port=port)
@@ -110,8 +110,21 @@ class EmailService:
             remetente=remetente,
             nome_tenant=tenant_nome,
             perfil_nome=perfil_nome,
-            invite_url=f"http://localhost:3000/accept-invite?token={token}"
+            invite_url=f"{settings.frontend_url}/convite/aceitar?token={token}"
         )
         await self._send(email, f"Convite: {tenant_nome} no AgroSaaS", html, tenant_id)
+
+    async def send_password_recovery(self, email: str, nome_usuario: str, token: str, tenant_id: uuid.UUID = None):
+        """Envia e-mail de recuperação de senha com token expirável."""
+        template = self.env.get_template("emails/password_reset.html")
+        reset_url = f"{settings.frontend_url}/reset-password?token={token}"
+        from datetime import datetime
+        html = template.render(
+            nome_usuario=nome_usuario,
+            email_usuario=email,
+            reset_url=reset_url,
+            data_solicitacao=datetime.now().strftime("%d/%m/%Y às %H:%M")
+        )
+        await self._send(email, "Recuperação de Senha - AgroSaaS 🔑", html, tenant_id)
 
 email_service = EmailService()

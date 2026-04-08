@@ -18,11 +18,16 @@ class Tenant(Base):
     )  # CPF/CNPJ
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    # Controle de SaaS e Billing
-    modulos_ativos: Mapped[list[str]] = mapped_column(
-        JSON, default=list
-    )  # Ex: ["CORE", "A1", "A2", "O1", "P1"]
-    max_usuarios_simultaneos: Mapped[int] = mapped_column(default=5)
+    # DEPRECATED: módulos e limites agora vivem em AssinaturaTenant por GrupoFazendas.
+    # Mantidos nullable para migration não-destrutiva — remover após todas as leituras migrarem.
+    modulos_ativos: Mapped[list[str] | None] = mapped_column(
+        JSON, nullable=True, default=None,
+        comment="DEPRECATED: use AssinaturaTenant.modulos_inclusos via grupo"
+    )
+    max_usuarios_simultaneos: Mapped[int | None] = mapped_column(
+        nullable=True, default=None,
+        comment="DEPRECATED: use AssinaturaTenant.usuarios_contratados via grupo"
+    )
 
     # Storage
     storage_usado_mb: Mapped[int] = mapped_column(Integer, default=0)
@@ -41,6 +46,9 @@ class Tenant(Base):
         String(150), unique=True, index=True
     )
     
+    # Onboarding wizard de configuração inicial concluído
+    onboarding_configuracao_completo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     # Onboarding — token de ativação enviado por email após conversão de lead
     activation_token: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     activation_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

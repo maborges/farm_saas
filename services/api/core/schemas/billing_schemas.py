@@ -7,11 +7,13 @@ class PlanoAssinaturaBase(BaseModel):
     nome: str
     descricao: Optional[str] = None
     modulos_inclusos: List[str] = ["CORE"]
-    limite_usuarios: int = 5
+    limite_usuarios_minimo: int = 1
+    limite_usuarios_maximo: Optional[int] = None
     limite_hectares: Optional[float] = None
     preco_mensal: float = 0.0
     preco_anual: float = 0.0
     ativo: bool = True
+    is_default: bool = False
     disponivel_site: bool = False
     disponivel_crm: bool = True
 
@@ -22,11 +24,13 @@ class PlanoAssinaturaUpdate(BaseModel):
     nome: Optional[str] = None
     descricao: Optional[str] = None
     modulos_inclusos: Optional[List[str]] = None
-    limite_usuarios: Optional[int] = None
+    limite_usuarios_minimo: Optional[int] = None
+    limite_usuarios_maximo: Optional[int] = None
     limite_hectares: Optional[float] = None
     preco_mensal: Optional[float] = None
     preco_anual: Optional[float] = None
     ativo: Optional[bool] = None
+    is_default: Optional[bool] = None
     disponivel_site: Optional[bool] = None
     disponivel_crm: Optional[bool] = None
 

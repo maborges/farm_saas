@@ -16,7 +16,7 @@ async def sincronizar_api_clima(
     fazenda_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = ClimaService(session, tenant_id)
     msg = await svc.sync_open_meteo(fazenda_id)
@@ -28,7 +28,7 @@ async def historico_clima(
     dias: int = 30,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = ClimaService(session, tenant_id)
     hoje = date.today()
@@ -42,7 +42,7 @@ async def acumulado_chuva(
     dias: int = 30,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = ClimaService(session, tenant_id)
     acumulado = await svc.get_chuva_acumulada(fazenda_id, dias)

@@ -2,3 +2,11 @@ node_modules
 .agent
 .agents
 .claude
+.venv
+**/.venv
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+.env.local
+**/.env.local

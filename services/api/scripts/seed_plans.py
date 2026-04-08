@@ -23,31 +23,37 @@ async def seed_plans():
                 nome="Bronze (Essencial)",
                 descricao="Ideal para pequenos produtores começando a digitalização. Inclui gestão financeira básica e acesso a 1 fazenda.",
                 modulos_inclusos=["CORE", "F1"],
-                limite_usuarios=2,
+                limite_usuarios_minimo=1,
+                limite_usuarios_maximo=2,
                 limite_hectares=100.0,
                 preco_mensal=199.90,
                 preco_anual=1990.00,
-                ativo=True
+                ativo=True,
+                is_default=False
             ),
             PlanoAssinatura(
                 nome="Prata (Profissional)",
                 descricao="Controle completo da lavoura e finanças. Gestão de estoque, máquinas e apontamentos de campo.",
                 modulos_inclusos=["CORE", "F1", "A1", "O1"],
-                limite_usuarios=5,
+                limite_usuarios_minimo=1,
+                limite_usuarios_maximo=5,
                 limite_hectares=1000.0,
                 preco_mensal=499.90,
                 preco_anual=4990.00,
-                ativo=True
+                ativo=True,
+                is_default=True  # Plano padrão para onboarding
             ),
             PlanoAssinatura(
                 nome="Ouro (Empresarial)",
                 descricao="A solução definitiva. Integra rebanho, lavoura, agronomia avançada e suporte prioritário.",
                 modulos_inclusos=["CORE", "F1", "A1", "O1", "P1", "A2"],
-                limite_usuarios=20,
+                limite_usuarios_minimo=1,
+                limite_usuarios_maximo=20,
                 limite_hectares=None, # Ilimitado
                 preco_mensal=999.90,
                 preco_anual=9990.00,
-                ativo=True
+                ativo=True,
+                is_default=False
             )
         ]
 

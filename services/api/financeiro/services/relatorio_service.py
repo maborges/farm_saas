@@ -10,7 +10,7 @@ from financeiro.models.despesa import Despesa
 from financeiro.models.receita import Receita
 from financeiro.models.rateio import Rateio
 from agricola.safras.models import Safra
-from agricola.talhoes.models import Talhao
+from core.cadastros.propriedades.models import AreaRural
 from financeiro.models.plano_conta import PlanoConta
 from financeiro.schemas.relatorio_schema import (
     FluxoCaixaPeriodo,
@@ -327,7 +327,10 @@ class RelatorioService:
             for s in (await self.session.execute(safras_stmt)).scalars().all()
         }
 
-        talhoes_stmt = select(Talhao).where(Talhao.tenant_id == self.tenant_id)
+        talhoes_stmt = select(AreaRural).where(
+            AreaRural.tenant_id == self.tenant_id,
+            AreaRural.tipo == "TALHAO",
+        )
         talhoes = {
             t.id: t
             for t in (await self.session.execute(talhoes_stmt)).scalars().all()

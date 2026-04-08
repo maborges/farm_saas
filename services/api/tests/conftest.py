@@ -12,6 +12,8 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy import text
 from core.database import Base
 from core.models import Tenant, Fazenda
+from core.models.grupo_fazendas import GrupoFazendas
+from core.models.billing import AssinaturaTenant, PlanoAssinatura
 from core.config import settings
 
 # UUIDs fixos para garantir consistência entre importações do módulo
@@ -88,7 +90,7 @@ async def session_a():
         pass
     async_session = async_sessionmaker(engine, expire_on_commit=False)
     async with async_session() as setup_sess:
-        setup_sess.add(Tenant(id=TENANT_A_ID, nome="Tenant A", documento=str(TENANT_A_ID)[:11], ativo=True, modulos_ativos=[]))
+        setup_sess.add(Tenant(id=TENANT_A_ID, nome="Tenant A", documento=str(TENANT_A_ID)[:11], ativo=True))
         try:
             await setup_sess.commit()
         except Exception as e:
@@ -116,7 +118,7 @@ async def session_b():
         pass
     async_session = async_sessionmaker(engine, expire_on_commit=False)
     async with async_session() as setup_sess:
-        setup_sess.add(Tenant(id=TENANT_B_ID, nome="Tenant B", documento=str(TENANT_B_ID)[:11], ativo=True, modulos_ativos=[]))
+        setup_sess.add(Tenant(id=TENANT_B_ID, nome="Tenant B", documento=str(TENANT_B_ID)[:11], ativo=True))
         try:
             await setup_sess.commit()
         except Exception:
@@ -131,21 +133,55 @@ async def session_b():
 
 @pytest.fixture
 async def fazenda_id(session, tenant_id: uuid.UUID) -> uuid.UUID:
-    # Cria tenant usando ON CONFLICT DO NOTHING para evitar PendingRollbackError
+    # Cria tenant
     await session.execute(
         text(
-            "INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, "
+            "INSERT INTO tenants (id, nome, documento, ativo, "
             "storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at) "
-            "VALUES (:id, :nome, :doc, true, '[]', 5, 0, 10240, 'pt-BR', now(), now()) "
+            "VALUES (:id, :nome, :doc, true, 0, 10240, 'pt-BR', now(), now()) "
             "ON CONFLICT DO NOTHING"
         ),
         {"id": str(tenant_id), "nome": "Tenant Teste", "doc": str(tenant_id)[:11]},
     )
-    
+
+    # Cria plano base se não existir
+    plano_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+    await session.execute(
+        text(
+            "INSERT INTO planos_assinatura (id, nome, modulos_inclusos, limite_usuarios_minimo, limite_usuarios_maximo, "
+            "preco_mensal, preco_anual, max_fazendas, max_categorias_plano, tem_trial, dias_trial, is_free, "
+            "destaque, ordem, ativo, disponivel_site, disponivel_crm, created_at) "
+            "VALUES (:id, 'Plano Teste', '[\"CORE\",\"A1\"]'::json, 1, 5, 0, 0, -1, -1, false, 15, false, false, 0, true, false, true, now()) "
+            "ON CONFLICT DO NOTHING"
+        ),
+        {"id": str(plano_id)},
+    )
+
+    # Cria grupo de fazendas
+    grupo = GrupoFazendas(
+        id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        nome="Grupo Teste",
+    )
+    session.add(grupo)
+    await session.flush()
+
+    # Cria assinatura vinculada ao grupo
+    assinatura = AssinaturaTenant(
+        tenant_id=tenant_id,
+        plano_id=plano_id,
+        grupo_fazendas_id=grupo.id,
+        tipo_assinatura="GRUPO",
+        status="ATIVA",
+    )
+    session.add(assinatura)
+
+    # Cria fazenda vinculada ao grupo
     fazenda = Fazenda(
         id=uuid.uuid4(),
         tenant_id=tenant_id,
         nome="Fazenda Teste",
+        grupo_id=grupo.id,
         ativo=True,
     )
     session.add(fazenda)

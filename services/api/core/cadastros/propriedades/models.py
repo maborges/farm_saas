@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Boolean, DateTime, Float, ForeignKey, Text, JSON, UniqueConstraint
+from sqlalchemy import String, Boolean, DateTime, Float, ForeignKey, Text, JSON, Numeric, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Uuid as UUID
 from core.database import Base
@@ -142,6 +142,12 @@ class AreaRural(Base):
         back_populates="area", lazy="noload", cascade="all, delete-orphan",
         order_by="ValorPatrimonial.data_avaliacao.desc()"
     )
+    infraestruturas: Mapped[list["Infraestrutura"]] = relationship(
+        back_populates="area_rural", lazy="noload", cascade="all, delete-orphan"
+    )
+    arquivos_geo: Mapped[list["ArquivoGeo"]] = relationship(
+        back_populates="area_rural", lazy="noload", cascade="all, delete-orphan"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +228,103 @@ class RegistroAmbiental(Base):
 # ---------------------------------------------------------------------------
 # ValorPatrimonial — histórico de avaliações para fins contábeis/patrimoniais
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Infraestrutura — benfeitorias físicas da propriedade
+# ---------------------------------------------------------------------------
+
+class TipoInfraestrutura(str, enum.Enum):
+    SEDE      = "sede"
+    SILO      = "silo"
+    CURRAL    = "curral"
+    GALPAO    = "galpao"
+    OFICINA   = "oficina"
+    OUTRO     = "outro"
+
+
+class Infraestrutura(Base):
+    """
+    Benfeitoria física de uma propriedade rural.
+    Vinculada a AreaRural tipo PROPRIEDADE (fazenda_id lógico).
+    """
+    __tablename__ = "cadastros_infraestruturas"
+    __table_args__ = (
+        Index("ix_infraestruturas_tenant_area", "tenant_id", "area_rural_id"),
+        Index("ix_infraestruturas_tenant_tipo", "tenant_id", "tipo"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    area_rural_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cadastros_areas_rurais.id", ondelete="CASCADE"), nullable=False
+    )
+    nome: Mapped[str] = mapped_column(String(100), nullable=False)
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False)
+    capacidade: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    unidade_capacidade: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Numeric(10, 8), nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Numeric(11, 8), nullable=True)
+    observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    area_rural: Mapped["AreaRural"] = relationship("AreaRural", back_populates="infraestruturas", lazy="noload")
+
+
+# ---------------------------------------------------------------------------
+# ArquivoGeo — auditoria de uploads de arquivos geoespaciais
+# ---------------------------------------------------------------------------
+
+class FormatoArquivoGeo(str, enum.Enum):
+    SHP     = "shp"
+    KML     = "kml"
+    KMZ     = "kmz"
+    GEOJSON = "geojson"
+
+
+class StatusProcessamentoGeo(str, enum.Enum):
+    PENDENTE    = "PENDENTE"
+    PROCESSADO  = "PROCESSADO"
+    ERRO        = "ERRO"
+
+
+class ArquivoGeo(Base):
+    """
+    Registro de auditoria de uploads de arquivos geoespaciais.
+    O arquivo binário fica no storage (local/S3/MinIO); aqui ficam os metadados.
+    """
+    __tablename__ = "cadastros_arquivos_geo"
+    __table_args__ = (
+        Index("ix_arquivos_geo_tenant_area", "tenant_id", "area_rural_id"),
+        Index("ix_arquivos_geo_tenant_status", "tenant_id", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    area_rural_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cadastros_areas_rurais.id", ondelete="CASCADE"), nullable=False
+    )
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
+    nome_arquivo: Mapped[str] = mapped_column(String(255), nullable=False)
+    formato: Mapped[str] = mapped_column(String(10), nullable=False)
+    tamanho_bytes: Mapped[int] = mapped_column(nullable=False)
+    storage_backend: Mapped[str] = mapped_column(String(10), nullable=False)
+    storage_path: Mapped[str] = mapped_column(String(512), nullable=False)
+
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default=StatusProcessamentoGeo.PENDENTE)
+    poligonos_extraidos: Mapped[int | None] = mapped_column(nullable=True)
+    area_ha_extraida: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+    erro_msg: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    area_rural: Mapped["AreaRural"] = relationship("AreaRural", back_populates="arquivos_geo", lazy="noload")
+
 
 class MetodoAvaliacao(str, enum.Enum):
     MERCADO   = "MERCADO"    # Valor de mercado (comparativo)

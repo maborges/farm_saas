@@ -14,7 +14,7 @@ async def criar_prescricao(
     dados: PrescricaoVRACreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A4_PRECISAO")),
 ):
     svc = PrescricaoService(session, tenant_id)
     obj = await svc.create(dados.model_dump())
@@ -26,7 +26,7 @@ async def listar_prescricoes(
     talhao_id: UUID | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A4_PRECISAO")),
 ):
     svc = PrescricaoService(session, tenant_id)
     filters = {}
@@ -38,7 +38,7 @@ async def detalhar_prescricao(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A4_PRECISAO")),
 ):
     svc = PrescricaoService(session, tenant_id)
     return await svc.get_or_fail(id)

@@ -1,20 +1,125 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Query
 from typing import List, Optional
 from uuid import UUID
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_tenant_id, get_session_with_tenant, require_module
-from rh.models import ColaboradorRH, LancamentoDiaria, Empreitada
 from rh.schemas import (
+    EsocialEventoCreate, EsocialEventoUpdate, EsocialEventoResponse,
+    DepartamentoCreate, DepartamentoUpdate, DepartamentoResponse,
     ColaboradorCreate, ColaboradorResponse,
-    DiarariaCreate, DiariaResponse, PagarDiariasRequest,
+    DiariaCreate, DiariaResponse, PagarDiariasRequest,
     EmpreitadaCreate, EmpreitadaResponse, ConcluirEmpreitadaRequest,
     DashboardRHResponse,
 )
-from rh.service import ColaboradorService, DiariaService, EmpreitadaService, get_dashboard_rh
+from rh.service import EsocialEventoService, DepartamentoService, ColaboradorService, DiariaService, EmpreitadaService, get_dashboard_rh
 
 router = APIRouter(prefix="/rh", tags=["RH — Recursos Humanos"])
+
+MODULE = "RH1_REMUNERACAO"
+
+
+# ── eSocial ───────────────────────────────────────────────────────────────────
+
+@router.get("/esocial/eventos", response_model=List[EsocialEventoResponse])
+async def listar_eventos_esocial(
+    tipo_evento: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    periodo: Optional[str] = Query(None),
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
+):
+    svc = EsocialEventoService(session, tenant_id)
+    return await svc.listar_filtrado(tipo_evento, status, periodo)
+
+
+@router.post("/esocial/eventos", response_model=EsocialEventoResponse, status_code=status.HTTP_201_CREATED)
+async def registrar_evento_esocial(
+    dados: EsocialEventoCreate,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
+):
+    svc = EsocialEventoService(session, tenant_id)
+    ev = await svc.criar(dados)
+    await session.commit()
+    await session.refresh(ev)
+    return ev
+
+
+@router.patch("/esocial/eventos/{evento_id}", response_model=EsocialEventoResponse)
+async def atualizar_evento_esocial(
+    evento_id: UUID,
+    dados: EsocialEventoUpdate,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
+):
+    svc = EsocialEventoService(session, tenant_id)
+    ev = await svc.atualizar(evento_id, dados)
+    await session.commit()
+    await session.refresh(ev)
+    return ev
+
+
+# ── Departamentos ─────────────────────────────────────────────────────────────
+
+@router.get("/departamentos", response_model=List[DepartamentoResponse])
+async def listar_departamentos(
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
+):
+    svc = DepartamentoService(session, tenant_id)
+    return await svc.listar_com_contagem()
+
+
+@router.post("/departamentos", response_model=DepartamentoResponse, status_code=status.HTTP_201_CREATED)
+async def criar_departamento(
+    dados: DepartamentoCreate,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
+):
+    svc = DepartamentoService(session, tenant_id)
+    dep = await svc.criar(dados)
+    await session.commit()
+    await session.refresh(dep)
+    return {**dep.__dict__, "total_colaboradores": 0}
+
+
+@router.patch("/departamentos/{departamento_id}", response_model=DepartamentoResponse)
+async def atualizar_departamento(
+    departamento_id: UUID,
+    dados: DepartamentoUpdate,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
+):
+    svc = DepartamentoService(session, tenant_id)
+    dep = await svc.atualizar(departamento_id, dados)
+    await session.commit()
+    await session.refresh(dep)
+    rows = await svc.listar_com_contagem()
+    total = next((r["total_colaboradores"] for r in rows if str(r["id"]) == str(departamento_id)), 0)
+    return {**dep.__dict__, "total_colaboradores": total}
+
+
+@router.delete("/departamentos/{departamento_id}", status_code=200)
+async def desativar_departamento(
+    departamento_id: UUID,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
+):
+    svc = DepartamentoService(session, tenant_id)
+    dep = await svc.get_or_fail(departamento_id)
+    dep.ativo = False
+    session.add(dep)
+    await session.commit()
+    return {"message": "Departamento desativado."}
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -23,6 +128,7 @@ router = APIRouter(prefix="/rh", tags=["RH — Recursos Humanos"])
 async def dashboard_rh(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
 ):
     return await get_dashboard_rh(session, tenant_id)
 
@@ -31,10 +137,11 @@ async def dashboard_rh(
 
 @router.get("/colaboradores", response_model=List[ColaboradorResponse])
 async def listar_colaboradores(
-    ativo: Optional[bool] = True,
-    tipo_contrato: Optional[str] = None,
+    ativo: Optional[bool] = Query(True),
+    tipo_contrato: Optional[str] = Query(None),
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
 ):
     svc = ColaboradorService(session, tenant_id)
     filters: dict = {}
@@ -50,6 +157,7 @@ async def criar_colaborador(
     dados: ColaboradorCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
 ):
     svc = ColaboradorService(session, tenant_id)
     col = await svc.criar(dados)
@@ -63,6 +171,7 @@ async def desativar_colaborador(
     colaborador_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
 ):
     svc = ColaboradorService(session, tenant_id)
     await svc.desativar(colaborador_id)
@@ -73,33 +182,24 @@ async def desativar_colaborador(
 
 @router.get("/diarias", response_model=List[DiariaResponse])
 async def listar_diarias(
-    colaborador_id: Optional[UUID] = None,
-    status: Optional[str] = None,
-    data_inicio: Optional[date] = None,
-    data_fim: Optional[date] = None,
+    colaborador_id: Optional[UUID] = Query(None),
+    status: Optional[str] = Query(None),
+    data_inicio: Optional[date] = Query(None),
+    data_fim: Optional[date] = Query(None),
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
 ):
-    from sqlalchemy.future import select as sa_select
-    stmt = sa_select(LancamentoDiaria).where(LancamentoDiaria.tenant_id == tenant_id)
-    if colaborador_id:
-        stmt = stmt.where(LancamentoDiaria.colaborador_id == colaborador_id)
-    if status:
-        stmt = stmt.where(LancamentoDiaria.status == status)
-    if data_inicio:
-        stmt = stmt.where(LancamentoDiaria.data >= data_inicio)
-    if data_fim:
-        stmt = stmt.where(LancamentoDiaria.data <= data_fim)
-    stmt = stmt.order_by(LancamentoDiaria.data.desc())
-    result = await session.execute(stmt)
-    return result.scalars().all()
+    svc = DiariaService(session, tenant_id)
+    return await svc.listar_filtrado(colaborador_id, status, data_inicio, data_fim)
 
 
 @router.post("/diarias", response_model=DiariaResponse, status_code=status.HTTP_201_CREATED)
 async def lancar_diaria(
-    dados: DiarariaCreate,
+    dados: DiariaCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
 ):
     svc = DiariaService(session, tenant_id)
     diaria = await svc.criar(dados)
@@ -113,6 +213,7 @@ async def pagar_diarias(
     dados: PagarDiariasRequest,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
 ):
     svc = DiariaService(session, tenant_id)
     count = await svc.pagar_lote(dados.ids, dados.data_pagamento)
@@ -123,20 +224,14 @@ async def pagar_diarias(
 
 @router.get("/empreitadas", response_model=List[EmpreitadaResponse])
 async def listar_empreitadas(
-    colaborador_id: Optional[UUID] = None,
-    status_filter: Optional[str] = None,
+    colaborador_id: Optional[UUID] = Query(None),
+    status_filter: Optional[str] = Query(None),
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
 ):
-    from sqlalchemy.future import select as sa_select
-    stmt = sa_select(Empreitada).where(Empreitada.tenant_id == tenant_id)
-    if colaborador_id:
-        stmt = stmt.where(Empreitada.colaborador_id == colaborador_id)
-    if status_filter:
-        stmt = stmt.where(Empreitada.status == status_filter)
-    stmt = stmt.order_by(Empreitada.data_inicio.desc())
-    result = await session.execute(stmt)
-    return result.scalars().all()
+    svc = EmpreitadaService(session, tenant_id)
+    return await svc.listar_filtrado(colaborador_id, status_filter)
 
 
 @router.post("/empreitadas", response_model=EmpreitadaResponse, status_code=status.HTTP_201_CREATED)
@@ -144,6 +239,7 @@ async def criar_empreitada(
     dados: EmpreitadaCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
 ):
     svc = EmpreitadaService(session, tenant_id)
     emp = await svc.criar(dados)
@@ -158,6 +254,7 @@ async def concluir_empreitada(
     dados: ConcluirEmpreitadaRequest,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
 ):
     svc = EmpreitadaService(session, tenant_id)
     return await svc.concluir(empreitada_id, dados.quantidade_final, dados.data_fim)
@@ -166,9 +263,10 @@ async def concluir_empreitada(
 @router.patch("/empreitadas/{empreitada_id}/pagar", response_model=EmpreitadaResponse)
 async def pagar_empreitada(
     empreitada_id: UUID,
-    data_pagamento: Optional[date] = None,
+    data_pagamento: Optional[date] = Query(None),
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module(MODULE)),
 ):
     svc = EmpreitadaService(session, tenant_id)
     return await svc.pagar(empreitada_id, data_pagamento)

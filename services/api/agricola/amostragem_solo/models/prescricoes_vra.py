@@ -1,6 +1,7 @@
 """Modelo para prescricoes_vra."""
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, Date, Numeric
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import relationship
 from datetime import datetime, date
 import uuid
@@ -15,9 +16,9 @@ class PrescricaoVRA(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(String(50), nullable=False, index=True)
-    fazenda_id = Column(Integer, ForeignKey("fazendas.id"), nullable=False)
-    talhao_id = Column(Integer, ForeignKey("talhoes.id"), nullable=False)
-    safra_id = Column(Integer, ForeignKey("safras.id"))
+    fazenda_id = Column(PGUUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="CASCADE"), nullable=False)
+    talhao_id = Column(PGUUID(as_uuid=True), ForeignKey("cadastros_areas_rurais.id", ondelete="SET NULL"), nullable=True)
+    safra_id = Column(PGUUID(as_uuid=True), ForeignKey("safras.id", ondelete="SET NULL"), nullable=True)
 
     # Tipo de prescrição
     tipo = Column(String(50), nullable=False)  # adubacao, calcario, corretivo
@@ -40,7 +41,7 @@ class PrescricaoVRA(Base):
 
     # Status
     status = Column(String(50), default="rascunho")  # rascunho, aprovada, aplicada
-    aprovada_por = Column(Integer, ForeignKey("usuarios.id"))
+    aprovada_por = Column(PGUUID(as_uuid=True), nullable=True)
     aprovada_em = Column(DateTime)
 
     # Responsável técnico
@@ -53,4 +54,4 @@ class PrescricaoVRA(Base):
 
     # Relacionamentos
     fazenda = relationship("Fazenda", backref="prescricoes_vra")
-    talhao = relationship("Talhao", backref="prescricoes_vra")
+    talhao = relationship("AreaRural", foreign_keys=[talhao_id])

@@ -4,6 +4,69 @@ from uuid import UUID
 from datetime import date, datetime
 
 
+# ── Departamento ──────────────────────────────────────────────────────────────
+
+class DepartamentoCreate(BaseModel):
+    nome: str
+    descricao: Optional[str] = None
+    responsavel_nome: Optional[str] = None
+
+
+class DepartamentoUpdate(BaseModel):
+    nome: Optional[str] = None
+    descricao: Optional[str] = None
+    responsavel_nome: Optional[str] = None
+    ativo: Optional[bool] = None
+
+
+class DepartamentoResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    nome: str
+    descricao: Optional[str]
+    responsavel_nome: Optional[str]
+    ativo: bool
+    created_at: datetime
+    total_colaboradores: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ── eSocial ───────────────────────────────────────────────────────────────────
+
+class EsocialEventoCreate(BaseModel):
+    colaborador_id: Optional[UUID] = None
+    colaborador_nome: Optional[str] = None
+    tipo_evento: str
+    periodo_apuracao: Optional[str] = None
+    xml_enviado: Optional[str] = None
+
+
+class EsocialEventoUpdate(BaseModel):
+    status: Optional[str] = None
+    numero_recibo: Optional[str] = None
+    codigo_erro: Optional[str] = None
+    descricao_erro: Optional[str] = None
+    enviado_em: Optional[datetime] = None
+
+
+class EsocialEventoResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    colaborador_id: Optional[UUID]
+    colaborador_nome: Optional[str]
+    tipo_evento: str
+    status: str
+    numero_recibo: Optional[str]
+    codigo_erro: Optional[str]
+    descricao_erro: Optional[str]
+    periodo_apuracao: Optional[str]
+    enviado_em: Optional[datetime]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ── Colaborador ───────────────────────────────────────────────────────────────
 
 class ColaboradorCreate(BaseModel):
@@ -29,7 +92,7 @@ class ColaboradorResponse(ColaboradorCreate):
 
 # ── Diária ────────────────────────────────────────────────────────────────────
 
-class DiarariaCreate(BaseModel):
+class DiariaCreate(BaseModel):
     colaborador_id: UUID
     data: date
     horas_trabalhadas: float = 8.0
@@ -40,7 +103,7 @@ class DiarariaCreate(BaseModel):
     observacoes: Optional[str] = None
 
 
-class DiariaResponse(DiarariaCreate):
+class DiariaResponse(DiariaCreate):
     id: UUID
     tenant_id: UUID
     status: str

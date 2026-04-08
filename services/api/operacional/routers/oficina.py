@@ -4,7 +4,7 @@ from sqlalchemy import select
 from typing import List, Optional
 import uuid
 
-from core.dependencies import get_session, get_current_tenant
+from core.dependencies import get_session, get_current_tenant, require_module
 from core.exceptions import BusinessRuleError, EntityNotFoundError
 from core.models.tenant import Tenant
 from operacional.models.frota import OrdemServico, ItemOrdemServico, RegistroManutencao, Maquinario
@@ -15,7 +15,7 @@ from operacional.schemas.frota import (
 )
 from operacional.services.frota_service import FrotaService
 
-router = APIRouter(prefix="/oficina", tags=["Operacional — Oficina"])
+router = APIRouter(prefix="/oficina", tags=["Operacional — Oficina"], dependencies=[Depends(require_module("O1_FROTA"))])
 
 
 def _svc(session: AsyncSession, tenant: Tenant) -> FrotaService:

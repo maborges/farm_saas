@@ -14,7 +14,7 @@ async def relatorio_custo_safra(
     safra_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = CustosService(session, tenant_id)
     return await svc.get_resumo_safra(safra_id)

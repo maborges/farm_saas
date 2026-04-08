@@ -18,6 +18,7 @@ from core.models.tenant import Tenant
 from core.models.billing import PlanoAssinatura, AssinaturaTenant, Fatura
 from core.models.auth import Usuario, PerfilAcesso, TenantUsuario, FazendaUsuario
 from core.models.fazenda import Fazenda
+from core.models.grupo_fazendas import GrupoFazendas, GrupoUsuario
 from core.models.crm import LeadCRM
 from core.services.plan_pricing_service import PlanoPricingService
 from core.services.asaas_service import AsaasService
@@ -203,8 +204,6 @@ async def criar_tenant(
                 documento=request.documento,
                 email_responsavel=request.email_responsavel,
                 telefone_responsavel=request.telefone_responsavel,
-                modulos_ativos=plano.modulos_inclusos,
-                max_usuarios_simultaneos=request.usuarios_contratados,
                 ativo=True
             )
             session.add(tenant)
@@ -229,16 +228,34 @@ async def criar_tenant(
             )
             session.add(tenant_usuario)
 
-            # 9. Criar primeira fazenda
+            # 9. Criar grupo de fazendas (obrigatório — assinatura pertence ao grupo)
+            grupo = GrupoFazendas(
+                tenant_id=tenant.id,
+                nome=getattr(request, "nome_grupo", None) or request.nome_tenant,
+                descricao="Grupo criado pelo backoffice"
+            )
+            session.add(grupo)
+            await session.flush()
+
+            grupo_usuario = GrupoUsuario(
+                tenant_id=tenant.id,
+                grupo_id=grupo.id,
+                user_id=usuario.id,
+                perfil_id=perfil.id
+            )
+            session.add(grupo_usuario)
+
+            # 10. Criar primeira fazenda (vinculada ao grupo)
             fazenda = Fazenda(
                 tenant_id=tenant.id,
                 nome=request.nome_fazenda,
+                grupo_id=grupo.id,
                 ativo=True
             )
             session.add(fazenda)
             await session.flush()
 
-            # 10. Vincular usuário à fazenda
+            # 11. Vincular usuário à fazenda
             fazenda_usuario = FazendaUsuario(
                 tenant_id=tenant.id,
                 usuario_id=usuario.id,
@@ -246,16 +263,14 @@ async def criar_tenant(
             )
             session.add(fazenda_usuario)
 
-            # 11. Criar assinatura
+            # 12. Criar assinatura vinculada ao grupo
             data_inicio = datetime.now(timezone.utc)
 
-            # Definir trial
             if request.com_trial:
                 dias_trial = request.dias_trial or plano.dias_trial
                 data_proxima_renovacao = data_inicio + timedelta(days=dias_trial)
                 status_assinatura = "TRIAL"
             else:
-                # Sem trial, primeira cobrança em 3 dias
                 dias_ciclo = 365 if request.ciclo_pagamento == "ANUAL" else 30
                 data_proxima_renovacao = data_inicio + timedelta(days=dias_ciclo)
                 status_assinatura = "PENDENTE"
@@ -263,7 +278,8 @@ async def criar_tenant(
             assinatura = AssinaturaTenant(
                 tenant_id=tenant.id,
                 plano_id=plano.id,
-                tipo_assinatura="PRINCIPAL",
+                grupo_fazendas_id=grupo.id,
+                tipo_assinatura="GRUPO",
                 ciclo_pagamento=request.ciclo_pagamento,
                 usuarios_contratados=request.usuarios_contratados,
                 status=status_assinatura,
@@ -366,7 +382,7 @@ async def listar_tenants(
         tenant_ids = [t.id for t in tenants]
         stmt_assinaturas = select(AssinaturaTenant).where(
             AssinaturaTenant.tenant_id.in_(tenant_ids),
-            AssinaturaTenant.tipo_assinatura == "PRINCIPAL"
+            AssinaturaTenant.tipo_assinatura == "GRUPO"
         )
         result = await session.execute(stmt_assinaturas)
         assinaturas = {a.tenant_id: a for a in result.scalars().all()}
@@ -422,7 +438,7 @@ async def obter_tenant(
         # Buscar assinatura principal
         stmt = select(AssinaturaTenant).where(
             AssinaturaTenant.tenant_id == tenant_id,
-            AssinaturaTenant.tipo_assinatura == "PRINCIPAL"
+            AssinaturaTenant.tipo_assinatura == "GRUPO"
         )
         result = await session.execute(stmt)
         assinatura = result.scalar_one_or_none()
@@ -605,8 +621,6 @@ async def converter_lead(
                 documento=request.documento,
                 email_responsavel=request.email_responsavel,
                 telefone_responsavel=request.telefone_responsavel,
-                modulos_ativos=plano.modulos_inclusos,
-                max_usuarios_simultaneos=request.usuarios_contratados,
                 ativo=False,
                 activation_token=activation_token,
                 activation_expires_at=activation_expires_at
@@ -633,11 +647,29 @@ async def converter_lead(
             )
             session.add(tenant_usuario)
 
-            # 10. Criar fazendas
+            # 10. Criar grupo de fazendas (obrigatório)
+            grupo = GrupoFazendas(
+                tenant_id=tenant.id,
+                nome=getattr(request, "nome_grupo", None) or request.nome_tenant,
+                descricao="Grupo criado pelo backoffice (conversão de lead)"
+            )
+            session.add(grupo)
+            await session.flush()
+
+            grupo_usuario = GrupoUsuario(
+                tenant_id=tenant.id,
+                grupo_id=grupo.id,
+                user_id=usuario.id,
+                perfil_id=perfil.id
+            )
+            session.add(grupo_usuario)
+
+            # 11. Criar fazendas (vinculadas ao grupo)
             for fazenda_data in request.fazendas:
                 fazenda = Fazenda(
                     tenant_id=tenant.id,
                     nome=fazenda_data.nome,
+                    grupo_id=grupo.id,
                     ativo=True
                 )
                 session.add(fazenda)
@@ -650,7 +682,7 @@ async def converter_lead(
                 )
                 session.add(fazenda_usuario)
 
-            # 11. Criar assinatura com status PENDENTE_PAGAMENTO
+            # 12. Criar assinatura vinculada ao grupo
             data_inicio = datetime.now(timezone.utc)
             dias_ciclo = 365 if request.ciclo_pagamento == "ANUAL" else 30
             data_proxima_renovacao = data_inicio + timedelta(days=dias_ciclo)
@@ -658,7 +690,8 @@ async def converter_lead(
             assinatura = AssinaturaTenant(
                 tenant_id=tenant.id,
                 plano_id=plano.id,
-                tipo_assinatura="PRINCIPAL",
+                grupo_fazendas_id=grupo.id,
+                tipo_assinatura="GRUPO",
                 ciclo_pagamento=request.ciclo_pagamento,
                 usuarios_contratados=request.usuarios_contratados,
                 status="PENDENTE_PAGAMENTO",

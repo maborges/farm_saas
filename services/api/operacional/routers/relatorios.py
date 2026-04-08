@@ -4,11 +4,15 @@ from typing import Optional
 from datetime import date, timedelta
 import uuid
 
-from core.dependencies import get_session, get_current_tenant
+from core.dependencies import get_session, get_current_tenant, require_module
 from core.models.tenant import Tenant
 from operacional.services.relatorio_service import OperacionalRelatorioService
 
-router = APIRouter(prefix="/operacional/relatorios", tags=["Operacional — Relatórios"])
+router = APIRouter(
+    prefix="/operacional/relatorios",
+    tags=["Operacional — Relatórios"],
+    dependencies=[Depends(require_module("O2_ESTOQUE"))],
+)
 
 
 def _svc(session: AsyncSession, tenant: Tenant) -> OperacionalRelatorioService:

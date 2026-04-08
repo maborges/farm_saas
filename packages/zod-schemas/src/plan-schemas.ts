@@ -12,6 +12,7 @@ export const createPlanSchema = z.object({
   billing_period: z.enum(billingPeriodValues, { required_error: "Selecione um período de cobrança" }),
   features: z.array(z.string()).min(1, "Adicione pelo menos uma funcionalidade"),
   is_active: z.boolean().default(true),
+  is_default: z.boolean().default(false),
 });
 
 export const updatePlanSchema = createPlanSchema.partial();

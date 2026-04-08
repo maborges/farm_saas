@@ -1,422 +1,638 @@
-# Grafo de Dependências de Módulos — AgroSaaS
+---
+titulo: Mapa de Dependências entre Módulos
+versao: 1.1
+data_criacao: 2026-04-01
+data_atualizacao: 2026-04-01
+base_analise:
+  - _competitive-analysis.md
+  - ../strategy/bundle-packages.md
+  - ../functional_requirements/funtionals.md
+---
 
-> Última atualização: 2026-04-01
+# Mapa de Dependências entre Módulos
 
-Este documento mapeia todos os módulos não-Core da plataforma AgroSaaS, suas dependências internas e cruzadas, níveis de contratação e perfis-alvo.
+## Visão Geral
+
+Este documento mapeia todas as dependências entre módulos e submódulos do AgroSaaS, definindo a **ordem obrigatória de implantação** e os **pontos de integração** entre sistemas.
 
 ---
 
-## Grafo Visual de Dependências (ASCII)
+## REGRAS DE DEPENDÊNCIA
+
+### Regra 1: Core é Pré-Requisito Universal
 
 ```
-                          ┌─────────────┐
-                          │    CORE      │
-                          │ (auth/tenant │
-                          │  /billing)   │
-                          └──────┬───────┘
-                                 │
-            ┌────────────────────┼────────────────────────┐
-            │                    │                         │
-     ┌──────▼──────┐     ┌──────▼──────┐          ┌──────▼──────┐
-     │  Financeiro  │     │   Estoque   │          │  Pessoas/RH │
-     └──────┬───────┘     └──────┬───────┘          └──────┬──────┘
-            │                    │                         │
-    ┌───────┼──────────┬─────────┼───────────┬─────────────┤
-    │       │          │         │           │             │
-┌───▼───┐ ┌▼────────┐ ┌▼────────┐ ┌▼────────┐ ┌▼──────────┐
-│Agríco-│ │Pecuária │ │  Frota  │ │Comercia-│ │Contabili- │
-│  la   │ │         │ │         │ │lização  │ │  dade     │
-└───┬───┘ └────┬────┘ └─────────┘ └────┬────┘ └───────────┘
-    │          │                        │
-    ├──────────┼────────────────────────┤
-    │          │                        │
-┌───▼──────────▼───┐           ┌───────▼────────┐
-│ Rastreabilidade  │           │  Compliance/   │
-│                  │           │  Ambiental     │
-└──────────────────┘           └────────────────┘
-
-Legenda:
-  ──▶  "depende de" (módulo filho depende do módulo pai)
-  Core é dependência implícita de TODOS os módulos
+┌─────────────────────────────────────────────────┐
+│              MÓDULO CORE                        │
+│  (obrigatório para TODOS os outros módulos)    │
+└────────────────────┬────────────────────────────┘
+                     │
+        ┌────────────┼────────────┐
+        ▼            ▼            ▼
+   [Agrícola]   [Pecuária]   [Financeiro]   ...
 ```
 
-### Dependências detalhadas (setas)
+**Todos os módulos dependem de:**
+- `core/identidade-acesso` — Autenticação e RBAC
+- `core/cadastro-propriedade` — Fazendas e áreas
+- `core/multipropriedade` — Isolamento de tenant
+- `core/planos-assinatura` — Feature flags
+
+---
+
+### Regra 2: Essencial → Profissional → Enterprise
+
+**Nunca implante na ordem inversa.**
 
 ```
-Agrícola        ──▶ Estoque, Financeiro
-Pecuária        ──▶ Estoque, Financeiro
-Frota           ──▶ Estoque, Financeiro
-Comercialização ──▶ Financeiro, Estoque, (Agrícola | Pecuária)
-Rastreabilidade ──▶ Agrícola | Pecuária, Estoque
-Compliance      ──▶ Agrícola | Pecuária (opcional)
-Contabilidade   ──▶ Financeiro
-Pessoas/RH      ──▶ (nenhum além de Core)
-Estoque         ──▶ (nenhum além de Core)
-Financeiro      ──▶ (nenhum além de Core)
+Essencial ──► Profissional ──► Enterprise
+   │              │                │
+   ▼              ▼                ▼
+ Base         Intermediário     Avançado
+```
+
+**Exemplo (Módulo Financeiro):**
+```
+lancamentos-basicos (Essencial)
+         │
+         ▼
+contas-pagar-receber (Profissional)
+         │
+         ▼
+conciliacao-automatica (Enterprise)
 ```
 
 ---
 
-## 1. Agrícola (`agricola`)
+### Regra 3: Dependências Cruzadas entre Módulos
 
-**Descrição:** Gestão completa do ciclo agrícola — do planejamento de safras à colheita, incluindo monitoramento por NDVI, controle de operações mecanizadas e apuração de custos por talhão.
+Alguns submódulos dependem de módulos **diferentes** do Core.
 
-### Submódulos por Nível
-
-| Essencial | Profissional | Enterprise |
-|-----------|-------------|------------|
-| Cadastro de safras e talhões | Planejamento de operações (calendarização) | Monitoramento NDVI via satélite |
-| Registro de operações (plantio, colheita) | Custos por talhão e por safra | Integração com telemetria de máquinas |
-| Apontamento manual de insumos | Recomendações de adubação/defensivos | Benchmarking entre talhões e safras |
-| Histórico de safras | Mapas de produtividade | Modelagem preditiva de produtividade |
-
-### Dependências
-
-- **Core:** autenticação, tenant, fazendas
-- **Cross-module:** Estoque (baixa de insumos), Financeiro (custos de operações)
-
-### Contratação standalone?
-
-**Não.** Requer ao menos Estoque (Essencial) para controle de insumos aplicados. A contratação do Agrícola provisiona automaticamente o Estoque Essencial.
-
-### Perfis-alvo
-
-| Nível | Perfil |
-|-------|--------|
-| Essencial | Pequeno produtor de grãos (< 500 ha) |
-| Profissional | Médio produtor ou cooperativa (500–5.000 ha) |
-| Enterprise | Grandes grupos agrícolas, tradings (> 5.000 ha) |
-
-### Complexidade: **L**
+**Exemplo:**
+- `financeiro/custo-producao-safra` depende de `agricola/safras`
+- `pecuaria/nutricao` depende de `estoque/produtos`
+- `comercializacao/nfe-emissao` depende de `financeiro/lancamentos`
 
 ---
 
-## 2. Pecuária (`pecuaria`)
+## GRAFO DE DEPENDÊNCIAS — VISÃO MACRO
 
-**Descrição:** Gestão de rebanho, manejos sanitários e reprodutivos, rastreabilidade animal (GTA/SISBOV), e controle de lotes de engorda ou cria.
-
-### Submódulos por Nível
-
-| Essencial | Profissional | Enterprise |
-|-----------|-------------|------------|
-| Cadastro de animais e lotes | Protocolos reprodutivos (IATF, monta) | Integração SISBOV/GTA automatizada |
-| Movimentação entre piquetes | Controle sanitário com calendário vacinal | Indicadores zootécnicos avançados (DEP, GMD) |
-| Pesagens e manejos básicos | Gestão de matrizes e touros | Dashboard de performance por lote |
-| Registro de nascimentos/mortes | Custos por cabeça / arroba | Integração com balanças e brincos eletrônicos |
-
-### Dependências
-
-- **Core:** autenticação, tenant, fazendas
-- **Cross-module:** Estoque (medicamentos, rações, sal mineral), Financeiro (custo por cabeça)
-
-### Contratação standalone?
-
-**Não.** Requer Estoque (Essencial) para controle de medicamentos e insumos. Provisiona Estoque Essencial automaticamente.
-
-### Perfis-alvo
-
-| Nível | Perfil |
-|-------|--------|
-| Essencial | Pecuarista de corte/leite (< 500 cabeças) |
-| Profissional | Confinamento ou fazenda de cria/recria (500–5.000 cab.) |
-| Enterprise | Grandes pecuárias, frigoríficos integrados (> 5.000 cab.) |
-
-### Complexidade: **L**
-
----
-
-## 3. Financeiro (`financeiro`)
-
-**Descrição:** Controle financeiro da operação rural — contas a pagar/receber, fluxo de caixa, DRE gerencial e conciliação bancária.
-
-### Submódulos por Nível
-
-| Essencial | Profissional | Enterprise |
-|-----------|-------------|------------|
-| Cadastro de receitas e despesas | Fluxo de caixa projetado | Conciliação bancária automática (OFX) |
-| Categorização por centro de custo | DRE gerencial por fazenda/safra | Multi-empresa e consolidação de grupos |
-| Contas a pagar / a receber | Parcelamento e renegociação | Integração com ERP contábil externo |
-| Extrato simplificado | Relatórios comparativos safra x safra | Orçamento anual com acompanhamento |
-
-### Dependências
-
-- **Core:** autenticação, tenant, fazendas
-
-### Contratação standalone?
-
-**Sim.** Módulo base que funciona de forma independente. Muitos produtores iniciam a adoção pelo financeiro.
-
-### Perfis-alvo
-
-| Nível | Perfil |
-|-------|--------|
-| Essencial | Qualquer produtor que precise sair da planilha |
-| Profissional | Produtor com múltiplas fazendas ou safras simultâneas |
-| Enterprise | Grupos com holding, múltiplos CNPJs |
-
-### Complexidade: **M**
+```
+                              ┌──────────────┐
+                              │     CORE     │
+                              │  (obrigatório)│
+                              └──────┬───────┘
+                                     │
+          ┌──────────────────────────┼──────────────────────────┐
+          │                          │                          │
+          ▼                          ▼                          ▼
+   ┌─────────────┐           ┌─────────────┐           ┌─────────────┐
+   │   AGRÍCOLA  │           │   PECUÁRIA  │           │  FINANCEIRO │
+   │             │           │             │           │             │
+   │ Essencial   │           │ Essencial   │           │ Essencial   │
+   │ Profissional│           │ Profissional│           │ Profissional│
+   │ Enterprise  │           │ Enterprise  │           │ Enterprise  │
+   └──────┬──────┘           └──────┬──────┘           └──────┬──────┘
+          │                         │                          │
+          │                         │                          │
+          └────────────┬────────────┘                          │
+                       │                                       │
+                       ▼                                       ▼
+               ┌───────────────┐                       ┌───────────────┐
+               │ESTOQUE/OPERAC.│                       │CONTABILIDADE  │
+               │               │                       │               │
+               │Depende de:    │                       │Depende de:    │
+               │- Agrícola     │                       │- Financeiro   │
+               │- Pecuária     │                       │- Todos        │
+               └───────┬───────┘                       └───────┬───────┘
+                       │                                       │
+                       │                                       │
+                       └───────────────────┬───────────────────┘
+                                           │
+                                           ▼
+                                   ┌───────────────┐
+                                   │COMERCIALIZAÇÃO│
+                                   │               │
+                                   │Depende de:    │
+                                   │- Agrícola     │
+                                   │- Pecuária     │
+                                   │- Financeiro   │
+                                   │- Estoque      │
+                                   └───────────────┘
+```
 
 ---
 
-## 4. Estoque (`estoque`)
-
-**Descrição:** Controle de insumos, produtos e materiais — movimentações de entrada/saída, custeio FIFO, alertas de estoque mínimo e rastreabilidade de lotes.
-
-### Submódulos por Nível
-
-| Essencial | Profissional | Enterprise |
-|-----------|-------------|------------|
-| Cadastro de produtos e categorias | Custeio FIFO por lote | Multi-almoxarifado com transferências |
-| Entradas e saídas manuais | Estoque mínimo com alertas | Integração com NF-e (entrada automática) |
-| Saldo por almoxarifado | Inventário e ajustes | Dashboard de consumo e previsão |
-| Relatório de movimentações | Lotes de fornecedor e validade | Requisições com aprovação por alçada |
-
-### Dependências
-
-- **Core:** autenticação, tenant, fazendas
-
-### Contratação standalone?
-
-**Sim.** Funciona independentemente. É pré-requisito para Agrícola e Pecuária.
-
-### Perfis-alvo
-
-| Nível | Perfil |
-|-------|--------|
-| Essencial | Produtor que quer controle básico de insumos |
-| Profissional | Fazenda com alto volume de insumos e múltiplos almoxarifados |
-| Enterprise | Grupos com logística centralizada de insumos |
-
-### Complexidade: **M**
+## DEPENDÊNCIAS DETALHADAS POR MÓDULO
 
 ---
 
-## 5. Frota e Máquinas (`frota`)
+## 1. CORE (Fundação)
 
-**Descrição:** Gestão de equipamentos agrícolas, planos de manutenção preventiva/corretiva, controle de abastecimento e checklist operacional.
+### Submódulos
 
-### Submódulos por Nível
+| Submódulo | Dependências Internas | Dependências Externas |
+|-----------|----------------------|----------------------|
+| `identidade-acesso` | Nenhuma | — |
+| `cadastro-propriedade` | `identidade-acesso` | — |
+| `multipropriedade` | `identidade-acesso`, `cadastro-propriedade` | — |
+| `configuracoes-globais` | `identidade-acesso` | — |
+| `notificacoes-alertas` | `identidade-acesso` | SMTP, Firebase, Twilio |
+| `integracoes-essenciais` | `identidade-acesso` | — |
+| `planos-assinatura` | `identidade-acesso` | Stripe, Asaas |
 
-| Essencial | Profissional | Enterprise |
-|-----------|-------------|------------|
-| Cadastro de veículos e equipamentos | Plano de manutenção preventiva | Telemetria e integração com rastreadores |
-| Registro de abastecimentos | Ordens de serviço com peças | Análise de custo por hora/máquina (TCO) |
-| Checklist pré-operação | Controle de pneus e horímetro | Integração com operações agrícolas (custo mecanizado) |
-| Histórico de manutenções corretivas | Alertas de manutenção programada | Dashboard de disponibilidade mecânica |
+### Ordem de Implantação
 
-### Dependências
-
-- **Core:** autenticação, tenant, fazendas
-- **Cross-module:** Estoque (peças, combustível, lubrificantes), Financeiro (custos de manutenção)
-
-### Contratação standalone?
-
-**Não.** Requer Estoque (Essencial) para controle de peças e combustível. Provisiona Estoque Essencial automaticamente.
-
-### Perfis-alvo
-
-| Nível | Perfil |
-|-------|--------|
-| Essencial | Produtor com frota pequena (< 10 máquinas) |
-| Profissional | Fazenda mecanizada com oficina própria |
-| Enterprise | Grupos com frota numerosa e prestação de serviços mecanizados |
-
-### Complexidade: **S**
+```
+1. identidade-acesso
+2. cadastro-propriedade
+3. configuracoes-globais
+4. multipropriedade
+5. notificacoes-alertas
+6. integracoes-essenciais
+7. planos-assinatura
+```
 
 ---
 
-## 6. Comercialização (`comercializacao`)
+## 2. AGRÍCOLA
 
-**Descrição:** Gestão de vendas de produção, contratos a termo, CPR (Cédula de Produto Rural), emissão/recebimento de NF-e e controle de entregas.
+### Dependências do Core
 
-### Submódulos por Nível
+- ✅ `core/identidade-acesso` — Obrigatório
+- ✅ `core/cadastro-propriedade` — Obrigatório (fazendas, talhões)
+- ✅ `core/configuracoes-globais` — Obrigatório (safra, unidades)
+- ✅ `core/planos-assinatura` — Feature flags (A1_PLANEJAMENTO, etc.)
 
-| Essencial | Profissional | Enterprise |
-|-----------|-------------|------------|
-| Cadastro de compradores e destinos | Contratos a termo e fixação de preço | Emissão de NF-e integrada (SEFAZ) |
-| Registro de vendas e romaneios | CPR física e financeira | Integração com bolsas e cotações em tempo real |
-| Histórico de entregas | Controle de tickets de balança | Gestão de hedge e posição de mercado |
-| Relatório de comercialização | Simulação de preço médio de venda | Portal do comprador com documentos |
+### Dependências Internas (Agrícola)
 
-### Dependências
+```
+safras (Essencial)
+   │
+   ├──────────────────┐
+   │                  │
+   ▼                  ▼
+operacoes-campo   caderno-campo (Essencial)
+   │                  │
+   │                  │
+   └────────┬─────────┘
+            │
+            ▼
+      planejamento-safra (Profissional)
+            │
+            ├─────────────────┐
+            │                 │
+            ▼                 ▼
+       monitoramento-ndvi  custos-producao (Profissional)
+            │                 │
+            │                 │
+            └────────┬────────┘
+                     │
+                     ▼
+            rastreabilidade-campo (Enterprise)
+                     │
+                     ├──────────────────┐
+                     │                  │
+                     ▼                  ▼
+            prescricoes-vrt    beneficiamento (Enterprise)
+```
 
-- **Core:** autenticação, tenant, fazendas
-- **Cross-module:** Financeiro (receitas de vendas), Estoque (baixa de produto vendido), Agrícola ou Pecuária (origem da produção)
+### Dependências de Outros Módulos
 
-### Contratação standalone?
-
-**Não.** Requer Financeiro (para lançamento de receitas) e ao menos um módulo produtivo (Agrícola ou Pecuária) para origem dos produtos.
-
-### Perfis-alvo
-
-| Nível | Perfil |
-|-------|--------|
-| Essencial | Produtor que vende direto para cooperativa |
-| Profissional | Produtor com contratos a termo e CPR |
-| Enterprise | Tradings, grandes produtores com operações em bolsa |
-
-### Complexidade: **L**
-
----
-
-## 7. Pessoas e RH (`pessoas`)
-
-**Descrição:** Cadastro de colaboradores, controle de funções e escalas, folha de pagamento simplificada e gestão de EPIs.
-
-### Submódulos por Nível
-
-| Essencial | Profissional | Enterprise |
-|-----------|-------------|------------|
-| Cadastro de colaboradores e funções | Folha de pagamento simplificada | Integração com eSocial rural |
-| Controle de EPIs entregues | Gestão de férias e afastamentos | Treinamentos e certificações obrigatórias |
-| Escala de trabalho básica | Horas extras e banco de horas | Avaliação de desempenho |
-| Documentos do colaborador | Custo de mão de obra por atividade | Portal do colaborador (holerite, docs) |
-
-### Dependências
-
-- **Core:** autenticação, tenant, fazendas
-
-### Contratação standalone?
-
-**Sim.** Funciona de forma independente. Enriquece outros módulos ao permitir vincular colaboradores a operações.
-
-### Perfis-alvo
-
-| Nível | Perfil |
-|-------|--------|
-| Essencial | Fazenda com poucos funcionários (< 10) |
-| Profissional | Fazenda com equipe média e necessidade de folha (10–100) |
-| Enterprise | Grandes empregadores rurais, usinas, frigoríficos (> 100) |
-
-### Complexidade: **M**
+| Submódulo Agrícola | Depende de | Tipo |
+|-------------------|------------|------|
+| `custos-producao` | `financeiro/lancamentos-basicos` | Soft link (se não contratado: valor manual) |
+| `custos-producao` | `estoque/movimentacoes` | Soft link (se não contratado: valor manual) |
+| `romaneios-colheita` | `comercializacao/registro-vendas` | Hard link (se contratado: integra automaticamente) |
+| `beneficiamento` | `estoque/produtos` | Hard link |
+| `prescricoes-vrt` | `operacional/frota` | Soft link (maquinário) |
 
 ---
 
-## 8. Rastreabilidade (`rastreabilidade`)
+## 3. PECUÁRIA
 
-**Descrição:** Rastreamento de lotes de produção desde a origem (talhão/animal) até o destino final, com cadeia de custódia, QR code e suporte a certificações.
+### Dependências do Core
 
-### Submódulos por Nível
+- ✅ `core/identidade-acesso` — Obrigatório
+- ✅ `core/cadastro-propriedade` — Obrigatório (fazendas, piquetes)
+- ✅ `core/configuracoes-globais` — Obrigatório (unidades, safra)
+- ✅ `core/planos-assinatura` — Feature flags (P1_RASTREIO, etc.)
 
-| Essencial | Profissional | Enterprise |
-|-----------|-------------|------------|
-| Rastreio de lotes por origem | Cadeia de custódia completa (field-to-fork) | Integração com certificadoras (Rainforest, GlobalG.A.P.) |
-| Histórico de insumos aplicados por lote | Geração de QR code por lote/produto | API pública para consulta de rastreio |
-| Vinculação lote → talhão/animal | Relatórios para auditoria | Blockchain audit trail (selo de integridade) |
-| Consulta básica de rastreio | Alertas de não-conformidade | Dashboard de compliance por certificação |
+### Dependências Internas (Pecuária)
 
-### Dependências
+```
+rastreio-basico (Essencial)
+   │
+   ├──────────────────┐
+   │                  │
+   ▼                  ▼
+controle-sanitario  piquetes-pastos (Essencial)
+   │                  │
+   │                  │
+   └────────┬─────────┘
+            │
+            ▼
+      genetica-reprodutiva (Profissional)
+            │
+            ├─────────────────┐
+            │                 │
+            ▼                 ▼
+       nutricao-feedlot  pecuaria-leiteira (Profissional)
+            │                 │
+            │                 │
+            └────────┬────────┘
+                     │
+                     ▼
+            rastreabilidade-sisbov (Enterprise)
+                     │
+                     ├──────────────────┐
+                     │                  │
+                     ▼                  ▼
+              gta-digital    genealogia-deps (Enterprise)
+```
 
-- **Core:** autenticação, tenant, fazendas
-- **Cross-module:** Agrícola ou Pecuária (origem da produção), Estoque (movimentação de lotes)
+### Dependências de Outros Módulos
 
-### Contratação standalone?
-
-**Não.** É um módulo de camada superior que requer dados de produção (Agrícola ou Pecuária) e movimentações (Estoque).
-
-### Perfis-alvo
-
-| Nível | Perfil |
-|-------|--------|
-| Essencial | Produtor que precisa atender rastreabilidade básica de compradores |
-| Profissional | Exportador ou fornecedor de redes varejistas |
-| Enterprise | Grandes players com exigências de certificações internacionais |
-
-### Complexidade: **XL**
-
----
-
-## 9. Compliance e Ambiental (`compliance`)
-
-**Descrição:** Gestão de conformidade ambiental — CAR, APPs, reserva legal, monitoramento de embargos e passivos ambientais.
-
-### Submódulos por Nível
-
-| Essencial | Profissional | Enterprise |
-|-----------|-------------|------------|
-| Cadastro de CAR e áreas protegidas | Monitoramento de embargos (IBAMA, SEMA) | Integração com imagens de satélite para desmatamento |
-| Mapa de APP e reserva legal | Gestão de licenças e condicionantes | Relatório ESG automatizado |
-| Checklist de conformidade básica | Alertas de vencimento de licenças | Auditoria ambiental com evidências georreferenciadas |
-| Documentos ambientais digitalizados | Plano de recuperação ambiental (PRA) | Score de risco ambiental por fazenda |
-
-### Dependências
-
-- **Core:** autenticação, tenant, fazendas
-- **Cross-module:** Agrícola ou Pecuária (opcional — enriquece com dados de uso do solo)
-
-### Contratação standalone?
-
-**Sim.** Pode funcionar apenas com dados geoespaciais das fazendas (Core). A integração com módulos produtivos é opcional e enriquece os relatórios.
-
-### Perfis-alvo
-
-| Nível | Perfil |
-|-------|--------|
-| Essencial | Produtor que precisa organizar documentação ambiental |
-| Profissional | Fazenda em processo de regularização ou com financiamento bancário |
-| Enterprise | Grupos com gestão ESG, exportadores sujeitos a regulação europeia (EUDR) |
-
-### Complexidade: **M**
+| Submódulo Pecuária | Depende de | Tipo |
+|-------------------|------------|------|
+| `nutricao-feedlot` | `estoque/produtos` | Hard link (ração, insumos) |
+| `nutricao-feedlot` | `agricola/safras` | Soft link (produção própria de grãos) |
+| `controle-sanitario` | `estoque/medicamentos` | Hard link (vacinas) |
+| `rastreabilidade-sisbov` | `comercializacao/registro-vendas` | Hard link (venda de animais) |
+| `pecuaria-leiteira` | `comercializacao/registro-vendas` | Hard link (venda de leite) |
 
 ---
 
-## 10. Contabilidade (`contabilidade`)
+## 4. FINANCEIRO
 
-**Descrição:** Geração do LCDPR (Livro Caixa Digital do Produtor Rural), integração com escritórios contábeis, plano de contas rural e apuração fiscal.
+### Dependências do Core
 
-### Submódulos por Nível
+- ✅ `core/identidade-acesso` — Obrigatório
+- ✅ `core/cadastro-propriedade` — Obrigatório (centro de custo por fazenda)
+- ✅ `core/planos-assinatura` — Feature flags (F1_TESOURARIA, etc.)
 
-| Essencial | Profissional | Enterprise |
-|-----------|-------------|------------|
-| LCDPR automático a partir do financeiro | Plano de contas rural personalizado | Integração com sistemas contábeis (API/SPED) |
-| Exportação para contador (CSV/PDF) | Apuração de IRPF rural | Multi-CNPJ com consolidação fiscal |
-| Classificação contábil de lançamentos | Depreciação de ativos rurais | Planejamento tributário com simulações |
-| Relatório de resultado por atividade | Balancete gerencial | Auditoria contábil com trilha completa |
+### Dependências Internas (Financeiro)
 
-### Dependências
+```
+lancamentos-basicos (Essencial)
+   │
+   ├──────────────────┐
+   │                  │
+   ▼                  ▼
+fluxo-caixa      categorias-contas (Essencial)
+   │
+   │
+   ▼
+contas-pagar-receber (Profissional)
+   │
+   ├──────────────────┐
+   │                  │
+   ▼                  ▼
+centro-custo    conciliacao-bancaria (Profissional)
+   │
+   │
+   ▼
+conciliacao-automatica (Enterprise)
+   │
+   ├──────────────────┐
+   │                  │
+   ▼                  ▼
+credito-rural    custo-producao-safra (Enterprise)
+```
 
-- **Core:** autenticação, tenant, fazendas
-- **Cross-module:** Financeiro (fonte dos lançamentos — dependência obrigatória)
+### Dependências de Outros Módulos
 
-### Contratação standalone?
-
-**Não.** Depende inteiramente do módulo Financeiro como fonte de dados. A contratação de Contabilidade exige Financeiro ativo.
-
-### Perfis-alvo
-
-| Nível | Perfil |
-|-------|--------|
-| Essencial | Produtor pessoa física que precisa entregar LCDPR |
-| Profissional | Produtor com contador que exige integração digital |
-| Enterprise | Grupos com departamento fiscal próprio |
-
-### Complexidade: **S**
+| Submódulo Financeiro | Depende de | Tipo |
+|---------------------|------------|------|
+| `centro-custo` | `agricola/safras` | Hard link (rateio por safra/talhão) |
+| `centro-custo` | `pecuaria/lotes` | Hard link (rateio por lote) |
+| `centro-custo` | `operacional/frota` | Hard link (rateio por máquina) |
+| `custo-producao-safra` | `agricola/custos-producao` | Hard link |
+| `custo-producao-safra` | `pecuaria/nutricao` | Hard link (custo de alimentação) |
+| `credito-rural` | `agricola/planejamento-safra` | Soft link (projeto de crédito) |
+| `lancamentos-basicos` | `estoque/movimentacoes` | Hard link (baixa automática) |
+| `lancamentos-basicos` | `operacional/abastecimento` | Hard link (custo de combustível) |
 
 ---
 
-## Resumo de Dependências
+## 5. ESTOQUE / OPERACIONAL
 
-| Módulo | Core | Estoque | Financeiro | Agrícola | Pecuária | Standalone? | Complexidade |
-|--------|:----:|:-------:|:----------:|:--------:|:--------:|:-----------:|:------------:|
-| Agrícola | ✅ | ✅ | ✅ | — | — | ❌ | L |
-| Pecuária | ✅ | ✅ | ✅ | — | — | ❌ | L |
-| Financeiro | ✅ | — | — | — | — | ✅ | M |
-| Estoque | ✅ | — | — | — | — | ✅ | M |
-| Frota | ✅ | ✅ | ✅ | — | — | ❌ | S |
-| Comercialização | ✅ | ✅ | ✅ | ⚡ | ⚡ | ❌ | L |
-| Pessoas/RH | ✅ | — | — | — | — | ✅ | M |
-| Rastreabilidade | ✅ | ✅ | — | ⚡ | ⚡ | ❌ | XL |
-| Compliance | ✅ | — | — | 〰️ | 〰️ | ✅ | M |
-| Contabilidade | ✅ | — | ✅ | — | — | ❌ | S |
+### Dependências do Core
 
-**Legenda:** ✅ obrigatório | ⚡ ao menos um obrigatório | 〰️ opcional (enriquece) | — não depende
+- ✅ `core/identidade-acesso` — Obrigatório
+- ✅ `core/cadastro-propriedade` — Obrigatório (almoxarifados por fazenda)
+- ✅ `core/planos-assinatura` — Feature flags (O1_ESTOQUE, etc.)
+
+### Dependências Internas (Estoque)
+
+```
+cadastro-produtos (Essencial)
+   │
+   │
+   ▼
+movimentacoes (Essencial)
+   │
+   ├──────────────────┐
+   │                  │
+   ▼                  ▼
+consulta-saldo    almoxarifados (Essencial)
+   │
+   │
+   ▼
+fifo-custo-medio (Profissional)
+   │
+   ├──────────────────┐
+   │                  │
+   ▼                  ▼
+estoque-minimo   rastreabilidade-lotes (Profissional)
+   │
+   │
+   ▼
+compras-integradas (Enterprise)
+   │
+   ├──────────────────┐
+   │                  │
+   ▼                  ▼
+inventario-auto   integracao-fiscal (Enterprise)
+```
+
+### Dependências de Outros Módulos
+
+| Submódulo Estoque | Depende de | Tipo |
+|------------------|------------|------|
+| `movimentacoes` | `agricola/operacoes-campo` | Hard link (baixa de insumos) |
+| `movimentacoes` | `pecuaria/manejo-sanitario` | Hard link (baixa de vacinas) |
+| `movimentacoes` | `operacional/abastecimento` | Hard link (baixa de combustível) |
+| `compras-integradas` | `financeiro/contas-pagar` | Hard link |
+| `integracao-fiscal` | `financeiro/lancamentos` | Hard link |
+| `integracao-fiscal` | `comercializacao/nfe-emissao` | Hard link |
 
 ---
 
-## Regras de Provisionamento Automático
+## 6. FROTA / MÁQUINAS
 
-1. Ao contratar **Agrícola**, **Pecuária** ou **Frota** → provisionar **Estoque Essencial** automaticamente
-2. Ao contratar **Contabilidade** → exigir **Financeiro** ativo
-3. Ao contratar **Comercialização** → exigir **Financeiro** + ao menos um módulo produtivo
-4. Ao contratar **Rastreabilidade** → exigir **Estoque** + ao menos um módulo produtivo
-5. **Financeiro**, **Estoque**, **Pessoas/RH** e **Compliance** podem ser contratados de forma independente
+### Dependências do Core
+
+- ✅ `core/identidade-acesso` — Obrigatório
+- ✅ `core/cadastro-propriedade` — Obrigatório
+
+### Dependências Internas (Frota)
+
+```
+cadastro-equipamentos (Essencial)
+   │
+   ├──────────────────┐
+   │                  │
+   ▼                  ▼
+abastecimento    checklist-diario (Essencial)
+   │
+   │
+   ▼
+manutencao-preventiva (Profissional)
+   │
+   ├──────────────────┐
+   │                  │
+   ▼                  ▼
+custo-hora-maquina  documentacao (Profissional)
+   │
+   │
+   ▼
+telemetria (Enterprise)
+   │
+   ├──────────────────┐
+   │                  │
+   ▼                  ▼
+oficina-interna   indicadores-frota (Enterprise)
+```
+
+### Dependências de Outros Módulos
+
+| Submódulo Frota | Depende de | Tipo |
+|-----------------|------------|------|
+| `abastecimento` | `estoque/combustivel` | Hard link |
+| `manutencao-preventiva` | `estoque/pecas` | Hard link |
+| `custo-hora-maquina` | `financeiro/lancamentos` | Hard link |
+| `custo-hora-maquina` | `agricola/operacoes-campo` | Hard link (alocação por operação) |
+| `telemetria` | `agricola/operacoes-campo` | Hard link (horas trabalhadas) |
+
+---
+
+## 7. RASTREABILIDADE
+
+### Dependências do Core
+
+- ✅ `core/identidade-acesso` — Obrigatório
+- ✅ `core/planos-assinatura` — Feature flags
+
+### Dependências de Outros Módulos
+
+| Submódulo Rastreabilidade | Depende de | Tipo |
+|--------------------------|------------|------|
+| `lotes-producao` | `agricola/safras` | Hard link |
+| `lotes-producao` | `pecuaria/lotes` | Hard link |
+| `origem-destino` | `comercializacao/registro-vendas` | Hard link |
+| `historico-aplicacoes` | `agricola/caderno-campo` | Hard link |
+| `historico-aplicacoes` | `pecuaria/manejo-sanitario` | Hard link |
+| `cadeia-custodia` | `estoque/movimentacoes` | Hard link |
+| `qrcode-consulta` | `lotes-producao` | Hard link |
+| `laudos-analises` | `agricola/analises-solo` | Soft link |
+| `certificacoes` | `compliance/car-gestao` | Hard link |
+| `blockchain` | `lotes-producao` | Hard link |
+| `blockchain` | `origem-destino` | Hard link |
+| `auditoria-exportacao` | `compliance/due-diligence` | Hard link |
+
+---
+
+## 8. COMERCIALIZAÇÃO
+
+### Dependências do Core
+
+- ✅ `core/identidade-acesso` — Obrigatório
+- ✅ `core/planos-assinatura` — Feature flags
+
+### Dependências de Outros Módulos
+
+| Submódulo Comercialização | Depende de | Tipo |
+|--------------------------|------------|------|
+| `registro-vendas` | `agricola/safras` | Hard link (origem) |
+| `registro-vendas` | `pecuaria/lotes` | Hard link (origem) |
+| `clientes-compradores` | Nenhuma | — |
+| `romaneios` | `agricola/romaneios-colheita` | Hard link |
+| `contratos-venda` | `registro-vendas` | Hard link |
+| `cotacoes-mercado` | Nenhuma (API externa) | CBOT, ESALQ, B3 |
+| `nfe-emissao` | `financeiro/lancamentos` | Hard link |
+| `nfe-emissao` | `estoque/movimentacoes` | Hard link |
+| `cpr-cedulas` | `contratos-venda` | Hard link |
+| `hedge-derivativos` | `cotacoes-mercado` | Hard link |
+| `hedge-derivativos` | `contratos-venda` | Hard link |
+| `exportacao` | `rastreabilidade/blockchain` | Hard link |
+| `exportacao` | `compliance/due-diligence` | Hard link |
+
+---
+
+## 9. COMPLIANCE AMBIENTAL
+
+### Dependências do Core
+
+- ✅ `core/identidade-acesso` — Obrigatório
+- ✅ `core/cadastro-propriedade` — Obrigatório (geolocalização, shapefiles)
+- ✅ `core/planos-assinatura` — Feature flags
+
+### Dependências de Outros Módulos
+
+| Submódulo Compliance | Depende de | Tipo |
+|---------------------|------------|------|
+| `car-gestao` | `core/cadastro-propriedade` | Hard link |
+| `app-reserva-legal` | `core/cadastro-propriedade` | Hard link (shapefiles) |
+| `documentos-ambientais` | Nenhuma | — |
+| `monitoramento-desmatamento` | `core/cadastro-propriedade` | Hard link (geolocalização) |
+| `monitoramento-desmatamento` | APIs externas (INPE, NASA) | PRODES, DETER |
+| `gestao-residuos` | `estoque/embalagens` | Hard link |
+| `relatorios-esg` | `agricola/operacoes` | Hard link |
+| `relatorios-esg` | `pecuaria/manejo` | Hard link |
+| `relatorios-esg` | `operacional/combustivel` | Hard link |
+| `carbono` | `relatorios-esg` | Hard link |
+| `carbono` | `pecuaria/rebanho` | Hard link (emissões) |
+| `due-diligence` | `rastreabilidade/blockchain` | Hard link |
+| `due-diligence` | `compliance/car-gestao` | Hard link |
+| `biodiversidade` | `core/cadastro-propriedade` | Hard link (áreas preservadas) |
+
+---
+
+## 10. CONTABILIDADE
+
+### Dependências do Core
+
+- ✅ `core/identidade-acesso` — Obrigatório
+- ✅ `core/configuracoes-globais` — Obrigatório (plano de contas padrão)
+- ✅ `core/planos-assinatura` — Feature flags
+
+### Dependências de Outros Módulos
+
+| Submódulo Contabilidade | Depende de | Tipo |
+|------------------------|------------|------|
+| `lcdpr` | `financeiro/lancamentos-basicos` | Hard link |
+| `plano-contas-rural` | Nenhuma | — |
+| `lancamentos-contabeis` | `financeiro/lancamentos-basicos` | Hard link |
+| `integracao-contabil` | `lancamentos-contabeis` | Hard link |
+| `integracao-contabil` | `financeiro/dre` | Hard link |
+| `dre-rural` | `financeiro/centro-custo` | Hard link |
+| `dre-rural` | `agricola/custos-producao` | Hard link |
+| `balancete` | `lancamentos-contabeis` | Hard link |
+| `multi-empresa` | `core/multipropriedade` | Hard link |
+| `multi-empresa` | `dre-rural` | Hard link |
+| `irpf-rural` | `dre-rural` | Hard link |
+| `irpf-rural` | `lancamentos-contabeis` | Hard link |
+| `sped-fiscal` | `lancamentos-contabeis` | Hard link |
+| `sped-fiscal` | `comercializacao/nfe-emissao` | Hard link |
+
+---
+
+## ORDEM DE IMPLANTAÇÃO RECOMENDADA
+
+### Fase 1: Core (Semanas 1-4)
+
+```
+Semana 1-2: identidade-acesso, cadastro-propriedade
+Semana 3:   configuracoes-globais, multipropriedade
+Semana 4:   notificacoes-alertas, integracoes-essenciais, planos-assinatura
+```
+
+### Fase 2: Módulos Essenciais (Semanas 5-10)
+
+```
+Semana 5-6:  Agrícola Essencial (safras, operacoes-campo, caderno-campo)
+Semana 7:    Pecuária Essencial (rastreio-basico, controle-sanitario, piquetes)
+Semana 8:    Financeiro Essencial (lancamentos-basicos, fluxo-caixa)
+Semana 9:    Estoque Essencial (cadastro-produtos, movimentacoes)
+Semana 10:   Frota Essencial (cadastro-equipamentos, abastecimento)
+```
+
+### Fase 3: Módulos Profissionais (Semanas 11-18)
+
+```
+Semana 11-12: Agrícola Profissional (planejamento, ndvi, custos)
+Semana 13:    Pecuária Profissional (genetica, nutricao)
+Semana 14:    Financeiro Profissional (contas-pagar-receber, centro-custo)
+Semana 15:    Estoque Profissional (fifo, estoque-minimo)
+Semana 16:    Frota Profissional (manutencao-preventiva, custo-hora)
+Semana 17:    Compliance Profissional (monitoramento, residuos)
+Semana 18:    Comercialização Profissional (contratos, cotacoes, nfe)
+```
+
+### Fase 4: Módulos Enterprise (Semanas 19-28)
+
+```
+Semana 19-20: Agrícola Enterprise (rastreabilidade, prescricoes-vrt, beneficiamento)
+Semana 21:    Pecuária Enterprise (sisbov, gta, genealogia)
+Semana 22-23: Financeiro Enterprise (conciliacao-automatica, credito-rural, custo-producao)
+Semana 24:    Estoque Enterprise (compras-integradas, integracao-fiscal)
+Semana 25:    Frota Enterprise (telemetria, oficina-interna)
+Semana 26:    Rastreabilidade Enterprise (blockchain, certificacoes, auditoria)
+Semana 27:    Compliance Enterprise (carbono, due-diligence)
+Semana 28:    Contabilidade Enterprise (multi-empresa, sped-fiscal)
+```
+
+---
+
+## MATRIZ DE DEPENDÊNCIAS CRUZADAS
+
+| Módulo | Depende De | Para Quê |
+|--------|-----------|----------|
+| `financeiro/centro-custo` | `agricola/safras` | Rateio de custos por safra/talhão |
+| `financeiro/centro-custo` | `pecuaria/lotes` | Rateio de custos por lote animal |
+| `agricola/custos-producao` | `financeiro/lancamentos` | Dados financeiros reais |
+| `agricola/custos-producao` | `estoque/movimentacoes` | Baixa de insumos |
+| `pecuaria/nutricao` | `estoque/produtos` | Ração e suplementos |
+| `pecuaria/nutricao` | `agricola/safras` | Produção própria de grãos |
+| `comercializacao/nfe-emissao` | `financeiro/lancamentos` | Registro de receita |
+| `comercializacao/nfe-emissao` | `estoque/movimentacoes` | Baixa de estoque |
+| `compliance/carbono` | `pecuaria/rebanho` | Emissões de metano |
+| `compliance/carbono` | `operacional/combustivel` | Emissões de CO₂ |
+| `rastreabilidade/blockchain` | `agricola/safras` | Origem do produto |
+| `rastreabilidade/blockchain` | `comercializacao/vendas` | Destino do produto |
+
+---
+
+## PONTOS DE SINCRONIZAÇÃO ENTRE AGENTES
+
+### Agente Core ↔ Todos os Agentes
+
+**Sincronização:** Diária durante Fase 1  
+**Arquivos:** `core/*.md`, `core/dependencies.py`, `core/constants.py`
+
+### Agente Agrícola ↔ Agente Financeiro
+
+**Ponto de sincronização:** `financeiro/centro-custo` e `agricola/custos-producao`  
+**Quando:** Semana 12 (início do Profissional)  
+**Conflito potencial:** Rateio de custos por safra/talhão
+
+### Agente Pecuária ↔ Agente Estoque
+
+**Ponto de sincronização:** `pecuaria/nutricao` e `estoque/produtos`  
+**Quando:** Semana 13  
+**Conflito potencial:** Baixa automática de ração/medicamentos
+
+### Agente Comercialização ↔ Agente Fiscal
+
+**Ponto de sincronização:** `comercializacao/nfe-emissao` e `compliance/sped`  
+**Quando:** Semana 28  
+**Conflito potencial:** Layout de arquivos fiscais
+
+---
+
+## PROTOCOLO DE CONFLITO
+
+Quando dois agentes tocam na mesma entidade:
+
+1. **Identificar o conflito** — Ex: `centro-custo` (Financeiro) e `custos-producao` (Agrícola)
+2. **Definir dono primário** — Ex: `centro-custo` é dono do Financeiro
+3. **Criar interface clara** — Ex: Agrícola **consome** dados do Financeiro via API
+4. **Documentar no arquivo** — Adicionar no frontmatter: `dependencias_modulos: ["../financeiro/centro-custo.md"]`
+5. **Sincronizar antes de merge** — Ambos agentes revisam o PR
+
+---
+
+**Documento gerado em:** 2026-04-01  
+**Próxima revisão:** Após conclusão da Fase 1 (Core)  
+**Responsável:** Architecture Team AgroSaaS

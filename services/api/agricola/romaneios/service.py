@@ -148,10 +148,10 @@ class RomaneioService(BaseService[RomaneioColheita]):
         if receita_total > 0:
             from financeiro.models.receita import Receita
             from financeiro.models.plano_conta import PlanoConta
-            from agricola.talhoes.models import Talhao
+            from core.cadastros.propriedades.models import AreaRural
             from agricola.safras.models import Safra
 
-            stmt_talhao = select(Talhao.fazenda_id).where(Talhao.id == dados.talhao_id)
+            stmt_talhao = select(AreaRural.fazenda_id).where(AreaRural.id == dados.talhao_id)
             fazenda_id = (await self.session.execute(stmt_talhao)).scalar()
 
             stmt_pc = (

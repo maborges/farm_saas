@@ -15,7 +15,7 @@ async def criar_cultura(
     dados: CulturaCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin", "operador"])),
 ):
     svc = CulturaService(session, tenant_id)
@@ -27,7 +27,7 @@ async def listar_culturas(
     ativo: bool | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = CulturaService(session, tenant_id)
     filters = {}
@@ -41,7 +41,7 @@ async def detalhar_cultura(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = CulturaService(session, tenant_id)
     cultura = await svc.get_or_fail(id)
@@ -53,7 +53,7 @@ async def atualizar_cultura(
     dados: CulturaUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin", "operador"])),
 ):
     svc = CulturaService(session, tenant_id)
@@ -65,7 +65,7 @@ async def remover_cultura(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = CulturaService(session, tenant_id)

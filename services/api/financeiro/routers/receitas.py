@@ -17,7 +17,7 @@ from financeiro.services.receita_service import ReceitaService
 router = APIRouter(
     prefix="/receitas",
     tags=["Financeiro - Contas a Receber (F1)"],
-    dependencies=[Depends(require_module("F1"))],
+    dependencies=[Depends(require_module("F1_TESOURARIA"))],
 )
 
 

@@ -32,7 +32,6 @@ from core.models import (
     ConfiguracaoTenant, AdminUser, Cupom, EmailTemplate, EmailLog, AdminAuditLog,
     PlanoPricing, MudancaPlano, CobrancaAsaas, HistoricoBloqueio
 )
-from agricola.talhoes.models import Talhao
 from agricola.safras.models import Safra, SafraTalhao, SafraFaseHistorico
 from agricola.operacoes.models import OperacaoAgricola, InsumoOperacao
 from agricola.monitoramento.models import MonitoramentoPragas
@@ -43,7 +42,14 @@ from agricola.fenologia.models import FenologiaEscala, SafraTalhaoGrupo, SafraTa
 from agricola.romaneios.models import RomaneioColheita
 from agricola.beneficiamento.models import LoteBeneficiamento
 from agricola.previsoes.models import PrevisaoProdutividade
-# Cultura migrada para cadastros/produtos
+# Outras sub-áreas Agrícola
+from agricola.ndvi.models import ImagemNDVI
+from agricola.climatico.models import RegistroClima
+from agricola.rastreabilidade.models import LoteRastreabilidade, CertificacaoPropriedade
+from agricola.agronomo.models import ConversaAgronomo, RelatorioTecnico
+from agricola.cadastros.models import Cultura
+
+# Cultura migrada para cadastros/produtos (verificar redundância)
 from agricola.a1_planejamento.models import ItemOrcamentoSafra
 
 # Pecuaria
@@ -87,6 +93,19 @@ from ia_diagnostico.models import PragasDoencas, Tratamentos, Diagnosticos, Reco
 # IoT Integração
 from iot_integracao.models import JohnDeere, CaseIh, Whatsapp, ComparadorPrecos
 
+# Imóveis Rurais
+from imoveis.models.imovel import (
+    ImovelRural, Cartorio, MatriculaImovelRural, Benfeitoria,
+    DocumentoLegal, HistoricoDocumento,
+    ContratoArrendamento, ParcelaArrendamento, HistoricoReajuste
+)
+
+# Ambiental (CAR, Alertas, Outorgas)
+from ambiental.models import RegistroCAR, AlertaAmbiental, OutorgaHidrica
+
+# Notificações
+from notificacoes.models import Notificacao
+
 # add your model's MetaData object here
 target_metadata = Base.metadata
 
@@ -125,6 +144,13 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def include_object(object, name, type_, reflected, compare_to):
+    """Exclude known constraints that cannot be auto-applied due to data issues."""
+    if type_ == "unique_constraint" and name == "uq_produto_tenant_codigo_interno":
+        return False
+    return True
+
+
 def do_run_migrations(connection: Connection) -> None:
     # Define search_path ao nível de sessão (antes de qualquer transação)
     # para que todas as operações — incluindo UPDATE alembic_version — usem
@@ -137,6 +163,7 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         render_as_batch=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():

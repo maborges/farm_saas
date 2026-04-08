@@ -53,6 +53,11 @@ class Modulos:
     # ==================== NÚCLEO (Obrigatório) ====================
     CORE = "CORE"
 
+    # ==================== BLOCO IMÓVEIS RURAIS ====================
+    IMOVEIS_CADASTRO = "IMOVEIS_CADASTRO"        # Cadastro de Imóveis Rurais + Documentos Legais
+    IMOVEIS_ARRENDAMENTOS = "IMOVEIS_ARRENDAMENTOS"  # Arrendamentos e Parcerias Rurais
+    IMOVEIS_AVALIACAO = "IMOVEIS_AVALIACAO"      # Avaliação Patrimonial (Enterprise)
+
     # ==================== BLOCO AGRÍCOLA ====================
     AGRICOLA_PLANEJAMENTO = "A1_PLANEJAMENTO"      # Planejamento de Safra e Orçamento
     AGRICOLA_CAMPO = "A2_CAMPO"                    # Caderno de Campo (OS, Apontamentos)
@@ -124,6 +129,29 @@ class ModuloMetadata:
             "categoria": "CORE",
             "obrigatorio": True,
             "preco_base_mensal": 0.0,  # Incluído em todos os planos
+        },
+
+        # IMÓVEIS RURAIS
+        Modulos.IMOVEIS_CADASTRO: {
+            "nome": "Cadastro de Imóveis Rurais",
+            "descricao": "Gestão de NIRF, CAR, CCIR, documentos legais, certidões",
+            "categoria": "IMOVEIS",
+            "dependencias": [Modulos.CORE],
+            "preco_base_mensal": 99.0,
+        },
+        Modulos.IMOVEIS_ARRENDAMENTOS: {
+            "nome": "Arrendamentos e Parcerias",
+            "descricao": "Contratos de arrendamento, parcerias rurais, integração financeira",
+            "categoria": "IMOVEIS",
+            "dependencias": [Modulos.CORE, Modulos.IMOVEIS_CADASTRO],
+            "preco_base_mensal": 149.0,
+        },
+        Modulos.IMOVEIS_AVALIACAO: {
+            "nome": "Avaliação Patrimonial",
+            "descricao": "Laudo de avaliação, valor de mercado, histórico de valorização",
+            "categoria": "IMOVEIS",
+            "dependencias": [Modulos.CORE, Modulos.IMOVEIS_CADASTRO],
+            "preco_base_mensal": 199.0,
         },
 
         # AGRÍCOLA
@@ -425,6 +453,7 @@ class TenantRoles:
     OPERADOR = "operador"
     CONSULTOR = "consultor"
     FINANCEIRO = "financeiro"
+    AUDITOR = "auditor"
 
     # Descrições
     DESCRIPTIONS = {
@@ -434,7 +463,8 @@ class TenantRoles:
         AGRONOMO: "Técnico agrícola (Agricultura completo)",
         OPERADOR: "Operador de campo (apontamentos)",
         CONSULTOR: "Consultor externo (apenas leitura)",
-        FINANCEIRO: "Gestor financeiro (módulo financeiro completo)"
+        FINANCEIRO: "Gestor financeiro (módulo financeiro completo)",
+        AUDITOR: "Auditor externo (leitura e exportação, sem escrita)",
     }
 
 
@@ -534,7 +564,27 @@ class TenantPermissions:
             "agricola:custos:view",
             "pecuaria:custos:view",
             "operacional:custos:view",
-        ]
+        ],
+
+        "auditor": [
+            # Leitura geral de todos os módulos
+            "tenant:fazendas:view",
+            "agricola:*:view",
+            "agricola:*:list",
+            "agricola:*:export",
+            "pecuaria:*:view",
+            "pecuaria:*:list",
+            "pecuaria:*:export",
+            "financeiro:*:view",
+            "financeiro:*:list",
+            "financeiro:*:export",
+            "operacional:*:view",
+            "operacional:*:list",
+            "operacional:*:export",
+            "estoque:*:view",
+            "estoque:*:list",
+            "estoque:*:export",
+        ],
     }
 
     @classmethod
@@ -577,27 +627,58 @@ class TenantPermissions:
     @staticmethod
     def _check_custom_permissions(custom_perms: dict, permission: str) -> bool:
         """
-        Verifica permissão em formato customizado.
+        Verifica permissão em formato granular.
 
-        Formato do JSON:
+        Formato do JSON (novo — lista de strings com wildcards):
+        {
+            "granted": ["agricola:operacoes:view", "financeiro:*", "agricola:relatorios:export"]
+        }
+
+        Formato legado (compatibilidade retroativa):
         {
             "agricola": "write",  # write, read, none
-            "pecuaria": "read",
-            "financeiro": "none"
+            "pecuaria": "read"
+        }
+
+        Também suporta perfis de sistema no formato:
+        {
+            "permissions": ["tenant:users:*", "agricola:*"]
         }
         """
-        parts = permission.split(":")
-        if not parts:
+        if not permission:
             return False
 
-        module = parts[0]  # Ex: "agricola"
-        action = parts[-1] if len(parts) > 1 else "view"  # Ex: "create"
+        # Formato novo: {"granted": [...]}
+        granted = custom_perms.get("granted")
+        if granted is not None:
+            return TenantPermissions._match_permission_list(granted, permission)
 
+        # Perfis de sistema: {"permissions": [...]}
+        system_perms = custom_perms.get("permissions")
+        if system_perms is not None:
+            return TenantPermissions._match_permission_list(system_perms, permission)
+
+        # Formato legado: {"agricola": "write", "pecuaria": "read"}
+        parts = permission.split(":")
+        module = parts[0]
+        action = parts[-1] if len(parts) > 1 else "view"
         perm_level = custom_perms.get(module, "none")
-
         if perm_level == "write" or perm_level == "*":
             return True
-        elif perm_level == "read" and action in ["view", "list", "get"]:
+        if perm_level == "read" and action in ["view", "list", "get", "export"]:
             return True
+        return False
 
+    @staticmethod
+    def _match_permission_list(perm_list: list, permission: str) -> bool:
+        """Verifica se uma permissão bate com qualquer entrada da lista (suporta wildcards)."""
+        if "*" in perm_list:
+            return True
+        if permission in perm_list:
+            return True
+        parts = permission.split(":")
+        for i in range(len(parts)):
+            wildcard = ":".join(parts[:i + 1]) + ":*"
+            if wildcard in perm_list:
+                return True
         return False

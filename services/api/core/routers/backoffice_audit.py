@@ -7,6 +7,7 @@ from datetime import datetime, date
 
 from core.dependencies import get_session, get_current_admin, require_permission
 from core.models.admin_audit_log import AdminAuditLog
+from core.models.tenant_audit_log import TenantAuditLog
 from pydantic import BaseModel
 
 router = APIRouter(
@@ -45,6 +46,26 @@ class AuditStatsResponse(BaseModel):
 
 class AuditLogListResponse(BaseModel):
     items: List[AuditLogResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class SecurityIncidentResponse(BaseModel):
+    id: UUID
+    tenant_id: UUID
+    user_id: UUID | None
+    resource: str
+    payload_after: dict | None
+    ip_address: str | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SecurityIncidentListResponse(BaseModel):
+    items: List[SecurityIncidentResponse]
     total: int
     page: int
     page_size: int
@@ -142,6 +163,45 @@ async def listar_audit_logs(
 
     return AuditLogListResponse(
         items=[AuditLogResponse.model_validate(log) for log in logs],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/security-incidents", response_model=SecurityIncidentListResponse)
+async def listar_security_incidents(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=10, le=200),
+    tenant_id: UUID | None = None,
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
+    session: AsyncSession = Depends(get_session),
+    current_admin: dict = Depends(get_current_admin),
+):
+    """Lista incidentes de segurança (TenantViolationError) de todos os tenants."""
+    stmt = select(TenantAuditLog).where(TenantAuditLog.action == "SECURITY_INCIDENT")
+    count_stmt = select(func.count(TenantAuditLog.id)).where(TenantAuditLog.action == "SECURITY_INCIDENT")
+
+    if tenant_id:
+        stmt = stmt.where(TenantAuditLog.tenant_id == tenant_id)
+        count_stmt = count_stmt.where(TenantAuditLog.tenant_id == tenant_id)
+    if data_inicio:
+        stmt = stmt.where(TenantAuditLog.created_at >= datetime.combine(data_inicio, datetime.min.time()))
+        count_stmt = count_stmt.where(TenantAuditLog.created_at >= datetime.combine(data_inicio, datetime.min.time()))
+    if data_fim:
+        stmt = stmt.where(TenantAuditLog.created_at <= datetime.combine(data_fim, datetime.max.time()))
+        count_stmt = count_stmt.where(TenantAuditLog.created_at <= datetime.combine(data_fim, datetime.max.time()))
+
+    total = await session.scalar(count_stmt) or 0
+    offset = (page - 1) * page_size
+    stmt = stmt.order_by(desc(TenantAuditLog.created_at)).offset(offset).limit(page_size)
+
+    result = await session.execute(stmt)
+    logs = result.scalars().all()
+
+    return SecurityIncidentListResponse(
+        items=[SecurityIncidentResponse.model_validate(log) for log in logs],
         total=total,
         page=page,
         page_size=page_size,

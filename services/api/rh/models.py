@@ -6,6 +6,25 @@ from sqlalchemy import Uuid as UUID
 from core.database import Base
 
 
+class Departamento(Base):
+    __tablename__ = "rh_departamentos"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    nome: Mapped[str] = mapped_column(String(100), nullable=False)
+    descricao: Mapped[str | None] = mapped_column(Text, nullable=True)
+    responsavel_nome: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
 class ColaboradorRH(Base):
     """
     Especialização de Pessoa para o contexto de RH.
@@ -25,6 +44,10 @@ class ColaboradorRH(Base):
     )
     pessoa_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("cadastros_pessoas.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+
+    departamento_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("rh_departamentos.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     # Dados de identificação (denormalizados para uso sem cadastros_pessoas)
@@ -50,6 +73,34 @@ class ColaboradorRH(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+
+class EsocialEvento(Base):
+    __tablename__ = "rh_esocial_eventos"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    colaborador_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("rh_colaboradores.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    tipo_evento: Mapped[str] = mapped_column(
+        String(10), nullable=False,
+        comment="S-2200 | S-2300 | S-2299 | S-1200 | S-2400"
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), default="PENDENTE", nullable=False,
+        comment="PENDENTE | ENVIADO | ERRO | PROCESSANDO"
+    )
+    numero_recibo: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    codigo_erro: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    descricao_erro: Mapped[str | None] = mapped_column(Text, nullable=True)
+    colaborador_nome: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    periodo_apuracao: Mapped[str | None] = mapped_column(String(7), nullable=True, comment="YYYY-MM")
+    xml_enviado: Mapped[str | None] = mapped_column(Text, nullable=True)
+    enviado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class LancamentoDiaria(Base):

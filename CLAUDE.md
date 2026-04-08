@@ -7,7 +7,7 @@
 - Responses ≤150 words; artifacts to files, never inline
 
 ## Stack
-- **Backend:** FastAPI + SQLAlchemy 2.0 async + Alembic + PostgreSQL (SQLite fallback) + Python 3.12
+- **Backend:** FastAPI + SQLAlchemy 2.0 async + Alembic + PostgreSQL + Python 3.12
 - **Frontend:** Next.js 16 App Router + React 19 + shadcn/ui + Zustand + TanStack Query + Tailwind 4
 - **Monorepo:** pnpm — `/apps/web`, `/services/api`, `/packages/zod-schemas`
 
@@ -97,3 +97,6 @@ python scripts/create_module.py <module_name>
 - [IMPLEMENTACAO_RBAC_MULTI_SUB.md](IMPLEMENTACAO_RBAC_MULTI_SUB.md) — multi-subscription RBAC
 - [FRONTEND_MAINTENANCE_GUIDE.md](FRONTEND_MAINTENANCE_GUIDE.md) — frontend guide
 - [services/api/CORS_TROUBLESHOOTING.md](services/api/CORS_TROUBLESHOOTING.md) — CORS guide
+- [docs/contexts/*](docs/contexts/*) — overview of all modules
+- [docs/qwen/*](docs/qwen/*) — overview of all modules
+

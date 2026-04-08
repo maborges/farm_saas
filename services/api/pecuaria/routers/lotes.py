@@ -14,7 +14,7 @@ from pecuaria.services.lote_service import LoteBovinoService
 router = APIRouter(
     prefix="/lotes-bovinos",
     tags=["Pecuária - Rebanho (P1)"],
-    dependencies=[Depends(require_module("P1"))]
+    dependencies=[Depends(require_module("P1_REBANHO"))]
 )
 
 @router.get("/", response_model=List[LoteBovinoResponse])

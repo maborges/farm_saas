@@ -21,7 +21,7 @@ async def criar_lote(
     dados: LoteBeneficiamentoCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
     user: dict = Depends(require_role(["agronomo", "admin", "operador"])),
 ):
     svc = BeneficiamentoService(session, tenant_id)
@@ -34,7 +34,7 @@ async def kpis_beneficiamento(
     safra_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = BeneficiamentoService(session, tenant_id)
     return await svc.kpis_safra(safra_id)
@@ -46,7 +46,7 @@ async def listar_lotes(
     status: str | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = BeneficiamentoService(session, tenant_id)
     filters = {}
@@ -63,7 +63,7 @@ async def detalhar_lote(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = BeneficiamentoService(session, tenant_id)
     lote = await svc.get_or_fail(id)
@@ -76,7 +76,7 @@ async def atualizar_lote(
     dados: LoteBeneficiamentoUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = BeneficiamentoService(session, tenant_id)
@@ -89,7 +89,7 @@ async def excluir_lote(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
     user: dict = Depends(require_role(["admin"])),
 ):
     svc = BeneficiamentoService(session, tenant_id)

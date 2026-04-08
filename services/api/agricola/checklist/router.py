@@ -26,7 +26,7 @@ async def listar_templates(
     fase: str | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
 ):
     svc = ChecklistTemplateService(session, tenant_id)
     return await svc.listar(cultura=cultura, fase=fase)
@@ -42,7 +42,7 @@ async def criar_template(
     dados: ChecklistTemplateCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = ChecklistTemplateService(session, tenant_id)
@@ -59,7 +59,7 @@ async def atualizar_template(
     dados: ChecklistTemplateUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = ChecklistTemplateService(session, tenant_id)
@@ -75,7 +75,7 @@ async def desativar_template(
     template_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = ChecklistTemplateService(session, tenant_id)
@@ -95,7 +95,7 @@ async def gerar_checklist_fase(
     cultura: str,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
 ):
     svc = SafraChecklistService(session, tenant_id)
     return await svc.gerar_para_fase(safra_id, cultura, fase.upper())
@@ -111,7 +111,7 @@ async def status_checklist_fase(
     fase: str,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
 ):
     svc = SafraChecklistService(session, tenant_id)
     return await svc.status_fase(safra_id, fase.upper())
@@ -125,7 +125,7 @@ async def status_checklist_completo(
     safra_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
 ):
     svc = SafraChecklistService(session, tenant_id)
     return {
@@ -145,7 +145,7 @@ async def marcar_item_checklist(
     dados: ChecklistItemConcluidoUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
     user: dict = Depends(require_role(["agronomo", "admin", "operador"])),
 ):
     svc = SafraChecklistService(session, tenant_id)
@@ -165,7 +165,7 @@ async def adicionar_item_checklist(
     dados: ChecklistItemAdicionar,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = SafraChecklistService(session, tenant_id)

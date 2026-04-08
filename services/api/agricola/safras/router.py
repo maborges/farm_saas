@@ -29,7 +29,7 @@ async def criar_safra(
     dados: SafraCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin", "operador"])),
 ):
     svc = SafraService(session, tenant_id)
@@ -50,7 +50,7 @@ async def listar_safras(
     status: str | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = SafraService(session, tenant_id)
     filters = {}
@@ -72,7 +72,7 @@ async def detalhar_safra(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = SafraService(session, tenant_id)
     safra = await svc.get_or_fail(id)
@@ -88,7 +88,7 @@ async def atualizar_safra(
     dados: SafraUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = SafraService(session, tenant_id)
     safra = await svc.atualizar(id, dados)
@@ -103,7 +103,7 @@ async def resumo_safra(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     """
     Retorna comparativo planejado vs realizado:
@@ -124,7 +124,7 @@ async def avancar_fase_safra(
     dados: SafraAvancarFase = SafraAvancarFase(),
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = SafraService(session, tenant_id)
@@ -149,7 +149,7 @@ async def historico_fases_safra(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = SafraService(session, tenant_id)
     return [SafraFaseHistoricoResponse.model_validate(h) for h in await svc.listar_historico(id)]
@@ -173,7 +173,7 @@ async def listar_talhoes_safra(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     """Retorna todos os talhões associados à safra."""
     svc = SafraService(session, tenant_id)
@@ -199,7 +199,7 @@ async def sincronizar_talhoes_safra(
     dados: SafraTalhoesSincronizar,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     """Substitui a lista de talhões da safra. O primeiro ID é o principal."""
@@ -225,7 +225,7 @@ async def get_estoque_saldo(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     """
     Retorna saldo atual de estoque agrupado por depósito e produto.
@@ -250,7 +250,7 @@ async def get_estoque_movimentacoes(
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     """
     Retorna histórico de movimentações de estoque para a safra,
@@ -280,7 +280,7 @@ async def get_estoque_lotes(
     deposito_id: UUID | None = Query(None, description="Filtrar por depósito"),
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     """
     Retorna lotes (batches) consumidos em operações agrícolas da safra.

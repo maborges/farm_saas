@@ -16,7 +16,7 @@ async def gerar_previsao_maquina(
     talhao_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = PrevisaoService(session, tenant_id)
@@ -29,7 +29,7 @@ async def listar_previsoes(
     talhao_id: UUID | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = PrevisaoService(session, tenant_id)
     filters = {}

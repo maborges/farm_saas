@@ -18,7 +18,7 @@ Endpoints:
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
-from typing import List
+from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 
@@ -27,9 +27,10 @@ from core.dependencies import (
     get_tenant_id,
     require_tenant_permission
 )
-from core.models.grupo_fazendas import GrupoFazendas
+from core.models.grupo_fazendas import GrupoFazendas, GrupoUsuario
 from core.models.fazenda import Fazenda
 from core.models.billing import AssinaturaTenant, PlanoAssinatura
+from core.models.auth import Usuario
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/grupos-fazendas", tags=["Grupos de Fazendas"])
@@ -61,7 +62,7 @@ class AssinaturaInfo(BaseModel):
     id: str
     plano_nome: str
     status: str
-    limite_usuarios: int
+    limite_usuarios_maximo: Optional[int]
     modulos: List[str]
 
 class GrupoFazendasResponse(BaseModel):
@@ -82,6 +83,22 @@ class GrupoDetalhadoResponse(GrupoFazendasResponse):
 
 class AddFazendasRequest(BaseModel):
     fazendas_ids: List[str] = Field(..., min_items=1)
+
+# Member management schemas
+class AddMembroRequest(BaseModel):
+    user_id: str
+    perfil_id: str | None = None
+
+class UpdateMembroRequest(BaseModel):
+    perfil_id: str | None = None
+
+class MembroResponse(BaseModel):
+    id: str
+    user_id: str
+    nome: str
+    email: str
+    perfil_id: str | None
+    created_at: datetime
 
 # ==================== ENDPOINTS ====================
 
@@ -130,7 +147,7 @@ async def list_grupos(
                 id=str(assinatura.id),
                 plano_nome=plano.nome,
                 status=assinatura.status,
-                limite_usuarios=plano.limite_usuarios,
+                limite_usuarios_maximo=plano.limite_usuarios_maximo,
                 modulos=plano.modulos_inclusos
             )
 
@@ -202,7 +219,7 @@ async def get_grupo_detalhado(
             id=str(assinatura.id),
             plano_nome=plano.nome,
             status=assinatura.status,
-            limite_usuarios=plano.limite_usuarios,
+            limite_usuarios_maximo=plano.limite_usuarios_maximo,
             modulos=plano.modulos_inclusos
         )
 
@@ -413,3 +430,190 @@ async def remove_fazenda_from_grupo(
 
     fazenda.grupo_id = None
     await session.commit()
+
+
+# ==================== MEMBER MANAGEMENT ====================
+
+def _parse_uuid(value: str, label: str = "ID") -> uuid.UUID:
+    try:
+        return uuid.UUID(value)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"{label} inválido")
+
+
+async def _get_grupo_or_404(session: AsyncSession, grupo_uuid: uuid.UUID, tenant_id: uuid.UUID) -> GrupoFazendas:
+    grupo = await session.get(GrupoFazendas, grupo_uuid)
+    if not grupo or grupo.tenant_id != tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo não encontrado")
+    return grupo
+
+
+@router.get(
+    "/{grupo_id}/membros",
+    response_model=List[MembroResponse],
+    dependencies=[Depends(require_tenant_permission("tenant:grupos:view"))],
+)
+async def list_membros(
+    grupo_id: str,
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+    session: AsyncSession = Depends(get_session),
+):
+    """Lista membros de um grupo com detalhes do usuário."""
+    grupo_uuid = _parse_uuid(grupo_id, "grupo_id")
+    await _get_grupo_or_404(session, grupo_uuid, tenant_id)
+
+    stmt = (
+        select(GrupoUsuario, Usuario)
+        .join(Usuario, GrupoUsuario.user_id == Usuario.id)
+        .where(GrupoUsuario.grupo_id == grupo_uuid)
+        .order_by(Usuario.nome)
+    )
+    result = await session.execute(stmt)
+    rows = result.all()
+
+    return [
+        MembroResponse(
+            id=str(gu.id),
+            user_id=str(gu.user_id),
+            nome=u.nome,
+            email=u.email,
+            perfil_id=str(gu.perfil_id) if gu.perfil_id else None,
+            created_at=gu.created_at,
+        )
+        for gu, u in rows
+    ]
+
+
+@router.post(
+    "/{grupo_id}/membros",
+    response_model=MembroResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_tenant_permission("tenant:grupos:edit"))],
+)
+async def add_membro(
+    grupo_id: str,
+    data: AddMembroRequest,
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+    session: AsyncSession = Depends(get_session),
+):
+    """Adiciona um usuário ao grupo."""
+    grupo_uuid = _parse_uuid(grupo_id, "grupo_id")
+    user_uuid = _parse_uuid(data.user_id, "user_id")
+    perfil_uuid = _parse_uuid(data.perfil_id, "perfil_id") if data.perfil_id else None
+
+    await _get_grupo_or_404(session, grupo_uuid, tenant_id)
+
+    # Verify user belongs to this tenant
+    usuario = await session.get(Usuario, user_uuid)
+    if not usuario:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado")
+
+    # Check duplicate
+    existing = await session.scalar(
+        select(GrupoUsuario).where(
+            and_(GrupoUsuario.grupo_id == grupo_uuid, GrupoUsuario.user_id == user_uuid)
+        )
+    )
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Usuário já é membro deste grupo")
+
+    membro = GrupoUsuario(
+        tenant_id=tenant_id,
+        grupo_id=grupo_uuid,
+        user_id=user_uuid,
+        perfil_id=perfil_uuid,
+    )
+    session.add(membro)
+    await session.commit()
+    await session.refresh(membro)
+
+    return MembroResponse(
+        id=str(membro.id),
+        user_id=str(membro.user_id),
+        nome=usuario.nome,
+        email=usuario.email,
+        perfil_id=str(membro.perfil_id) if membro.perfil_id else None,
+        created_at=membro.created_at,
+    )
+
+
+@router.delete(
+    "/{grupo_id}/membros/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_tenant_permission("tenant:grupos:edit"))],
+)
+async def remove_membro(
+    grupo_id: str,
+    user_id: str,
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+    session: AsyncSession = Depends(get_session),
+):
+    """Remove um usuário do grupo. Não é permitido remover o último membro com perfil de owner."""
+    grupo_uuid = _parse_uuid(grupo_id, "grupo_id")
+    user_uuid = _parse_uuid(user_id, "user_id")
+
+    await _get_grupo_or_404(session, grupo_uuid, tenant_id)
+
+    membro = await session.scalar(
+        select(GrupoUsuario).where(
+            and_(GrupoUsuario.grupo_id == grupo_uuid, GrupoUsuario.user_id == user_uuid)
+        )
+    )
+    if not membro:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Membro não encontrado neste grupo")
+
+    # Guard: cannot remove if last member
+    total_membros = await session.scalar(
+        select(func.count(GrupoUsuario.id)).where(GrupoUsuario.grupo_id == grupo_uuid)
+    )
+    if total_membros <= 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível remover o último membro do grupo",
+        )
+
+    await session.delete(membro)
+    await session.commit()
+
+
+@router.patch(
+    "/{grupo_id}/membros/{user_id}",
+    response_model=MembroResponse,
+    dependencies=[Depends(require_tenant_permission("tenant:grupos:edit"))],
+)
+async def update_membro(
+    grupo_id: str,
+    user_id: str,
+    data: UpdateMembroRequest,
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+    session: AsyncSession = Depends(get_session),
+):
+    """Atualiza o perfil de acesso de um membro no grupo."""
+    grupo_uuid = _parse_uuid(grupo_id, "grupo_id")
+    user_uuid = _parse_uuid(user_id, "user_id")
+    perfil_uuid = _parse_uuid(data.perfil_id, "perfil_id") if data.perfil_id else None
+
+    await _get_grupo_or_404(session, grupo_uuid, tenant_id)
+
+    membro = await session.scalar(
+        select(GrupoUsuario).where(
+            and_(GrupoUsuario.grupo_id == grupo_uuid, GrupoUsuario.user_id == user_uuid)
+        )
+    )
+    if not membro:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Membro não encontrado neste grupo")
+
+    membro.perfil_id = perfil_uuid
+    await session.commit()
+    await session.refresh(membro)
+
+    usuario = await session.get(Usuario, user_uuid)
+
+    return MembroResponse(
+        id=str(membro.id),
+        user_id=str(membro.user_id),
+        nome=usuario.nome,
+        email=usuario.email,
+        perfil_id=str(membro.perfil_id) if membro.perfil_id else None,
+        created_at=membro.created_at,
+    )

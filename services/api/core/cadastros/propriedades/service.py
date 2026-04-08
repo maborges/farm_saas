@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from core.base_service import BaseService
 from core.exceptions import EntityNotFoundError, BusinessRuleError
-from .models import AreaRural, MatriculaImovel, RegistroAmbiental, ValorPatrimonial
+from .models import AreaRural, MatriculaImovel, RegistroAmbiental, ValorPatrimonial, Infraestrutura, ArquivoGeo, StatusProcessamentoGeo
 
 
 class AreaRuralService(BaseService[AreaRural]):
@@ -193,6 +193,134 @@ class RegistroAmbientalService:
             raise EntityNotFoundError("Registro ambiental não encontrado")
         obj.ativo = False
         await self.session.commit()
+
+
+class InfraestruturaService:
+    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID):
+        self.session = session
+        self.tenant_id = tenant_id
+
+    async def _verificar_area(self, area_id: uuid.UUID) -> AreaRural:
+        result = await self.session.execute(
+            select(AreaRural).where(AreaRural.id == area_id, AreaRural.tenant_id == self.tenant_id)
+        )
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Área rural não encontrada")
+        return obj
+
+    async def listar(self, area_rural_id: uuid.UUID, apenas_ativos: bool = True) -> list[Infraestrutura]:
+        await self._verificar_area(area_rural_id)
+        stmt = select(Infraestrutura).where(Infraestrutura.area_rural_id == area_rural_id)
+        if apenas_ativos:
+            stmt = stmt.where(Infraestrutura.is_active == True)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def criar(self, data: dict) -> Infraestrutura:
+        await self._verificar_area(data["area_rural_id"])
+        obj = Infraestrutura(tenant_id=self.tenant_id, **data)
+        self.session.add(obj)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+    async def atualizar(self, infra_id: uuid.UUID, area_rural_id: uuid.UUID, data: dict) -> Infraestrutura:
+        await self._verificar_area(area_rural_id)
+        result = await self.session.execute(
+            select(Infraestrutura).where(
+                Infraestrutura.id == infra_id,
+                Infraestrutura.area_rural_id == area_rural_id,
+                Infraestrutura.tenant_id == self.tenant_id,
+            )
+        )
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Infraestrutura não encontrada")
+        for k, v in data.items():
+            setattr(obj, k, v)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+    async def remover(self, infra_id: uuid.UUID, area_rural_id: uuid.UUID) -> None:
+        await self._verificar_area(area_rural_id)
+        result = await self.session.execute(
+            select(Infraestrutura).where(
+                Infraestrutura.id == infra_id,
+                Infraestrutura.area_rural_id == area_rural_id,
+                Infraestrutura.tenant_id == self.tenant_id,
+            )
+        )
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Infraestrutura não encontrada")
+        obj.is_active = False
+        await self.session.commit()
+
+
+class ArquivoGeoService:
+    def __init__(self, session: AsyncSession, tenant_id: uuid.UUID):
+        self.session = session
+        self.tenant_id = tenant_id
+
+    async def _verificar_area(self, area_id: uuid.UUID) -> AreaRural:
+        result = await self.session.execute(
+            select(AreaRural).where(AreaRural.id == area_id, AreaRural.tenant_id == self.tenant_id)
+        )
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Área rural não encontrada")
+        return obj
+
+    async def listar(self, area_rural_id: uuid.UUID) -> list[ArquivoGeo]:
+        await self._verificar_area(area_rural_id)
+        result = await self.session.execute(
+            select(ArquivoGeo)
+            .where(ArquivoGeo.area_rural_id == area_rural_id, ArquivoGeo.tenant_id == self.tenant_id)
+            .order_by(ArquivoGeo.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def criar(self, data: dict) -> ArquivoGeo:
+        obj = ArquivoGeo(tenant_id=self.tenant_id, **data)
+        self.session.add(obj)
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+    async def marcar_processado(
+        self, arquivo_id: uuid.UUID, poligonos: int, area_ha: float
+    ) -> ArquivoGeo:
+        result = await self.session.execute(
+            select(ArquivoGeo).where(
+                ArquivoGeo.id == arquivo_id, ArquivoGeo.tenant_id == self.tenant_id
+            )
+        )
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Arquivo geo não encontrado")
+        obj.status = StatusProcessamentoGeo.PROCESSADO
+        obj.poligonos_extraidos = poligonos
+        obj.area_ha_extraida = area_ha
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
+
+    async def marcar_erro(self, arquivo_id: uuid.UUID, erro: str) -> ArquivoGeo:
+        result = await self.session.execute(
+            select(ArquivoGeo).where(
+                ArquivoGeo.id == arquivo_id, ArquivoGeo.tenant_id == self.tenant_id
+            )
+        )
+        obj = result.scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Arquivo geo não encontrado")
+        obj.status = StatusProcessamentoGeo.ERRO
+        obj.erro_msg = erro
+        await self.session.commit()
+        await self.session.refresh(obj)
+        return obj
 
 
 class ValorPatrimonialService:

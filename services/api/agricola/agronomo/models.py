@@ -28,7 +28,7 @@ class RelatorioTecnico(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     safra_id: Mapped[UUID] = mapped_column(ForeignKey("safras.id", ondelete="CASCADE"), nullable=False, index=True)
-    talhao_id: Mapped[UUID] = mapped_column(ForeignKey("talhoes.id", ondelete="CASCADE"), nullable=False, index=True)
+    talhao_id: Mapped[UUID] = mapped_column(ForeignKey("cadastros_areas_rurais.id", ondelete="CASCADE"), nullable=False, index=True)
     usuario_id: Mapped[UUID] = mapped_column(Uuid, nullable=False) # Agrônomo responsável
 
     data_visita: Mapped[datetime] = mapped_column(nullable=False, server_default=text("(CURRENT_TIMESTAMP)"))

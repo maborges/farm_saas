@@ -20,7 +20,7 @@ async def criar_romaneio(
     dados: RomaneioColheitaCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
     user: dict = Depends(require_role(["agronomo", "admin", "operador"])),
 ):
     svc = RomaneioService(session, tenant_id)
@@ -32,7 +32,7 @@ async def kpis_romaneios(
     safra_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = RomaneioService(session, tenant_id)
     return await svc.kpis_safra(safra_id)
@@ -43,7 +43,7 @@ async def listar_romaneios(
     talhao_id: UUID | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = RomaneioService(session, tenant_id)
     filters = {}
@@ -60,7 +60,7 @@ async def detalhar_romaneio(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = RomaneioService(session, tenant_id)
     romaneio = await svc.get_or_fail(id)
@@ -72,7 +72,7 @@ async def atualizar_romaneio(
     dados: RomaneioColheitaUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = RomaneioService(session, tenant_id)
@@ -84,7 +84,7 @@ async def excluir_romaneio(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
     user: dict = Depends(require_role(["admin"])),
 ):
     svc = RomaneioService(session, tenant_id)

@@ -1,7 +1,7 @@
 """rh_colaborador_add_nome_cpf_nullable_pessoa_id
 
 Revision ID: rh_colaborador_nome_cpf
-Revises: g1b2c3d4e5f6
+Revises: fcc3dc4b3800
 Create Date: 2026-03-31
 
 """

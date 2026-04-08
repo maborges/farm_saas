@@ -15,7 +15,7 @@ async def registrar_analise(
     dados: AnaliseSoloCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = AnaliseSoloService(session, tenant_id)
@@ -27,7 +27,7 @@ async def listar_analises(
     talhao_id: UUID | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = AnaliseSoloService(session, tenant_id)
     filters = {}
@@ -41,7 +41,7 @@ async def detalhar_analise(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = AnaliseSoloService(session, tenant_id)
     analise = await svc.get_or_fail(id)
@@ -54,7 +54,7 @@ async def atualizar_analise(
     dados: AnaliseSoloUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = AnaliseSoloService(session, tenant_id)
@@ -69,7 +69,7 @@ async def deletar_analise(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = AnaliseSoloService(session, tenant_id)
@@ -84,7 +84,7 @@ async def recomendacoes_analise(
     v_meta: Optional[float] = Query(60.0, description="Saturação por bases alvo (%)"),
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     """Gera recomendações de calagem (método V% Embrapa) e adubação NPK para a análise."""
     svc = AnaliseSoloService(session, tenant_id)

@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List
 import uuid
+from loguru import logger
 
 from core.dependencies import get_session, get_current_admin
 from core.models.tenant import Tenant
@@ -188,6 +189,15 @@ async def list_plans(session: AsyncSession = Depends(get_session)):
 @router.post("/plans", response_model=PlanoAssinaturaResponse, dependencies=[Depends(get_current_admin)])
 async def create_plan(plan_data: PlanoAssinaturaCreate, session: AsyncSession = Depends(get_session)):
     """Cria um novo plano/pacote comercial."""
+    # Se o novo plano for marcado como padrão, desmarcar todos os outros
+    if plan_data.is_default:
+        stmt = select(PlanoAssinatura).where(PlanoAssinatura.is_default == True)
+        result = await session.execute(stmt)
+        existing_default = result.scalar_one_or_none()
+        if existing_default:
+            existing_default.is_default = False
+            logger.info(f"Plano {existing_default.id} deixou de ser o plano padrão")
+
     new_plan = PlanoAssinatura(**plan_data.model_dump())
     session.add(new_plan)
     await session.commit()
@@ -200,6 +210,32 @@ async def update_plan(plan_id: uuid.UUID, plan_data: PlanoAssinaturaUpdate, sess
     plan = await session.get(PlanoAssinatura, plan_id)
     if not plan:
         raise HTTPException(status_code=404, detail="Plano não encontrado")
+
+    # Se estão marcando este plano como padrão, desmarcar os outros
+    if plan_data.is_default is True:
+        stmt = select(PlanoAssinatura).where(
+            PlanoAssinatura.is_default == True,
+            PlanoAssinatura.id != plan_id
+        )
+        result = await session.execute(stmt)
+        existing_default = result.scalar_one_or_none()
+        if existing_default:
+            existing_default.is_default = False
+            logger.info(f"Plano {existing_default.id} deixou de ser o plano padrão")
+    # Se estão desmarcando este plano como padrão e não há outro, impedir
+    elif plan_data.is_default is False and plan.is_default:
+        stmt = select(func.count(PlanoAssinatura.id)).where(
+            PlanoAssinatura.is_default == True,
+            PlanoAssinatura.id != plan_id
+        )
+        result = await session.execute(stmt)
+        other_default_count = result.scalar_one() or 0
+        if other_default_count == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Deve haver pelo menos um plano padrão. Marque outro plano como padrão antes de desmarcar este."
+            )
+
     for field, value in plan_data.model_dump(exclude_unset=True).items():
         setattr(plan, field, value)
     await session.commit()
@@ -216,6 +252,24 @@ async def toggle_plan_status(plan_id: uuid.UUID, session: AsyncSession = Depends
     plan.ativo = not plan.ativo
     await session.commit()
     return {"id": plan_id, "novo_status": plan.ativo}
+
+@router.get("/modules", dependencies=[Depends(get_current_admin)])
+async def list_modules():
+    """Retorna o catálogo completo de módulos disponíveis com metadados."""
+    from core.constants import ModuloMetadata
+    resultado = []
+    for modulo_id, meta in ModuloMetadata.CATALOGO.items():
+        resultado.append({
+            "id": modulo_id,
+            "nome": meta.get("nome", modulo_id),
+            "descricao": meta.get("descricao", ""),
+            "categoria": meta.get("categoria", ""),
+            "obrigatorio": meta.get("obrigatorio", False),
+            "preco_base_mensal": meta.get("preco_base_mensal", 0.0),
+            "dependencias": meta.get("dependencias", []),
+        })
+    return resultado
+
 
 @router.post("/tenants/{tenant_id}/assign-plan/{plan_id}", dependencies=[Depends(get_current_admin)])
 async def assign_plan_to_tenant(
@@ -251,7 +305,7 @@ async def assign_plan_to_tenant(
         
     # Sincronizar limites do Tenant com o Plano
     tenant.modulos_ativos = plan.modulos_inclusos
-    tenant.max_usuarios_simultaneos = plan.limite_usuarios
+    tenant.max_usuarios_simultaneos = plan.limite_usuarios_maximo if plan.limite_usuarios_maximo else -1
     
     await session.commit()
     
@@ -356,7 +410,7 @@ async def list_global_users(session: AsyncSession = Depends(get_session)):
     
     # Busca usuários e nomes dos tenants aos quais pertencem
     stmt = (
-        select(Usuario, func.group_concat(Tenant.nome).label("tenants"))
+        select(Usuario, func.string_agg(Tenant.nome, ',').label("tenants"))
         .outerjoin(TenantUsuario, Usuario.id == TenantUsuario.usuario_id)
         .outerjoin(Tenant, TenantUsuario.tenant_id == Tenant.id)
         .group_by(Usuario.id)
@@ -573,7 +627,7 @@ async def change_tenant_plan(
 
     # Atualizar módulos do tenant
     tenant.modulos_ativos = novo_plano.modulos_inclusos
-    tenant.max_usuarios_simultaneos = novo_plano.limite_usuarios
+    tenant.max_usuarios_simultaneos = novo_plano.limite_usuarios_maximo if novo_plano.limite_usuarios_maximo else -1
 
     # Registrar no audit log
     from core.models.admin_audit_log import AdminAuditLog
@@ -655,7 +709,7 @@ async def get_tenant_details(tenant_id: uuid.UUID, session: AsyncSession = Depen
                     "preco_mensal": float(plano.preco_mensal),
                     "preco_anual": float(plano.preco_anual),
                     "modulos": plano.modulos_inclusos,
-                    "limite_usuarios": plano.limite_usuarios
+                    "limite_usuarios_maximo": plano.limite_usuarios_maximo
                 },
                 "grupo_fazendas": {
                     "id": grupo.id,
@@ -741,7 +795,7 @@ async def get_tenant_details(tenant_id: uuid.UUID, session: AsyncSession = Depen
                 fazendas_data.append({
                     "id": fazenda.id,
                     "nome": fazenda.nome,
-                    "cnpj": fazenda.cnpj,
+                    "cpf_cnpj": fazenda.cpf_cnpj,
                     "coordenadas_sede": fazenda.coordenadas_sede,
                     "area_total_ha": float(fazenda.area_total_ha) if fazenda.area_total_ha else None,
                     "usuarios": usuarios_fazenda
@@ -790,7 +844,7 @@ async def get_tenant_details(tenant_id: uuid.UUID, session: AsyncSession = Depen
             fazendas_sem_grupo_data.append({
                 "id": fazenda.id,
                 "nome": fazenda.nome,
-                "cnpj": fazenda.cnpj,
+                "cpf_cnpj": fazenda.cpf_cnpj,
                 "coordenadas_sede": fazenda.coordenadas_sede,
                 "area_total_ha": float(fazenda.area_total_ha) if fazenda.area_total_ha else None,
                 "usuarios": usuarios_fazenda
@@ -857,3 +911,131 @@ async def get_storage_alerts(
         "total_alertas": len(alertas),
         "tenants": alertas
     }
+
+
+# ==================== LOGIN RATE LIMITING - DESBLOQUEIO ====================
+
+from core.schemas.auth_schemas import (
+    LoginDesbloqueioRequest, LoginDesbloqueioResponse,
+    LoginTentativasInfoResponse, LoginBloqueadosListaResponse
+)
+from core.services.login_rate_limit_service import LoginRateLimitService
+
+@router.post("/login/desbloquear", dependencies=[Depends(get_current_admin)])
+async def backoffice_desbloquear_login(
+    dados: LoginDesbloqueioRequest,
+    session: AsyncSession = Depends(get_session),
+    admin: dict = Depends(get_current_admin)
+):
+    """
+    Backoffice: Desbloqueia login de usuário por email.
+    
+    Admin do SaaS pode desbloquear qualquer usuário da plataforma.
+    Útil quando usuário entra em contato relatando bloqueio acidental.
+    """
+    rate_limit_svc = LoginRateLimitService(session)
+    
+    # Verifica se há tentativas registradas
+    info = await rate_limit_svc.get_tentativas_por_email(dados.email)
+    
+    if not info:
+        return LoginDesbloqueioResponse(
+            sucesso=False,
+            mensagem=f"Nenhum registro de tentativas para {dados.email}",
+            email=dados.email
+        )
+    
+    if not info["bloqueado"]:
+        return LoginDesbloqueioResponse(
+            sucesso=False,
+            mensagem=f"Usuário {dados.email} não está bloqueado no momento",
+            email=dados.email
+        )
+    
+    # Desbloqueia
+    await rate_limit_svc.desbloquear_manual(dados.email)
+    
+    # Log de auditoria (opcional - pode ser expandido)
+    logger.info(f"Backoffice desbloqueou login para {dados.email} por {admin.get('sub')}")
+    
+    return LoginDesbloqueioResponse(
+        sucesso=True,
+        mensagem=f"Usuário {dados.email} desbloqueado com sucesso. Pode tentar login imediatamente.",
+        email=dados.email
+    )
+
+
+@router.get("/login/tentativas/{email}", dependencies=[Depends(get_current_admin)])
+async def backoffice_ver_tentativas_login(
+    email: str,
+    session: AsyncSession = Depends(get_session),
+    admin: dict = Depends(get_current_admin)
+):
+    """
+    Backoffice: Visualiza tentativas de login de um usuário.
+    
+    Retorna informações sobre bloqueio, contador de tentativas e histórico.
+    """
+    rate_limit_svc = LoginRateLimitService(session)
+    info = await rate_limit_svc.get_tentativas_por_email(email)
+    
+    if not info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Nenhum registro de tentativas para {email}"
+        )
+    
+    return LoginTentativasInfoResponse(**info)
+
+
+@router.get("/login/bloqueados", dependencies=[Depends(get_current_admin)])
+async def backoffice_listar_bloqueados(
+    limit: int = 50,
+    session: AsyncSession = Depends(get_session),
+    admin: dict = Depends(get_current_admin)
+):
+    """
+    Backoffice: Lista usuários bloqueados nas últimas 24 horas.
+    
+    Permite monitorar bloqueios em massa (possível ataque) ou identificar
+    usuários que precisam de suporte.
+    """
+    rate_limit_svc = LoginRateLimitService(session)
+    bloqueados = await rate_limit_svc.listar_bloqueados_recentes(limit)
+    
+    return LoginBloqueadosListaResponse(
+        total=len(bloqueados),
+        bloqueados=[LoginBloqueadoItem(**b) for b in bloqueados]
+    )
+
+
+
+# ── Telemetria de Módulos ─────────────────────────────────────────────────────
+
+@router.get(
+    "/tenants/{tenant_id}/module-usage",
+    summary="Uso de módulos por tenant nos últimos N dias",
+    dependencies=[Depends(get_current_admin)],
+)
+async def backoffice_module_usage(
+    tenant_id: uuid.UUID,
+    days: int = 30,
+    session: AsyncSession = Depends(get_session),
+):
+    from core.services.module_usage_service import get_usage_by_module
+    return await get_usage_by_module(session, tenant_id, days)
+
+
+@router.get(
+    "/tenants/{tenant_id}/module-usage/{module_id}",
+    summary="Série temporal diária de uso de um módulo específico",
+    dependencies=[Depends(get_current_admin)],
+)
+async def backoffice_module_usage_daily(
+    tenant_id: uuid.UUID,
+    module_id: str,
+    days: int = 30,
+    session: AsyncSession = Depends(get_session),
+):
+    from core.services.module_usage_service import get_daily_usage
+    return await get_daily_usage(session, tenant_id, module_id, days)

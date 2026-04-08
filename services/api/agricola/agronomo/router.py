@@ -16,7 +16,7 @@ async def conversar_com_ia(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     claims: dict = Depends(get_current_user_claims),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
 ):
     svc = AgronomoService(session, tenant_id)
     usuario_id = UUID(claims.get("sub"))
@@ -28,7 +28,7 @@ async def listar_conversas(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     claims: dict = Depends(get_current_user_claims),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
 ):
     svc = AgronomoService(session, tenant_id)
     usuario_id = UUID(claims.get("sub"))
@@ -43,7 +43,7 @@ async def listar_rats(
     safra_id: UUID | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
 ):
     svc = RelatorioTecnicoService(session, tenant_id)
     if safra_id:
@@ -58,7 +58,7 @@ async def criar_rat(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     claims: dict = Depends(get_current_user_claims),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
 ):
     svc = RelatorioTecnicoService(session, tenant_id)
     usuario_id = UUID(claims.get("sub"))
@@ -70,7 +70,7 @@ async def obter_rat(
     rat_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
 ):
     svc = RelatorioTecnicoService(session, tenant_id)
     rat = await svc.get_or_fail(rat_id)
@@ -82,7 +82,7 @@ async def atualizar_rat(
     dados: RelatorioTecnicoUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A2_CAMPO")),
 ):
     svc = RelatorioTecnicoService(session, tenant_id)
     rat = await svc.atualizar_rat(rat_id, dados)

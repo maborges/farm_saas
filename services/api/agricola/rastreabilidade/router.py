@@ -17,7 +17,7 @@ async def criar_lote(
     dados: LoteRastreabilidadeCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = RastreabilidadeService(session, tenant_id)
     return await svc.criar_lote(dados)
@@ -27,7 +27,7 @@ async def cadeia_rastreabilidade(
     lote_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     """Retorna a cadeia completa: lote → safra → talhão → operações + insumos → romaneios."""
     svc = RastreabilidadeService(session, tenant_id)
@@ -39,7 +39,7 @@ async def listar_lotes(
     safra_id: UUID | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = RastreabilidadeService(session, tenant_id)
     filters = {}
@@ -51,7 +51,7 @@ async def criar_certificacao(
     dados: CertificacaoCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = CertificacaoService(session, tenant_id)
     return await svc.create(dados.model_dump())
@@ -61,7 +61,7 @@ async def listar_certificacoes(
     fazenda_id: UUID | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = CertificacaoService(session, tenant_id)
     filters = {}

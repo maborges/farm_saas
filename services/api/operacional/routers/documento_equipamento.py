@@ -15,7 +15,7 @@ from operacional.schemas.documento_equipamento import (
 router = APIRouter(
     prefix="/frota/documentos",
     tags=["Frota — Documentos de Equipamentos"],
-    dependencies=[Depends(require_module("O1"))],
+    dependencies=[Depends(require_module("O1_FROTA"))],
 )
 
 

@@ -10,7 +10,7 @@ from pecuaria.services.manejo_service import ManejoLoteService
 router = APIRouter(
     prefix="/pecuaria/manejos",
     tags=["Pecuária - Manejo (P1)"],
-    dependencies=[Depends(require_module("P1"))],
+    dependencies=[Depends(require_module("P1_REBANHO"))],
 )
 
 

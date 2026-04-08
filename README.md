@@ -6,7 +6,7 @@ Sistema avançado para gestão de fazendas, focada em produtividade, isolamento 
 
 O projeto é dividido em um monorepo contendo:
 - **apps/web**: Interface Next.js 16 com shadcn/ui e Zustand.
-- **services/api**: Backend Python com FastAPI, SQLAlchemy e banco de dados SQLite (emulando PostgreSQL).
+- **services/api**: Backend Python com FastAPI, SQLAlchemy e banco de dados PostgreSQL.
 - **packages/zod-schemas**: Definições de contratos compartilhados (Shared Schemas).
 
 ## 🚀 Funcionalidades (Features)
@@ -37,9 +37,9 @@ O projeto é dividido em um monorepo contendo:
 
 cd services/api
 source .venv/bin/activate
-uvicorn main:app --reload
-
 ./start_server.sh
+
+uvicorn main:app --reload
 
 
 ### Frontend
@@ -88,7 +88,7 @@ pkill -f "uvicorn main:app" && sleep 2 && echo "✅ Processo uvicorn parado" (Pa
 * As bordas dos componentes devem ser rounded-xm 
 * Usar sidebar para os menus separando os itens por módulo e seus submodulos que devem expandir conforme selecionados  
 * Usar sidebar para navegação de menus que pode ser retraidos 
-* Procure sempre usar o datatables com pesquisa, ordenação de colunas, exportação para pdf e excel. Quando houver a coluna de ações não colocar header na coluna, botões de ação sem bordas, sem texto, gap-0, cor e ícone pertinente à ação.
+* Procure sempre usar o datatables com pesquisa, ordenação de colunas, exportação para pdf e excel. Quando houver a coluna de ações não colocar header na coluna, botões de ação sem bordas, sem texto, gap-0, cor e ícone pertinente à ação e tooltips curto.
 
 - **Estética Agro**: Use paletas harmoniosas (Verde Esmeralda, Tons Terra) e Dark/Light Mode premiun e o usuário pode mudar.
 

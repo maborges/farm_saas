@@ -3,7 +3,7 @@ from typing import Optional, Any
 from datetime import datetime
 import uuid
 
-from .models import TipoArea
+from .models import TipoArea, TipoInfraestrutura, FormatoArquivoGeo, StatusProcessamentoGeo
 
 
 # ---------------------------------------------------------------------------
@@ -208,6 +208,96 @@ class RegistroAmbientalResponse(BaseModel):
 # ValorPatrimonial
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Infraestrutura
+# ---------------------------------------------------------------------------
+
+class InfraestruturaCreate(BaseModel):
+    area_rural_id: Optional[uuid.UUID] = None  # injetado via path param pelo router
+    nome: str
+    tipo: str
+    capacidade: Optional[float] = None
+    unidade_capacidade: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    observacoes: Optional[str] = None
+
+    @field_validator("tipo")
+    @classmethod
+    def validar_tipo(cls, v: str) -> str:
+        tipos_validos = {e.value for e in TipoInfraestrutura}
+        if v not in tipos_validos:
+            raise ValueError(f"Tipo inválido. Valores aceitos: {sorted(tipos_validos)}")
+        return v
+
+
+class InfraestruturaUpdate(BaseModel):
+    nome: Optional[str] = None
+    tipo: Optional[str] = None
+    capacidade: Optional[float] = None
+    unidade_capacidade: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    observacoes: Optional[str] = None
+    is_active: Optional[bool] = None
+
+    @field_validator("tipo")
+    @classmethod
+    def validar_tipo(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        tipos_validos = {e.value for e in TipoInfraestrutura}
+        if v not in tipos_validos:
+            raise ValueError(f"Tipo inválido. Valores aceitos: {sorted(tipos_validos)}")
+        return v
+
+
+class InfraestruturaResponse(BaseModel):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    area_rural_id: uuid.UUID
+    nome: str
+    tipo: str
+    capacidade: Optional[float]
+    unidade_capacidade: Optional[str]
+    latitude: Optional[float]
+    longitude: Optional[float]
+    observacoes: Optional[str]
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
+# ArquivoGeo
+# ---------------------------------------------------------------------------
+
+class ArquivoGeoResponse(BaseModel):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    area_rural_id: uuid.UUID
+    uploaded_by: Optional[uuid.UUID]
+    nome_arquivo: str
+    formato: str
+    tamanho_bytes: int
+    storage_backend: str
+    storage_path: str
+    status: str
+    poligonos_extraidos: Optional[int]
+    area_ha_extraida: Optional[float]
+    erro_msg: Optional[str]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ArquivoGeoProcessadoResponse(BaseModel):
+    """Retorno do endpoint de upload incluindo polígonos extraídos."""
+    arquivo: ArquivoGeoResponse
+    poligonos: Optional[Any] = None  # GeoJSON extraído para preview
+
+
 METODOS_AVALIACAO = {"MERCADO", "CUSTO", "RENDA", "DECLARADO", "LAUDO"}
 
 
@@ -268,3 +358,34 @@ class ValorPatrimonialResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
+# Schemas de Hierarquia Completa (Propriedade → Fazenda → Áreas)
+# ---------------------------------------------------------------------------
+
+class FazendaHierarquiaResponse(BaseModel):
+    """Resposta de uma fazenda com sua hierarquia de áreas rurais."""
+    fazenda_id: uuid.UUID
+    exploracao_id: uuid.UUID
+    natureza: str
+    data_inicio: datetime
+    data_fim: Optional[datetime]
+    areas: list["AreaRuralTreeResponse"] = []
+
+
+class PropriedadeComHierarquiaResponse(BaseModel):
+    """
+    Resposta completa da propriedade com toda hierarquia.
+    
+    Inclui:
+    - Dados da propriedade econômica
+    - Lista de fazendas vinculadas (via ExploracaoRural)
+    - Para cada fazenda: árvore de áreas rurais (Glebas → Talhões → Piquetes)
+    """
+    propriedade: "PropriedadeResponse"
+    fazendas: list[FazendaHierarquiaResponse] = []
+
+
+# Forward references
+AreaRuralTreeResponse = AreaRuralTree

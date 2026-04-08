@@ -1,15 +1,16 @@
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query, status
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query, status, Body
 import asyncio
 from loguru import logger
 from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_tenant_id, get_session_with_tenant
+from core.dependencies import get_tenant_id, get_session_with_tenant, get_current_admin
 from core.database import async_session_maker
 from notificacoes.models import Notificacao
 from notificacoes.schemas import NotificacaoCreate, NotificacaoResponse, MarcarLidasRequest
 from notificacoes.service import NotificacaoService, manager
+from notificacoes.alertas_engine import AlertasEngine
 
 router = APIRouter(prefix="/notificacoes", tags=["Notificações"])
 
@@ -93,6 +94,32 @@ async def gerar_demo(
     for d in demos:
         await svc.criar_e_push(d)
     return {"message": f"{len(demos)} notificações de demonstração criadas"}
+
+
+@router.post("/alertas/verificar", response_model=dict)
+async def verificar_alertas_automaticos(
+    tenant_id: Optional[UUID] = Depends(get_tenant_id),
+    admin: dict = Depends(get_current_admin),  # Apenas admin SaaS pode executar
+):
+    """
+    Executa o motor de alertas automáticos manualmente.
+    Apenas administradores do SaaS podem executar.
+    """
+    logger.info(f"Admin {admin.get('sub')} solicitou verificação de alertas")
+
+    engine = AlertasEngine()
+
+    if tenant_id:
+        # Verificar apenas um tenant específico
+        alertas = await engine.verificar_tenant(tenant_id)
+        return {
+            "message": f"Verificação concluída para tenant {tenant_id}",
+            "alertas_gerados": len(alertas),
+        }
+    else:
+        # Verificar todos os tenants
+        resultados = await engine.verificar_todos_tenants()
+        return resultados
 
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────

@@ -25,7 +25,7 @@ from financeiro.services.integracao_service import (
 router = APIRouter(
     prefix="/integracao",
     tags=["Financeiro - Integrações (F1)"],
-    dependencies=[Depends(require_module("F1"))],
+    dependencies=[Depends(require_module("F1_TESOURARIA"))],
 )
 
 

@@ -6,9 +6,37 @@ from jose import JWTError, jwt
 from core.config import settings
 from typing import TYPE_CHECKING, List, Optional, AsyncGenerator
 import uuid
+import hashlib
+import time
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text, select
 from core.database import async_session_maker, DB_URL
+
+# ---------------------------------------------------------------------------
+# Cache simples TTL para validação de sessão (evita query por request)
+# ---------------------------------------------------------------------------
+_SESSION_CACHE: dict[str, tuple[bool, float]] = {}  # token_hash -> (is_valid, expires_at)
+_SESSION_CACHE_TTL = 30  # segundos
+_SESSION_CACHE_MAX = 2000
+
+def _cache_get(token_hash: str) -> bool | None:
+    entry = _SESSION_CACHE.get(token_hash)
+    if entry and time.monotonic() < entry[1]:
+        return entry[0]
+    _SESSION_CACHE.pop(token_hash, None)
+    return None
+
+def _cache_set(token_hash: str, is_valid: bool) -> None:
+    if len(_SESSION_CACHE) >= _SESSION_CACHE_MAX:
+        # Evict oldest ~10%
+        to_remove = sorted(_SESSION_CACHE, key=lambda k: _SESSION_CACHE[k][1])[:200]
+        for k in to_remove:
+            _SESSION_CACHE.pop(k, None)
+    _SESSION_CACHE[token_hash] = (is_valid, time.monotonic() + _SESSION_CACHE_TTL)
+
+def invalidate_session_cache(token_hash: str) -> None:
+    """Invalida o cache de uma sessão específica (chamar ao revogar)."""
+    _SESSION_CACHE.pop(token_hash, None)
 
 if TYPE_CHECKING:
     from core.constants import PlanTier
@@ -31,16 +59,39 @@ def get_token(request: Request) -> str:
         )
     return authorization.split(" ")[1]
 
-async def get_current_user_claims(token: str = Depends(get_token)) -> dict:
-    """Extrai as claims do JWT."""
+async def get_current_user_claims(
+    token: str = Depends(get_token),
+    db: AsyncSession = Depends(get_session),
+) -> dict:
+    """Extrai as claims do JWT e valida se a sessão está ativa no banco."""
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
-        return payload
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Tokens invádilo ou expirado",
+            detail="Token inválido ou expirado",
         )
+
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    cached = _cache_get(token_hash)
+
+    if cached is False:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão encerrada ou revogada")
+
+    if cached is None:
+        from core.models.sessao import SessaoAtiva
+        result = await db.execute(
+            select(SessaoAtiva.status).where(SessaoAtiva.token_hash == token_hash)
+        )
+        sessao_status = result.scalar_one_or_none()
+
+        if sessao_status is not None and sessao_status != "ATIVA":
+            _cache_set(token_hash, False)
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sessão encerrada ou revogada")
+
+        _cache_set(token_hash, True)
+
+    return payload
 
 async def get_tenant_id(
     request: Request,
@@ -53,6 +104,18 @@ async def get_tenant_id(
         raise HTTPException(status_code=403, detail="Tenant context missing")
     
     return uuid.UUID(tenant_id_str)
+
+async def get_user_id(
+    claims: dict = Depends(get_current_user_claims)
+) -> uuid.UUID | None:
+    """Extrai o user_id (sub) do JWT para uso em audit logs."""
+    sub = claims.get("sub")
+    if sub:
+        try:
+            return uuid.UUID(sub)
+        except (ValueError, AttributeError):
+            pass
+    return None
 
 async def get_session_with_tenant(
     tenant_id: uuid.UUID = Depends(get_tenant_id)
@@ -119,13 +182,83 @@ async def get_current_admin(claims: dict = Depends(get_current_user_claims)) -> 
 # SECURITY GATES (RBAC / Feature Flags)
 # ==============================================================================
 
+async def _resolve_grupo_id(
+    request: Request,
+    tenant_id: uuid.UUID,
+    session: AsyncSession,
+) -> uuid.UUID | None:
+    """
+    Resolve o grupo_id do contexto da requisição.
+    Prioridade: X-Fazenda-Id header → X-Grupo-Id header → None
+    """
+    fazenda_id_header = request.headers.get("x-fazenda-id")
+    if fazenda_id_header:
+        try:
+            from core.models.fazenda import Fazenda
+            faz_result = await session.execute(
+                select(Fazenda.grupo_id).where(
+                    Fazenda.id == uuid.UUID(fazenda_id_header),
+                    Fazenda.tenant_id == tenant_id,
+                )
+            )
+            grupo_id = faz_result.scalar_one_or_none()
+            if grupo_id:
+                return grupo_id
+        except (ValueError, Exception):
+            pass
+
+    grupo_id_header = request.headers.get("x-grupo-id")
+    if grupo_id_header:
+        try:
+            return uuid.UUID(grupo_id_header)
+        except ValueError:
+            pass
+
+    return None
+
+
+async def _get_modulos_do_grupo(
+    tenant_id: uuid.UUID,
+    grupo_id: uuid.UUID | None,
+    session: AsyncSession,
+) -> list[str]:
+    """
+    Retorna módulos ativos da assinatura GRUPO do grupo informado.
+    Se grupo_id for None, retorna union de módulos de todos os grupos ativos do tenant.
+    """
+    from core.models.billing import AssinaturaTenant, PlanoAssinatura
+
+    stmt = (
+        select(PlanoAssinatura.modulos_inclusos)
+        .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
+        .where(
+            AssinaturaTenant.tenant_id == tenant_id,
+            AssinaturaTenant.status == "ATIVA",
+            AssinaturaTenant.tipo_assinatura == "GRUPO",
+        )
+    )
+    if grupo_id:
+        stmt = stmt.where(AssinaturaTenant.grupo_fazendas_id == grupo_id)
+
+    results = await session.execute(stmt)
+    rows = results.scalars().all()
+
+    # União de módulos de todas as assinaturas encontradas
+    modulos: set[str] = set()
+    for row in rows:
+        if row:
+            modulos.update(row)
+    return list(modulos)
+
+
 def require_module(required_module: str):
-    """Feature Gate Dinâmico - Valida se o Tenant tem o módulo contratado."""
+    """Feature Gate Dinâmico — valida se o grupo de fazendas tem o módulo contratado.
+    Resolve o grupo via X-Fazenda-Id ou X-Grupo-Id header."""
     async def _dependency(
+        request: Request,
         claims: dict = Depends(get_current_user_claims),
         session: AsyncSession = Depends(get_session)
     ):
-        from core.models.billing import AssinaturaTenant, PlanoAssinatura
         from core.constants import Modulos
 
         tenant_id_str = claims.get("tenant_id")
@@ -133,23 +266,11 @@ def require_module(required_module: str):
             raise HTTPException(status_code=403, detail="Contexto de tenant ausente")
 
         tenant_id = uuid.UUID(tenant_id_str)
-        allowed_modules = claims.get("modules", [])
-
-        if not allowed_modules:
-            stmt = (
-                select(PlanoAssinatura.modulos_inclusos)
-                .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
-                .where(
-                    AssinaturaTenant.tenant_id == tenant_id,
-                    AssinaturaTenant.status == "ATIVA"
-                )
-            )
-            result = await session.execute(stmt)
-            modulos_db = result.scalar_one_or_none()
-            allowed_modules = modulos_db if modulos_db else []
+        grupo_id = await _resolve_grupo_id(request, tenant_id, session)
+        allowed_modules = await _get_modulos_do_grupo(tenant_id, grupo_id, session)
 
         if Modulos.CORE not in allowed_modules:
-            logger.error(f"CRITICAL: Tenant {tenant_id} sem módulo CORE")
+            logger.error(f"CRITICAL: Tenant {tenant_id} grupo {grupo_id} sem módulo CORE")
             raise HTTPException(status_code=403, detail="Licença base inválida. Contate o suporte.")
 
         if required_module not in allowed_modules:
@@ -158,15 +279,26 @@ def require_module(required_module: str):
             modulo_nome = modulo_info.get("nome", required_module)
             raise HTTPException(
                 status_code=402,
-                detail=f"Módulo '{modulo_nome}' não contratado. Faça upgrade do seu plano.",
+                detail=f"Módulo '{modulo_nome}' não contratado neste grupo. Faça upgrade do plano.",
                 headers={"X-Module-Required": required_module}
             )
+
+        # Telemetria: incrementa contador diário de uso em background
+        try:
+            from core.services.module_usage_service import increment_module_usage
+            from datetime import date
+            await increment_module_usage(session, tenant_id, required_module, date.today())
+            await session.commit()
+        except Exception:
+            pass  # Telemetria nunca deve bloquear a requisição
+
         return True
     return _dependency
 
 def require_tier(minimum_tier: "PlanTier"):
-    """Feature Gate de Tier — valida se o tenant tem o tier mínimo exigido."""
+    """Feature Gate de Tier — valida se o grupo tem o tier mínimo exigido."""
     async def _dependency(
+        request: Request,
         claims: dict = Depends(get_current_user_claims),
         session: AsyncSession = Depends(get_session)
     ):
@@ -181,16 +313,19 @@ def require_tier(minimum_tier: "PlanTier"):
         tier_str = claims.get("plan_tier")
 
         if not tier_str:
+            grupo_id = await _resolve_grupo_id(request, tenant_id, session)
             stmt = (
                 select(PlanoAssinatura.plan_tier)
                 .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
                 .where(
                     AssinaturaTenant.tenant_id == tenant_id,
                     AssinaturaTenant.status == "ATIVA",
-                    AssinaturaTenant.tipo_assinatura == "PRINCIPAL",
+                    AssinaturaTenant.tipo_assinatura == "GRUPO",
                 )
-                .limit(1)
             )
+            if grupo_id:
+                stmt = stmt.where(AssinaturaTenant.grupo_fazendas_id == grupo_id)
+            stmt = stmt.limit(1)
             result = await session.execute(stmt)
             tier_str = result.scalar_one_or_none()
 
@@ -212,26 +347,18 @@ def require_tier(minimum_tier: "PlanTier"):
     return _dependency
 
 def require_any_module(*required_modules: str):
-    """Feature Gate que permite acesso se o tenant tiver QUALQUER UM dos módulos listados."""
+    """Feature Gate que permite acesso se o grupo tiver QUALQUER UM dos módulos listados."""
     async def _dependency(
+        request: Request,
         claims: dict = Depends(get_current_user_claims),
         session: AsyncSession = Depends(get_session)
     ):
-        from core.models.billing import AssinaturaTenant, PlanoAssinatura
         tenant_id_str = claims.get("tenant_id")
         if not tenant_id_str:
             raise HTTPException(status_code=403, detail="Contexto de tenant ausente")
         tenant_id = uuid.UUID(tenant_id_str)
-        allowed_modules = claims.get("modules", [])
-        if not allowed_modules:
-            stmt = (
-                select(PlanoAssinatura.modulos_inclusos)
-                .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
-                .where(AssinaturaTenant.tenant_id == tenant_id, AssinaturaTenant.status == "ATIVA")
-            )
-            result = await session.execute(stmt)
-            modulos_db = result.scalar_one_or_none()
-            allowed_modules = modulos_db if modulos_db else []
+        grupo_id = await _resolve_grupo_id(request, tenant_id, session)
+        allowed_modules = await _get_modulos_do_grupo(tenant_id, grupo_id, session)
         if not any(mod in allowed_modules for mod in required_modules):
             raise HTTPException(
                 status_code=402,
@@ -241,26 +368,18 @@ def require_any_module(*required_modules: str):
     return _dependency
 
 def require_all_modules(*required_modules: str):
-    """Feature Gate que permite acesso APENAS se o tenant tiver TODOS os módulos listados."""
+    """Feature Gate que permite acesso APENAS se o grupo tiver TODOS os módulos listados."""
     async def _dependency(
+        request: Request,
         claims: dict = Depends(get_current_user_claims),
         session: AsyncSession = Depends(get_session)
     ):
-        from core.models.billing import AssinaturaTenant, PlanoAssinatura
         tenant_id_str = claims.get("tenant_id")
         if not tenant_id_str:
             raise HTTPException(status_code=403, detail="Contexto de tenant ausente")
         tenant_id = uuid.UUID(tenant_id_str)
-        allowed_modules = claims.get("modules", [])
-        if not allowed_modules:
-            stmt = (
-                select(PlanoAssinatura.modulos_inclusos)
-                .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
-                .where(AssinaturaTenant.tenant_id == tenant_id, AssinaturaTenant.status == "ATIVA")
-            )
-            result = await session.execute(stmt)
-            modulos_db = result.scalar_one_or_none()
-            allowed_modules = modulos_db if modulos_db else []
+        grupo_id = await _resolve_grupo_id(request, tenant_id, session)
+        allowed_modules = await _get_modulos_do_grupo(tenant_id, grupo_id, session)
         missing = [mod for mod in required_modules if mod not in allowed_modules]
         if missing:
             raise HTTPException(
@@ -269,6 +388,83 @@ def require_all_modules(*required_modules: str):
             )
         return True
     return _dependency
+
+def get_grupos_auth(claims: dict) -> list[str]:
+    """Extrai a lista de grupo UUIDs autorizados do JWT."""
+    return claims.get("grupos_auth", [])
+
+
+def require_grupo_access():
+    """
+    Dependency que valida se o usuário tem acesso ao grupo da fazenda informada
+    via header x-fazenda-id. Verifica grupo_id da fazenda contra grupos_auth do JWT.
+    is_owner bypasses this check.
+    """
+    async def _dependency(
+        request: Request,
+        claims: dict = Depends(get_current_user_claims),
+        session: AsyncSession = Depends(get_session)
+    ):
+        from core.models.fazenda import Fazenda
+        from core.models.auth import TenantUsuario
+
+        # is_owner bypasses group check
+        tenant_id_str = claims.get("tenant_id")
+        user_id_str = claims.get("sub")
+        if not tenant_id_str or not user_id_str:
+            raise HTTPException(status_code=403, detail="Contexto de tenant/usuário ausente")
+
+        tenant_id = uuid.UUID(tenant_id_str)
+        user_id = uuid.UUID(user_id_str)
+
+        tu_stmt = select(TenantUsuario).where(
+            TenantUsuario.tenant_id == tenant_id,
+            TenantUsuario.usuario_id == user_id,
+            TenantUsuario.status == "ATIVO"
+        )
+        tu = (await session.execute(tu_stmt)).scalar_one_or_none()
+        if tu and tu.is_owner:
+            return True
+
+        fazenda_id_header = request.headers.get("x-fazenda-id")
+        if not fazenda_id_header:
+            return True  # No fazenda context — skip group check
+
+        try:
+            fazenda_id = uuid.UUID(fazenda_id_header)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="x-fazenda-id inválido")
+
+        fazenda_stmt = select(Fazenda).where(
+            Fazenda.id == fazenda_id,
+            Fazenda.tenant_id == tenant_id
+        )
+        fazenda = (await session.execute(fazenda_stmt)).scalar_one_or_none()
+        if not fazenda:
+            raise HTTPException(status_code=404, detail="Fazenda não encontrada")
+
+        grupos_auth = get_grupos_auth(claims)
+        grupo_id_str = str(fazenda.grupo_id)
+
+        if grupo_id_str not in grupos_auth:
+            # Check FazendaUsuario override
+            from core.models.auth import FazendaUsuario
+            fu_stmt = select(FazendaUsuario).where(
+                FazendaUsuario.tenant_id == tenant_id,
+                FazendaUsuario.usuario_id == user_id,
+                FazendaUsuario.fazenda_id == fazenda_id
+            )
+            fu = (await session.execute(fu_stmt)).scalar_one_or_none()
+            if not fu:
+                from loguru import logger
+                logger.warning(
+                    f"TenantViolationError: user {user_id} tentou acessar fazenda {fazenda_id} "
+                    f"(grupo {grupo_id_str}) sem autorização. grupos_auth={grupos_auth}"
+                )
+                raise HTTPException(status_code=403, detail="Acesso negado: você não tem acesso ao grupo desta fazenda")
+        return True
+    return _dependency
+
 
 def require_role(roles_allowed: List[str]):
     async def _dependency(
@@ -346,4 +542,240 @@ def require_tenant_permission(permission: str):
             if TenantPermissions.has_permission(perfil_acesso.nome.lower(), permission, perfil_acesso.permissoes if perfil_acesso.is_custom else None):
                 return True
         raise HTTPException(status_code=403, detail=f"Permissão negada: {permission}")
+    return _dependency
+
+
+# ==============================================================================
+# LIMIT VALIDATION GATES
+# ==============================================================================
+
+def require_limit(limit_type: str):
+    """
+    Feature Gate de Limites — valida se o grupo não ultrapassou o limite contratado.
+
+    Tipos de limite suportados:
+    - "max_fazendas": Número máximo de fazendas no grupo
+    - "max_usuarios": Número máximo de usuários simultâneos
+    - "max_categorias_plano": Categorias customizáveis no plano de contas
+    - "storage_limite_mb": Limite de armazenamento em MB
+
+    Uso em router:
+        @router.post("/", dependencies=[Depends(require_limit("max_fazendas"))])
+    """
+    async def _dependency(
+        request: Request,
+        claims: dict = Depends(get_current_user_claims),
+        session: AsyncSession = Depends(get_session)
+    ):
+        from core.models.billing import AssinaturaTenant, PlanoAssinatura
+        from core.models.tenant import Tenant
+        from sqlalchemy import func
+
+        tenant_id_str = claims.get("tenant_id")
+        if not tenant_id_str:
+            raise HTTPException(status_code=403, detail="Contexto de tenant ausente")
+
+        tenant_id = uuid.UUID(tenant_id_str)
+        grupo_id = await _resolve_grupo_id(request, tenant_id, session)
+
+        # Buscar assinatura ativa do grupo
+        stmt = (
+            select(PlanoAssinatura)
+            .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
+            .where(
+                AssinaturaTenant.tenant_id == tenant_id,
+                AssinaturaTenant.status == "ATIVA",
+                AssinaturaTenant.tipo_assinatura == "GRUPO",
+            )
+        )
+        if grupo_id:
+            stmt = stmt.where(AssinaturaTenant.grupo_fazendas_id == grupo_id)
+        stmt = stmt.limit(1)
+        result = await session.execute(stmt)
+        plano = result.scalar_one_or_none()
+
+        if not plano:
+            # Sem assinatura ativa — usar limites padrão ou bloquear
+            logger.warning(f"Tenant {tenant_id} sem assinatura ativa para validação de limites")
+            raise HTTPException(
+                status_code=402,
+                detail="Assinatura não encontrada. Por favor, contrate um plano.",
+            )
+
+        # Validar limite conforme tipo
+        if limit_type == "max_fazendas":
+            limite = plano.max_fazendas
+            if limite == -1:
+                return True  # Ilimitado
+
+            # Contar fazendas atuais do tenant
+            from core.models.fazenda import Fazenda
+            count_stmt = select(func.count(Fazenda.id)).where(Fazenda.tenant_id == tenant_id, Fazenda.ativo == True)
+            count_result = await session.execute(count_stmt)
+            atual = count_result.scalar_one() or 0
+
+            if atual >= limite:
+                raise HTTPException(
+                    status_code=402,
+                    detail=f"Limite de {limite} fazendas atingido. Você tem {atual} fazenda(s) ativas. Faça upgrade do plano para adicionar mais.",
+                    headers={"X-Limit-Type": "max_fazendas", "X-Limit-Max": str(limite), "X-Limit-Current": str(atual)},
+                )
+
+        elif limit_type == "max_usuarios":
+            # Verificar primeiro o limite do plano
+            limite = plano.limite_usuarios_maximo
+            if limite is None:
+                return True  # Ilimitado
+
+            # Contar usuários ativos do tenant
+            from core.models.auth import TenantUsuario
+            count_stmt = select(func.count(TenantUsuario.id)).where(
+                TenantUsuario.tenant_id == tenant_id,
+                TenantUsuario.status == "ATIVO",
+            )
+            count_result = await session.execute(count_stmt)
+            atual = count_result.scalar_one() or 0
+
+            if atual >= limite:
+                raise HTTPException(
+                    status_code=402,
+                    detail=f"Limite de {limite} usuários atingido. Você tem {atual} usuário(s) ativo(s). Faça upgrade do plano para adicionar mais.",
+                    headers={"X-Limit-Type": "max_usuarios", "X-Limit-Max": str(limite), "X-Limit-Current": str(atual)},
+                )
+
+        elif limit_type == "max_categorias_plano":
+            limite = plano.max_categorias_plano
+            if limite == -1:
+                return True  # Ilimitado
+
+            # Contar categorias do plano de contas
+            from financeiro.models.plano_conta import PlanoConta
+            count_stmt = select(func.count(PlanoConta.id)).where(
+                PlanoConta.tenant_id == tenant_id,
+                PlanoConta.ativo == True,
+            )
+            count_result = await session.execute(count_stmt)
+            atual = count_result.scalar_one() or 0
+
+            if atual >= limite:
+                raise HTTPException(
+                    status_code=402,
+                    detail=f"Limite de {limite} categorias atingido. Você tem {atual} categoria(s). Faça upgrade do plano para adicionar mais.",
+                    headers={"X-Limit-Type": "max_categorias_plano", "X-Limit-Max": str(limite), "X-Limit-Current": str(atual)},
+                )
+
+        elif limit_type == "storage_limite_mb":
+            # Buscar tenant para verificar storage
+            tenant_stmt = select(Tenant).where(Tenant.id == tenant_id)
+            tenant_result = await session.execute(tenant_stmt)
+            tenant = tenant_result.scalar_one()
+
+            if not tenant:
+                raise HTTPException(status_code=404, detail="Tenant não encontrado")
+
+            limite = tenant.storage_limite_mb
+            atual = tenant.storage_usado_mb
+
+            if atual >= limite:
+                raise HTTPException(
+                    status_code=402,
+                    detail=f"Limite de armazenamento atingido ({atual}/{limite} MB). Libere espaço ou faça upgrade do plano.",
+                    headers={"X-Limit-Type": "storage_limite_mb", "X-Limit-Max": str(limite), "X-Limit-Current": str(atual)},
+                )
+
+        else:
+            logger.error(f"Tipo de limite desconhecido: {limit_type}")
+            raise HTTPException(status_code=500, detail="Tipo de limite não configurado")
+
+        return True
+    return _dependency
+
+
+def check_limit_soft(limit_type: str) -> dict:
+    """
+    Verificação suave de limite — retorna status sem bloquear.
+    Resolve o grupo via X-Fazenda-Id ou X-Grupo-Id header.
+
+    Retorna: {"atual": int, "limite": int | None, "porcentagem": float, "atingido": bool}
+    """
+    async def _dependency(
+        request: Request,
+        claims: dict = Depends(get_current_user_claims),
+        session: AsyncSession = Depends(get_session)
+    ):
+        from core.models.billing import AssinaturaTenant, PlanoAssinatura
+        from core.models.tenant import Tenant
+        from sqlalchemy import func
+
+        tenant_id_str = claims.get("tenant_id")
+        if not tenant_id_str:
+            return {"atual": 0, "limite": 0, "porcentagem": 0.0, "atingido": False}
+
+        tenant_id = uuid.UUID(tenant_id_str)
+        grupo_id = await _resolve_grupo_id(request, tenant_id, session)
+
+        # Buscar assinatura ativa do grupo
+        stmt = (
+            select(PlanoAssinatura)
+            .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
+            .where(
+                AssinaturaTenant.tenant_id == tenant_id,
+                AssinaturaTenant.status == "ATIVA",
+                AssinaturaTenant.tipo_assinatura == "GRUPO",
+            )
+        )
+        if grupo_id:
+            stmt = stmt.where(AssinaturaTenant.grupo_fazendas_id == grupo_id)
+        stmt = stmt.limit(1)
+        result = await session.execute(stmt)
+        plano = result.scalar_one_or_none()
+
+        if not plano:
+            return {"atual": 0, "limite": 0, "porcentagem": 0.0, "atingido": False}
+
+        atual = 0
+        limite = None
+
+        if limit_type == "max_fazendas":
+            limite = plano.max_fazendas
+            if limite == -1:
+                return {"atual": 0, "limite": None, "porcentagem": 0.0, "atingido": False}
+
+            from core.models.fazenda import Fazenda
+            count_stmt = select(func.count(Fazenda.id)).where(Fazenda.tenant_id == tenant_id, Fazenda.ativo == True)
+            count_result = await session.execute(count_stmt)
+            atual = count_result.scalar_one() or 0
+
+        elif limit_type == "max_usuarios":
+            limite = plano.limite_usuarios_maximo
+            if limite is None:
+                return {"atual": 0, "limite": None, "porcentagem": 0.0, "atingido": False}
+
+            from core.models.auth import TenantUsuario
+            count_stmt = select(func.count(TenantUsuario.id)).where(
+                TenantUsuario.tenant_id == tenant_id,
+                TenantUsuario.status == "ATIVO",
+            )
+            count_result = await session.execute(count_stmt)
+            atual = count_result.scalar_one() or 0
+
+        elif limit_type == "storage_limite_mb":
+            tenant_stmt = select(Tenant).where(Tenant.id == tenant_id)
+            tenant_result = await session.execute(tenant_stmt)
+            tenant = tenant_result.scalar_one()
+
+            if tenant:
+                limite = tenant.storage_limite_mb
+                atual = tenant.storage_usado_mb
+
+        porcentagem = (atual / limite * 100) if limite and limite > 0 else 0.0
+        atingido = atual >= limite if limite else False
+
+        return {
+            "atual": atual,
+            "limite": limite,
+            "porcentagem": round(porcentagem, 2),
+            "atingido": atingido,
+        }
+
     return _dependency

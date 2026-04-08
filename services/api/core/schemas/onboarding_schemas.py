@@ -1,7 +1,8 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from uuid import UUID
 from datetime import datetime
 from typing import List, Optional
+from core.utils.cpf_cnpj import validar_cpf_ou_cnpj, apenas_numeros
 
 class ConviteCreateRequest(BaseModel):
     email_convidado: EmailStr
@@ -23,5 +24,20 @@ class AssinanteRegisterRequest(BaseModel):
     username: str
     nome_completo: str
     senha: str
-    nome_fazenda: str # Nome da primeira propriedade
     cnpj_tenant: str
+    # Grupo de fazendas — obrigatório: toda assinatura pertence a um grupo
+    nome_grupo: str  # Ex: "Fazendas Região Sul", "Minha Propriedade"
+    # Primeira fazenda — opcional: pode ser adicionada depois (status PENDENTE_FAZENDA)
+    nome_fazenda: Optional[str] = None
+
+    @field_validator("cnpj_tenant")
+    @classmethod
+    def validar_cnpj_tenant(cls, v: str) -> str:
+        if not v:
+            raise ValueError("CPF ou CNPJ é obrigatório.")
+        
+        if not validar_cpf_ou_cnpj(v):
+            raise ValueError("CPF ou CNPJ inválido. Verifique os dados informados.")
+        
+        # Retorna apenas os números para armazenamento
+        return apenas_numeros(v)

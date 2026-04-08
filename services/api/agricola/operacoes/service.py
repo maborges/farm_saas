@@ -11,7 +11,7 @@ from core.base_service import BaseService
 from agricola.operacoes.models import OperacaoAgricola, InsumoOperacao
 from agricola.operacoes.schemas import OperacaoAgricolaCreate, OperacaoAgricolaUpdate, OperacaoPorFaseKPI, SafraOperacoesPorFaseResponse
 from agricola.safras.models import SAFRA_FASES_ORDEM
-from agricola.talhoes.models import Talhao
+from core.cadastros.propriedades.models import AreaRural
 from agricola.safras.models import Safra
 from agricola.models import OperacaoTipoFase
 from core.cadastros.produtos.models import Produto
@@ -19,6 +19,7 @@ from operacional.services import EstoqueService
 from operacional.models.estoque import MovimentacaoEstoque
 from operacional.services.estoque_fifo import consumir_lotes_fifo, atualizar_saldo_apos_consumo
 from financeiro.models.despesa import Despesa
+from agricola.caderno.models import CadernoCampoEntrada
 
 class OperacaoService(BaseService[OperacaoAgricola]):
     def __init__(self, session: AsyncSession, tenant_id: UUID):
@@ -27,7 +28,7 @@ class OperacaoService(BaseService[OperacaoAgricola]):
 
     async def criar(self, dados: OperacaoAgricolaCreate) -> OperacaoAgricola:
         # 1. Busca talhão para obter fazenda_id
-        stmt_talhao = select(Talhao.fazenda_id).where(Talhao.id == dados.talhao_id)
+        stmt_talhao = select(AreaRural.fazenda_id).where(AreaRural.id == dados.talhao_id)
         fazenda_id = (await self.session.execute(stmt_talhao)).scalar()
         if not fazenda_id:
             raise EntityNotFoundError("Talhão", dados.talhao_id)
@@ -211,6 +212,32 @@ class OperacaoService(BaseService[OperacaoAgricola]):
                     self.session.add(despesa)
 
             # Commit only if ALL operations succeeded (atomicity)
+            # 6. TRIGGER: Se operação foi criada com status REALIZADA, cria entrada no caderno
+            if operacao.status == "REALIZADA":
+                SYSTEM_USER = UUID("00000000-0000-0000-0000-000000000000")
+                descricao = operacao.tipo
+                if operacao.area_aplicada_ha:
+                    descricao += f"\nÁrea: {operacao.area_aplicada_ha} ha"
+                if operacao.custo_total:
+                    descricao += f"\nCusto: R$ {operacao.custo_total:.2f}"
+
+                from agricola.caderno.models import CadernoCampoEntrada
+                entrada = CadernoCampoEntrada(
+                    tenant_id=self.tenant_id,
+                    safra_id=operacao.safra_id,
+                    talhao_id=operacao.talhao_id,
+                    tipo="OPERACAO_AUTO",
+                    descricao=descricao,
+                    data_registro=operacao.data_realizada,
+                    usuario_id=SYSTEM_USER,
+                    operacao_id=operacao.id,
+                )
+                self.session.add(entrada)
+                logger.info(
+                    f"Entrada automática no caderno (criação): {operacao.tipo} → safra {operacao.safra_id}",
+                    entrada_id=str(entrada.id),
+                )
+
             await self.session.commit()
 
         except BusinessRuleError as e:
@@ -237,8 +264,43 @@ class OperacaoService(BaseService[OperacaoAgricola]):
         }
 
     async def atualizar(self, obj_id: UUID, dados: OperacaoAgricolaUpdate) -> OperacaoAgricola:
+        # 1. Busca estado atual antes de atualizar
+        operacao_atual = await self.get_or_fail(obj_id)
+        status_anterior = operacao_atual.status
+
+        # 2. Aplica atualização
         dados_dict = dados.model_dump(exclude_unset=True)
-        return await super().update(obj_id, dados_dict)
+        operacao = await super().update(obj_id, dados_dict)
+
+        # 3. TRIGGER: Se status mudou para REALIZADA, cria entrada no caderno de campo
+        novo_status = dados_dict.get("status")
+        if novo_status == "REALIZADA" and status_anterior != "REALIZADA":
+            descricao = operacao.tipo
+            if operacao.area_aplicada_ha:
+                descricao += f"\nÁrea: {operacao.area_aplicada_ha} ha"
+            if operacao.custo_total:
+                descricao += f"\nCusto: R$ {operacao.custo_total:.2f}"
+
+            # UUID "zero" para indicar origem automática do sistema
+            SYSTEM_USER = UUID("00000000-0000-0000-0000-000000000000")
+
+            entrada = CadernoCampoEntrada(
+                tenant_id=self.tenant_id,
+                safra_id=operacao.safra_id,
+                talhao_id=operacao.talhao_id,
+                tipo="OPERACAO_AUTO",
+                descricao=descricao,
+                data_registro=operacao.data_realizada,
+                usuario_id=SYSTEM_USER,
+                operacao_id=operacao.id,
+            )
+            self.session.add(entrada)
+            logger.info(
+                f"Entrada automática no caderno: {operacao.tipo} → safra {operacao.safra_id}",
+                entrada_id=str(entrada.id),
+            )
+
+        return operacao
 
     async def listar_por_safra_e_fase(
         self, safra_id: UUID, fase: str | None = None

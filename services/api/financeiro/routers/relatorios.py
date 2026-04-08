@@ -18,7 +18,7 @@ from financeiro.services.dashboard_service import DashboardService
 router = APIRouter(
     prefix="/relatorios",
     tags=["Financeiro — Relatórios (F1)"],
-    dependencies=[Depends(require_module("F1"))],
+    dependencies=[Depends(require_module("F1_TESOURARIA"))],
 )
 
 

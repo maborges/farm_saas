@@ -17,7 +17,6 @@ from core.exceptions import EntityNotFoundError
 from agricola.romaneios.service import RomaneioService
 from agricola.romaneios.schemas import RomaneioColheitaCreate
 from agricola.safras.models import Safra
-from agricola.talhoes.models import Talhao
 from financeiro.models.receita import Receita
 from financeiro.models.plano_conta import PlanoConta
 

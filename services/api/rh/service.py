@@ -3,12 +3,83 @@ from uuid import UUID
 from collections import defaultdict
 from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select as _select_func
 from sqlalchemy.future import select
 from sqlalchemy import func, and_
 
 from core.base_service import BaseService
-from rh.models import ColaboradorRH, LancamentoDiaria, Empreitada
-from rh.schemas import ColaboradorCreate, DiarariaCreate, EmpreitadaCreate
+from rh.models import Departamento, EsocialEvento, ColaboradorRH, LancamentoDiaria, Empreitada
+from rh.schemas import DepartamentoCreate, DepartamentoUpdate, EsocialEventoCreate, EsocialEventoUpdate, ColaboradorCreate, DiariaCreate, EmpreitadaCreate
+
+
+class EsocialEventoService(BaseService[EsocialEvento]):
+    def __init__(self, session: AsyncSession, tenant_id: UUID):
+        super().__init__(EsocialEvento, session, tenant_id)
+
+    async def criar(self, dados: EsocialEventoCreate) -> EsocialEvento:
+        return await self.create(dados.model_dump())
+
+    async def atualizar(self, evento_id: UUID, dados: EsocialEventoUpdate) -> EsocialEvento:
+        ev = await self.get_or_fail(evento_id)
+        for k, v in dados.model_dump(exclude_none=True).items():
+            setattr(ev, k, v)
+        self.session.add(ev)
+        return ev
+
+    async def listar_filtrado(
+        self,
+        tipo_evento: str | None = None,
+        status: str | None = None,
+        periodo: str | None = None,
+    ) -> list[EsocialEvento]:
+        from sqlalchemy.future import select
+        stmt = (
+            select(EsocialEvento)
+            .where(EsocialEvento.tenant_id == self.tenant_id)
+            .order_by(EsocialEvento.created_at.desc())
+        )
+        if tipo_evento:
+            stmt = stmt.where(EsocialEvento.tipo_evento == tipo_evento)
+        if status:
+            stmt = stmt.where(EsocialEvento.status == status)
+        if periodo:
+            stmt = stmt.where(EsocialEvento.periodo_apuracao == periodo)
+        return list((await self.session.execute(stmt)).scalars().all())
+
+
+class DepartamentoService(BaseService[Departamento]):
+    def __init__(self, session: AsyncSession, tenant_id: UUID):
+        super().__init__(Departamento, session, tenant_id)
+
+    async def criar(self, dados: DepartamentoCreate) -> Departamento:
+        return await self.create(dados.model_dump())
+
+    async def atualizar(self, departamento_id: UUID, dados: DepartamentoUpdate) -> Departamento:
+        dep = await self.get_or_fail(departamento_id)
+        for k, v in dados.model_dump(exclude_none=True).items():
+            setattr(dep, k, v)
+        self.session.add(dep)
+        return dep
+
+    async def listar_com_contagem(self) -> list[dict]:
+        from sqlalchemy import func
+        stmt = (
+            _select_func(Departamento, func.count(ColaboradorRH.id).label("total_colaboradores"))
+            .outerjoin(
+                ColaboradorRH,
+                (ColaboradorRH.departamento_id == Departamento.id) & (ColaboradorRH.ativo == True)
+            )
+            .where(Departamento.tenant_id == self.tenant_id)
+            .group_by(Departamento.id)
+            .order_by(Departamento.nome)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        result = []
+        for dep, total in rows:
+            d = dep.__dict__.copy()
+            d["total_colaboradores"] = total
+            result.append(d)
+        return result
 
 
 class ColaboradorService(BaseService[ColaboradorRH]):
@@ -31,8 +102,30 @@ class DiariaService(BaseService[LancamentoDiaria]):
     def __init__(self, session: AsyncSession, tenant_id: UUID):
         super().__init__(LancamentoDiaria, session, tenant_id)
 
-    async def criar(self, dados: DiarariaCreate) -> LancamentoDiaria:
+    async def criar(self, dados: DiariaCreate) -> LancamentoDiaria:
         return await self.create(dados.model_dump())
+
+    async def listar_filtrado(
+        self,
+        colaborador_id: UUID | None = None,
+        status: str | None = None,
+        data_inicio: date | None = None,
+        data_fim: date | None = None,
+    ) -> list[LancamentoDiaria]:
+        stmt = (
+            select(LancamentoDiaria)
+            .where(LancamentoDiaria.tenant_id == self.tenant_id)
+        )
+        if colaborador_id:
+            stmt = stmt.where(LancamentoDiaria.colaborador_id == colaborador_id)
+        if status:
+            stmt = stmt.where(LancamentoDiaria.status == status)
+        if data_inicio:
+            stmt = stmt.where(LancamentoDiaria.data >= data_inicio)
+        if data_fim:
+            stmt = stmt.where(LancamentoDiaria.data <= data_fim)
+        stmt = stmt.order_by(LancamentoDiaria.data.desc())
+        return list((await self.session.execute(stmt)).scalars().all())
 
     async def pagar_lote(self, ids: list[UUID], data_pagamento: date | None = None) -> int:
         from sqlalchemy import update
@@ -114,6 +207,22 @@ class DiariaService(BaseService[LancamentoDiaria]):
 class EmpreitadaService(BaseService[Empreitada]):
     def __init__(self, session: AsyncSession, tenant_id: UUID):
         super().__init__(Empreitada, session, tenant_id)
+
+    async def listar_filtrado(
+        self,
+        colaborador_id: UUID | None = None,
+        status_filter: str | None = None,
+    ) -> list[Empreitada]:
+        stmt = (
+            select(Empreitada)
+            .where(Empreitada.tenant_id == self.tenant_id)
+        )
+        if colaborador_id:
+            stmt = stmt.where(Empreitada.colaborador_id == colaborador_id)
+        if status_filter:
+            stmt = stmt.where(Empreitada.status == status_filter)
+        stmt = stmt.order_by(Empreitada.data_inicio.desc())
+        return list((await self.session.execute(stmt)).scalars().all())
 
     async def criar(self, dados: EmpreitadaCreate) -> Empreitada:
         d = dados.model_dump()

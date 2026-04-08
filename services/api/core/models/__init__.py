@@ -8,12 +8,17 @@ from .support import ChamadoSuporte, MensagemChamado
 from .knowledge_base import ConhecimentoCategoria, ConhecimentoArtigo
 from .configuration import ConfiguracaoSaaS
 from .tenant_config import ConfiguracaoTenant
+from .categoria_custom import CategoriaCustom, TipoCategoria
+from .configuracao_fazenda import ConfiguracaoFazenda
+from .historico_configuracao import HistoricoConfiguracao
 from .admin_user import AdminUser
 from .admin_impersonation import AdminImpersonation
 from .sessao import SessaoAtiva
 from .cupom import Cupom
 from .email_template import EmailTemplate, EmailLog
 from .admin_audit_log import AdminAuditLog
+from .tenant_audit_log import TenantAuditLog
+from .module_usage import ModuleUsageStat
 from .crm import PipelineEstagio, LeadCRM, AtividadeCRM
 
 # Cadastros — pessoas

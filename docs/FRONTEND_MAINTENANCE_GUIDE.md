@@ -529,7 +529,7 @@ export function useTeam() {
 - **Arquitetura:** Ver [IMPLEMENTACAO_RBAC_MULTI_SUB.md](IMPLEMENTACAO_RBAC_MULTI_SUB.md)
 - **Shadcn/UI:** https://ui.shadcn.com/docs/components
 - **React Hook Form:** https://react-hook-form.com/
-- **DnD Kit:** https://docs.dndkit.com/
+- **DnD Kit:** https://dndkit.com/
 
 ---
 

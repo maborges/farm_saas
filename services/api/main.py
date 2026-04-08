@@ -15,11 +15,11 @@ from core.routers import fazendas
 from core.routers import auth
 from core.routers import onboarding
 from core.routers import backoffice
+from core.routers import billing
 from core.routers import backoffice_admins
 from core.routers import backoffice_tenants
 from core.routers import team
 from core.routers import grupos_fazendas
-from core.routers import billing
 from core.routers import plan_changes
 from core.routers import backoffice_plan_changes
 from core.routers import backoffice_profiles
@@ -31,8 +31,10 @@ from core.routers import reports
 from core.routers import configuration
 from core.routers import cupons
 from core.routers import backoffice_audit
+from core.routers import tenant_audit
 from core.routers import backoffice_email_templates
 from core.routers import backoffice_sessions
+from core.routers import sessions
 from core.routers import backoffice_crm
 from core.routers import backoffice_crm_ofertas
 from core.routers import backoffice_tabelas
@@ -47,11 +49,15 @@ from operacional.routers import abastecimento as router_abastecimento
 from operacional.routers import checklist as router_checklist
 from operacional.routers import documento_equipamento as router_doc_equipamento
 from core.cadastros.router import router as router_core_cadastros
+from core.cadastros.propriedades.propriedade_router import router as router_propriedades_econ
 from core.cadastros.pessoas.router import router as router_pessoas, router_tipos as router_tipos_relacionamento
 from core.cadastros.equipamentos.router import router as router_equipamentos
 from core.cadastros.propriedades.router import router as router_areas_rurais
 from core.cadastros.commodities.router import router as router_commodities
 from core.cadastros.produtos.router import router as router_produtos
+
+# Imóveis Rurais
+from imoveis.routers.imovel import router as router_imoveis
 
 
 # -- Configuração Loguru Estruturado p/ Grafana/Loki Compatível
@@ -72,13 +78,14 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        *settings.allow_origins,
+        # Variantes de localhost
         "http://localhost:3000",
         "http://localhost:3001",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        # Adiciona suporte para redes locais (WSL, Docker, etc)
-        "http://192.168.0.2:3000",
-        "http://192.168.0.2:3001",
+        "http://0.0.0.0:3000",
+        "http://0.0.0.0:3001",
+        "http://localhost.localdomain:3000",
+        "http://localhost.localdomain:3001",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -86,6 +93,60 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=600,  # Cache de preflight por 10 minutos
 )
+
+
+# Middleware para atualizar o heartbeat da sessão ativa
+from starlette.middleware.base import BaseHTTPMiddleware
+from datetime import datetime, timezone, timedelta
+import hashlib
+
+
+class SessionHeartbeatMiddleware(BaseHTTPMiddleware):
+    """Atualiza o heartbeat da sessão ativa a cada requisição autenticada."""
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+
+        # Ignora rotas de login/register e arquivos estáticos
+        path = request.url.path
+        if path.startswith(("/api/v1/auth/login", "/api/v1/auth/register", "/docs", "/openapi", "/health")):
+            return response
+
+        # Tenta extrair o token do header Authorization
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return response
+
+        # Atualiza o heartbeat de forma assíncrona (fire-and-forget)
+        token = auth_header[7:]
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+
+        # Agenda atualização em background sem bloquear a resposta
+        from core.database import async_session_maker
+        from sqlalchemy import select, update
+        from core.models.sessao import SessaoAtiva
+
+        async def update_heartbeat():
+            try:
+                async with async_session_maker() as session:
+                    agora = datetime.now(timezone.utc)
+                    await session.execute(
+                        update(SessaoAtiva)
+                        .where(SessaoAtiva.token_hash == token_hash, SessaoAtiva.status == "ATIVA")
+                        .values(ultimo_heartbeat=agora, expira_em=agora + timedelta(minutes=30))
+                    )
+                    await session.commit()
+            except Exception:
+                pass  # Silenciosamente ignora erros de heartbeat
+
+        # Executa em background sem bloquear
+        import asyncio
+        asyncio.create_task(update_heartbeat())
+
+        return response
+
+
+app.add_middleware(SessionHeartbeatMiddleware)
 
 # --- INCLUSÃO DE ROTEADORES ---
 app.include_router(auth.router, prefix="/api/v1")
@@ -97,8 +158,10 @@ app.include_router(team.router, prefix="/api/v1")
 app.include_router(grupos_fazendas.router, prefix="/api/v1")
 app.include_router(cupons.router, prefix="/api/v1")
 app.include_router(backoffice_audit.router, prefix="/api/v1")
+app.include_router(tenant_audit.router, prefix="/api/v1")
 app.include_router(backoffice_email_templates.router, prefix="/api/v1")
 app.include_router(backoffice_sessions.router, prefix="/api/v1")
+app.include_router(sessions.router, prefix="/api/v1")
 app.include_router(backoffice_crm.router, prefix="/api/v1")
 app.include_router(backoffice_crm_ofertas.router, prefix="/api/v1")
 app.include_router(backoffice_tabelas.router, prefix="/api/v1")
@@ -123,13 +186,15 @@ app.include_router(router_abastecimento.router, prefix="/api/v1")
 app.include_router(router_checklist.router, prefix="/api/v1")
 app.include_router(router_doc_equipamento.router, prefix="/api/v1")
 app.include_router(router_core_cadastros, prefix="/api/v1")
+app.include_router(router_propriedades_econ, prefix="/api/v1")
 app.include_router(router_pessoas, prefix="/api/v1")
 app.include_router(router_tipos_relacionamento, prefix="/api/v1")
 app.include_router(router_equipamentos, prefix="/api/v1")
 app.include_router(router_areas_rurais, prefix="/api/v1")
 app.include_router(router_commodities, prefix="/api/v1")
 app.include_router(router_produtos, prefix="/api/v1")
-app.include_router(fazendas.router)
+app.include_router(router_imoveis, prefix="/api/v1")
+app.include_router(fazendas.router, prefix="/api/v1")
 from agricola.safras.router import router as router_safras
 from agricola.checklist.router import router as router_checklist_agricola
 from agricola.fenologia.router import router as router_fenologia
@@ -149,6 +214,7 @@ from agricola.rastreabilidade.router import router as router_rastreabilidade
 from agricola.rastreabilidade.public_router import router as router_rastreabilidade_publica
 from agricola.prescricoes.router import router as router_prescricoes
 from agricola.a1_planejamento.router import router as router_a1_planejamento
+from agricola.caderno.router import router as router_caderno
 # Amostragem de Solo
 from agricola.amostragem_solo.routers.amostras import router as amostras_solo_router
 from agricola.amostragem_solo.routers.mapas_fertilidade import router as mapas_fertilidade_router
@@ -189,7 +255,8 @@ from integracoes.sankhya.routers import router as sankhya_router
 # from contabilidade.routers.exportacoes import router as contabilidade_exportacoes_router
 # from contabilidade.routers.lancamentos import router as contabilidade_lancamentos_router
 
-from financeiro.routers import despesas, receitas, planos_conta, relatorios as relatorios_fin, integracao as integracao_fin, conciliacao
+from financeiro.routers import despesas, receitas, planos_conta, relatorios as relatorios_fin, integracao as integracao_fin, conciliacao, notas_fiscais as notas_fiscais_router
+from ambiental.router import router as router_ambiental
 from rh.router import router as router_rh
 from notificacoes.router import router as router_notificacoes
 from pecuaria.routers import lotes
@@ -213,6 +280,7 @@ app.include_router(router_cadastros, prefix="/api/v1")
 app.include_router(router_rastreabilidade, prefix="/api/v1")
 app.include_router(router_rastreabilidade_publica, prefix="/api/v1")
 app.include_router(router_prescricoes, prefix="/api/v1")
+app.include_router(router_caderno, prefix="/api/v1")
 app.include_router(router_a1_planejamento, prefix="/api/v1")
 
 # Amostragem de Solo
@@ -265,6 +333,8 @@ app.include_router(planos_conta.router, prefix="/api/v1/financeiro")
 app.include_router(relatorios_fin.router, prefix="/api/v1")
 app.include_router(integracao_fin.router, prefix="/api/v1/financeiro")
 app.include_router(conciliacao.router, prefix="/api/v1/financeiro")
+app.include_router(notas_fiscais_router.router, prefix="/api/v1/financeiro")
+app.include_router(router_ambiental, prefix="/api/v1")
 app.include_router(frota_router.router, prefix="/api/v1")
 
 # --- EXCEPTION HANDLERS GLOBAIS ---
@@ -274,8 +344,35 @@ async def not_found_handler(request: Request, exc: EntityNotFoundError):
 
 @app.exception_handler(TenantViolationError)
 async def tenant_violation_handler(request: Request, exc: TenantViolationError):
-    # Log como incidente de segurança sem vazar o erro cru para a Web
-    logger.warning(f"SECURITY_INCIDENT - TENANT_VIOLATION: | Attempt Headers: {request.headers} | Msg: {exc}")
+    logger.critical(
+        "SECURITY_INCIDENT - TENANT_VIOLATION",
+        tenant_id=str(exc.tenant_id) if exc.tenant_id else None,
+        user_id=str(exc.user_id) if exc.user_id else None,
+        resource=exc.resource,
+        path=str(request.url.path),
+        method=request.method,
+        ip=request.client.host if request.client else None,
+    )
+    # Persiste no banco de forma assíncrona e independente
+    try:
+        from core.database import async_session_maker
+        from core.services.audit_service import write_audit_log
+        if exc.tenant_id:
+            async with async_session_maker() as _session:
+                await write_audit_log(
+                    _session,
+                    tenant_id=exc.tenant_id,
+                    user_id=exc.user_id,
+                    action="SECURITY_INCIDENT",
+                    resource=exc.resource or "unknown",
+                    resource_id=None,
+                    payload_before=None,
+                    payload_after={"path": request.url.path, "method": request.method},
+                    ip_address=request.client.host if request.client else None,
+                )
+                await _session.commit()
+    except Exception as persist_err:
+        logger.error(f"Falha ao persistir incidente de segurança: {persist_err}")
     return JSONResponse(status_code=403, content={"detail": "Acesso Negado. Violação de segmentação de dados."})
 
 @app.exception_handler(ModuleNotContractedError)

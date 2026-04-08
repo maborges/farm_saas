@@ -1,6 +1,7 @@
 import uuid
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, UploadFile, File, HTTPException
+from loguru import logger
 
 from core.dependencies import get_session, get_tenant_id
 from .models import AreaRural, MatriculaImovel, RegistroAmbiental
@@ -9,8 +10,10 @@ from .schemas import (
     MatriculaCreate, MatriculaUpdate, MatriculaResponse,
     RegistroAmbientalCreate, RegistroAmbientalUpdate, RegistroAmbientalResponse,
     ValorPatrimonialCreate, ValorPatrimonialUpdate, ValorPatrimonialResponse,
+    InfraestruturaCreate, InfraestruturaUpdate, InfraestruturaResponse,
+    ArquivoGeoResponse, ArquivoGeoProcessadoResponse,
 )
-from .service import AreaRuralService, MatriculaService, RegistroAmbientalService, ValorPatrimonialService
+from .service import AreaRuralService, MatriculaService, RegistroAmbientalService, ValorPatrimonialService, InfraestruturaService, ArquivoGeoService
 
 router = APIRouter(prefix="/cadastros/areas-rurais", tags=["Cadastros — Propriedades"])
 
@@ -235,3 +238,144 @@ async def remover_valor_patrimonial(
 ):
     svc = ValorPatrimonialService(session, tenant_id)
     await svc.remover(valor_id, area_id)
+
+
+# ---------------------------------------------------------------------------
+# Infraestrutura
+# ---------------------------------------------------------------------------
+
+@router.get("/{area_id}/infraestruturas", response_model=list[InfraestruturaResponse])
+async def listar_infraestruturas(
+    area_id: uuid.UUID,
+    apenas_ativos: bool = Query(True),
+    session=Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    svc = InfraestruturaService(session, tenant_id)
+    return await svc.listar(area_id, apenas_ativos=apenas_ativos)
+
+
+@router.post("/{area_id}/infraestruturas", response_model=InfraestruturaResponse, status_code=201)
+async def criar_infraestrutura(
+    area_id: uuid.UUID,
+    data: InfraestruturaCreate,
+    session=Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    svc = InfraestruturaService(session, tenant_id)
+    payload = data.model_dump()
+    payload["area_rural_id"] = area_id
+    return await svc.criar(payload)
+
+
+@router.patch("/{area_id}/infraestruturas/{infra_id}", response_model=InfraestruturaResponse)
+async def atualizar_infraestrutura(
+    area_id: uuid.UUID,
+    infra_id: uuid.UUID,
+    data: InfraestruturaUpdate,
+    session=Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    svc = InfraestruturaService(session, tenant_id)
+    return await svc.atualizar(infra_id, area_id, data.model_dump(exclude_none=True))
+
+
+@router.delete("/{area_id}/infraestruturas/{infra_id}", status_code=204)
+async def remover_infraestrutura(
+    area_id: uuid.UUID,
+    infra_id: uuid.UUID,
+    session=Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    svc = InfraestruturaService(session, tenant_id)
+    await svc.remover(infra_id, area_id)
+
+
+# ---------------------------------------------------------------------------
+# ArquivoGeo
+# ---------------------------------------------------------------------------
+
+FORMATOS_ACEITOS = {
+    "application/zip": "shp",
+    "application/x-zip-compressed": "shp",
+    "application/vnd.google-earth.kml+xml": "kml",
+    "application/vnd.google-earth.kmz": "kmz",
+    "application/geo+json": "geojson",
+    "application/json": "geojson",
+    "text/plain": "kml",  # alguns clientes enviam KML como text/plain
+}
+
+_EXT_MAP = {".zip": "shp", ".shp": "shp", ".kml": "kml", ".kmz": "kmz", ".geojson": "geojson", ".json": "geojson"}
+
+
+def _detectar_formato(filename: str, content_type: str) -> str:
+    ext = "." + filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    return _EXT_MAP.get(ext) or FORMATOS_ACEITOS.get(content_type, "geojson")
+
+
+@router.get("/{area_id}/arquivos-geo", response_model=list[ArquivoGeoResponse])
+async def listar_arquivos_geo(
+    area_id: uuid.UUID,
+    session=Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    svc = ArquivoGeoService(session, tenant_id)
+    return await svc.listar(area_id)
+
+
+@router.post("/{area_id}/arquivos-geo/upload", response_model=ArquivoGeoProcessadoResponse, status_code=201)
+async def upload_arquivo_geo(
+    area_id: uuid.UUID,
+    arquivo: UploadFile = File(...),
+    session=Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    from core.config import settings
+    from core.services.storage_service import StorageService
+    from core.services.geoprocessamento_service import GeoprocessamentoService
+
+    # Validar tamanho
+    content = await arquivo.read()
+    max_bytes = settings.storage_max_file_mb * 1024 * 1024
+    if len(content) > max_bytes:
+        raise HTTPException(422, f"Arquivo excede {settings.storage_max_file_mb}MB")
+
+    formato = _detectar_formato(arquivo.filename or "", arquivo.content_type or "")
+
+    # Persistir no storage
+    storage_path = StorageService.save(
+        content, str(tenant_id), str(area_id), arquivo.filename or "upload"
+    )
+
+    svc = ArquivoGeoService(session, tenant_id)
+    geo_record = await svc.criar({
+        "area_rural_id": area_id,
+        "nome_arquivo": arquivo.filename or "upload",
+        "formato": formato,
+        "tamanho_bytes": len(content),
+        "storage_backend": settings.storage_backend,
+        "storage_path": storage_path,
+    })
+
+    # Processar
+    poligonos_geojson = None
+    try:
+        geo_svc = GeoprocessamentoService(session, tenant_id)
+        if formato == "shp":
+            resultado = await geo_svc.processar_shapefile(content)
+        elif formato in ("kml", "kmz"):
+            resultado = await geo_svc.processar_kml(content, is_kmz=(formato == "kmz"))
+        else:
+            import json as _json
+            resultado = {"geometria": _json.loads(content), "area_ha": 0.0, "total_features": 1}
+
+        poligonos_geojson = resultado.get("geometria")
+        n_poligonos = resultado.get("total_features", 1)
+        area_ha = resultado.get("area_ha", 0.0)
+        geo_record = await svc.marcar_processado(geo_record.id, n_poligonos, area_ha)
+
+    except Exception as e:
+        logger.warning(f"Erro ao processar arquivo geo {geo_record.id}: {e}")
+        geo_record = await svc.marcar_erro(geo_record.id, str(e))
+
+    return ArquivoGeoProcessadoResponse(arquivo=geo_record, poligonos=poligonos_geojson)

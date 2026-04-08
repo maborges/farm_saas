@@ -1,5 +1,6 @@
 import pytest
 import uuid
+from sqlalchemy import text
 from core.services.fazenda_service import FazendaService
 from core.schemas.fazenda_input import FazendaCreate
 from core.exceptions import EntityNotFoundError, TenantViolationError
@@ -12,15 +13,30 @@ class TestTenantIsolation:
     bloqueia totalmente transações vazadas entre Clientes do SaaS.
     """
 
+    async def _create_grupo_for_tenant(self, session, tenant_id):
+        """Helper to create a grupo_fazendas record for the tenant."""
+        grupo_id = uuid.uuid4()
+        await session.execute(text("""
+            INSERT INTO grupos_fazendas (id, tenant_id, nome, ativo, created_at, updated_at)
+            VALUES (:id, :tenant_id, :nome, true, NOW(), NOW())
+            ON CONFLICT (id) DO NOTHING
+        """), {"id": str(grupo_id), "tenant_id": str(tenant_id), "nome": f"Grupo {str(tenant_id)[:4]}"})
+        await session.commit()
+        return grupo_id
+
     async def test_fazenda_criada_pertence_ao_tenant_ativo(self, session_a, conftest_tenant_a_id=None):
         # Utilizaremos o import dinâmico na fixture pra importar o ID certo:
         from tests.conftest import TENANT_A_ID
-        
+
+        # 0. Cria grupo de fazendas para o tenant A
+        grupo_id = await self._create_grupo_for_tenant(session_a, TENANT_A_ID)
+
         # 1. Serviço logado como "Tenant José" (A)
         service = FazendaService(session=session_a, tenant_id=TENANT_A_ID)
-        
+
         # 2. Tentativa de Criação Orgânica
         dados_input = FazendaCreate(
+            grupo_id=grupo_id,
             nome="Fazenda Santa Cruz do José",
             area_total_ha=500.0,
             ativo=True
@@ -35,10 +51,14 @@ class TestTenantIsolation:
 
     async def test_tenant_b_nao_consegue_ver_nem_alterar_fazenda_do_tenant_a(self, session_a, session_b):
         from tests.conftest import TENANT_A_ID, TENANT_B_ID
-        
+
+        # 0. Cria grupos para ambos tenants
+        grupo_a_id = await self._create_grupo_for_tenant(session_a, TENANT_A_ID)
+        grupo_b_id = await self._create_grupo_for_tenant(session_b, TENANT_B_ID)
+
         # Configurar ambiente com 1 Fazenda gerada pro T_A
         service_a = FazendaService(session=session_a, tenant_id=TENANT_A_ID)
-        fazenda_a = await service_a.create_fazenda(FazendaCreate(nome="Mato Grosso Sul", area_total_ha=100))
+        fazenda_a = await service_a.create_fazenda(FazendaCreate(grupo_id=grupo_a_id, nome="Mato Grosso Sul", area_total_ha=100))
         
         # -- GUERRA DE ISOLAMENTO --
         

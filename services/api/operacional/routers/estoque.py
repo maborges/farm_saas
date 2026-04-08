@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 import uuid
 
-from core.dependencies import get_session, get_current_tenant
+from core.dependencies import get_session, get_current_tenant, require_limit, require_module
 from core.models.tenant import Tenant
 from operacional.services.estoque_service import EstoqueService
 from core.dependencies import get_current_user
@@ -19,7 +19,7 @@ from operacional.schemas.estoque import (
     ReservaCreate, ReservaCancelarRequest, ReservaConsumirRequest, ReservaResponse,
 )
 
-router = APIRouter(prefix="/estoque", tags=["Operacional — Estoque"])
+router = APIRouter(prefix="/estoque", tags=["Operacional — Estoque"], dependencies=[Depends(require_module("O2_ESTOQUE"))])
 
 
 def _svc(session: AsyncSession, tenant: Tenant) -> EstoqueService:
@@ -40,7 +40,12 @@ async def listar_lotes(
     return await _svc(session, tenant).listar_lotes(produto_id, deposito_id, vencendo_em_dias, apenas_ativos)
 
 
-@router.post("/lotes", response_model=LoteResponse, status_code=201)
+@router.post(
+    "/lotes",
+    response_model=LoteResponse,
+    status_code=201,
+    dependencies=[Depends(require_limit("storage_limite_mb"))],  # ← Valida limite de storage!
+)
 async def criar_lote(
     data: LoteCreate,
     tenant: Tenant = Depends(get_current_tenant),

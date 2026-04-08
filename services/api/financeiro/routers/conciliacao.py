@@ -17,12 +17,12 @@ from financeiro.services.conciliacao_service import (
     SugestaoConciliacao,
 )
 from core.database import get_db
-from core.dependencies import get_current_tenant
+from core.dependencies import get_current_tenant, require_module
 from core.models.tenant import Tenant
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/conciliacao", tags=["Conciliação Bancária"])
+router = APIRouter(prefix="/conciliacao", tags=["Conciliação Bancária"], dependencies=[Depends(require_module("F1_TESOURARIA"))])
 
 
 @router.post("/upload-extrato")

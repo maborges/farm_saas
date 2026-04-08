@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone, date
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Numeric, JSON, Text, Date, Integer
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Numeric, JSON, Text, Date, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import Uuid as UUID
 from core.database import Base
@@ -19,9 +19,6 @@ class PlanoAssinatura(Base):
     # Limites de usuários (para pricing dinâmico)
     limite_usuarios_minimo: Mapped[int] = mapped_column(default=1, comment="Quantidade mínima de usuários para este plano")
     limite_usuarios_maximo: Mapped[int | None] = mapped_column(default=None, comment="Quantidade máxima de usuários. NULL = ilimitado")
-
-    # DEPRECATED: mantido por compatibilidade, use plano_pricing para cálculo real
-    limite_usuarios: Mapped[int] = mapped_column(default=5, comment="DEPRECATED: valor de referência apenas")
     limite_hectares: Mapped[float | None] = mapped_column(Numeric(10,2))
     
     preco_mensal: Mapped[float] = mapped_column(Numeric(10,2), default=0.0)
@@ -59,6 +56,15 @@ class PlanoAssinatura(Base):
     destaque: Mapped[bool] = mapped_column(Boolean, default=False)
     ordem: Mapped[int] = mapped_column(default=0)
 
+    # Plano padrão (usado no onboarding quando não há plano explícito)
+    # Apenas UM plano pode ser padrão por vez
+    is_default: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="false",
+        comment="Plano padrão para onboarding. Apenas um plano pode ser default=True."
+    )
+
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Controle de canal de comercialização (independentes entre si)
@@ -95,20 +101,20 @@ class AssinaturaTenant(Base):
         nullable=False
     )
 
-    # Grupo de fazendas (se NULL, assinatura vale para todas as fazendas)
-    grupo_fazendas_id: Mapped[uuid.UUID | None] = mapped_column(
+    # Grupo de fazendas — obrigatório: toda assinatura pertence a exatamente um grupo
+    grupo_fazendas_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("grupos_fazendas.id", ondelete="CASCADE"),
-        nullable=True,
+        nullable=False,
         index=True,
-        comment="Se NULL, assinatura principal do tenant. Se preenchido, assinatura específica do grupo."
+        comment="Grupo ao qual esta assinatura pertence. Módulos e limites valem apenas para as fazendas do grupo."
     )
 
     # Tipo de assinatura
     tipo_assinatura: Mapped[str] = mapped_column(
         String(20),
-        default="PRINCIPAL",
-        comment="PRINCIPAL (tenant inteiro), GRUPO (grupo específico), ADICIONAL (add-on de módulos)"
+        default="GRUPO",
+        comment="GRUPO (assinatura base do grupo) | ADICIONAL (add-on de módulos extras)"
     )
 
     ciclo_pagamento: Mapped[str] = mapped_column(String(20), default="MENSAL") # MENSAL, ANUAL
@@ -127,6 +133,13 @@ class AssinaturaTenant(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (
+        # Garante apenas 1 assinatura do tipo GRUPO por grupo (add-ons são tipo ADICIONAL)
+        UniqueConstraint("grupo_fazendas_id", "tipo_assinatura",
+                         name="uq_assinatura_grupo_tipo",
+                         comment="Cada grupo pode ter apenas uma assinatura GRUPO ativa"),
+    )
 
 
 class Fatura(Base):

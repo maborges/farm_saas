@@ -415,13 +415,13 @@ class MudancaPlanoService(BaseService[MudancaPlano]):
                 )
             )
         else:
-            # Buscar assinatura principal
+            # Buscar a primeira assinatura GRUPO ativa do tenant
             stmt = select(AssinaturaTenant).where(
                 and_(
                     AssinaturaTenant.tenant_id == self.tenant_id,
-                    AssinaturaTenant.tipo_assinatura == "PRINCIPAL"
+                    AssinaturaTenant.tipo_assinatura == "GRUPO"
                 )
-            )
+            ).limit(1)
 
         result = await self.session.execute(stmt)
         assinatura = result.scalar_one_or_none()

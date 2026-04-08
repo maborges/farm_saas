@@ -38,25 +38,40 @@ def _gerar_token(tenant_id: uuid.UUID, modules: list[str], role: str = "admin") 
 
 @pytest.fixture(scope="module")
 def token_agricola():
-    return _gerar_token(TENANT_ID, ["CORE", "A1", "A1_PLANEJAMENTO"])
+    return _gerar_token(TENANT_ID, ["CORE", "A1_PLANEJAMENTO", "A2_CAMPO"])
 
 
 @pytest.fixture(scope="module")
 def token_financeiro():
-    return _gerar_token(TENANT_ID, ["CORE", "F1", "F1_FINANCEIRO"])
+    return _gerar_token(TENANT_ID, ["CORE", "F1_TESOURARIA", "F2_CUSTOS_ABC"])
 
 
 @pytest.fixture(scope="module")
 def token_operacional():
-    return _gerar_token(TENANT_ID, ["CORE", "O1", "O2", "O3"])
+    return _gerar_token(TENANT_ID, ["CORE", "O1_FROTA", "O2_ESTOQUE", "O3_COMPRAS"])
+
+
+@pytest.fixture(scope="module")
+def token_rh():
+    return _gerar_token(TENANT_ID, ["CORE", "RH1_REMUNERACAO"])
 
 
 @pytest.fixture(scope="module")
 def token_admin():
     return _gerar_token(TENANT_ID, [
-        "CORE", "A1", "A1_PLANEJAMENTO", "F1", "F1_FINANCEIRO",
-        "O1", "O2", "O3", "P1", "RH1",
+        "CORE",
+        "A1_PLANEJAMENTO", "A2_CAMPO", "A3_DEFENSIVOS", "A4_PRECISAO", "A5_COLHEITA",
+        "F1_TESOURARIA", "F2_CUSTOS_ABC", "F3_FISCAL",
+        "O1_FROTA", "O2_ESTOQUE", "O3_COMPRAS",
+        "P1_REBANHO",
+        "RH1_REMUNERACAO", "RH2_SEGURANCA",
     ])
+
+
+@pytest.fixture(scope="module")
+def token_core_only():
+    """Token com apenas CORE — sem nenhum módulo pago."""
+    return _gerar_token(TENANT_ID, ["CORE"])
 
 
 @pytest.fixture
@@ -88,6 +103,21 @@ def headers_operacional(token_operacional):
 
 
 @pytest.fixture
+def headers_rh(token_rh):
+    return {"Authorization": f"Bearer {token_rh}",
+            "X-Tenant-ID": str(TENANT_ID),
+            "X-Fazenda-ID": str(FAZENDA_ID)}
+
+
+@pytest.fixture
 def headers_admin(token_admin):
     return {"Authorization": f"Bearer {token_admin}",
-            "X-Tenant-ID": str(TENANT_ID)}
+            "X-Tenant-ID": str(TENANT_ID),
+            "X-Fazenda-ID": str(FAZENDA_ID)}
+
+
+@pytest.fixture
+def headers_core_only(token_core_only):
+    return {"Authorization": f"Bearer {token_core_only}",
+            "X-Tenant-ID": str(TENANT_ID),
+            "X-Fazenda-ID": str(FAZENDA_ID)}

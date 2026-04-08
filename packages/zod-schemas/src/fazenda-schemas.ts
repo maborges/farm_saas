@@ -4,6 +4,7 @@
 import { z } from "zod";
 
 export const createFazendaSchema = z.object({
+    grupo_id: z.string().uuid("Selecione um grupo de fazendas"),
     nome: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(150, "Nome muito longo"),
     cnpj: z.string().max(20, "CNPJ inválido").optional().or(z.literal("")),
     inscricao_estadual: z.string().max(50, "Inscrição estadual muito longa").optional().or(z.literal("")),
@@ -14,6 +15,7 @@ export const createFazendaSchema = z.object({
 });
 
 export const updateFazendaSchema = z.object({
+    grupo_id: z.string().uuid().optional(),
     nome: z.string().min(2).max(150).optional(),
     cnpj: z.string().max(20).optional().nullable(),
     inscricao_estadual: z.string().max(50).optional().nullable(),

@@ -16,7 +16,7 @@ from operacional.schemas.apontamento import (
 router = APIRouter(
     prefix="/frota/apontamentos",
     tags=["Frota — Apontamentos de Uso"],
-    dependencies=[Depends(require_module("O1"))],
+    dependencies=[Depends(require_module("O1_FROTA"))],
 )
 
 

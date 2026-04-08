@@ -20,7 +20,7 @@ async def criar_maquinario(
     dados: MaquinarioCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("O1"))
+    _: None = Depends(require_module("O1_FROTA"))
 ):
     svc = FrotaService(session, tenant_id)
     maq = await svc.create(dados)
@@ -33,7 +33,7 @@ async def listar_maquinarios(
     fazenda_id: UUID | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("O1"))
+    _: None = Depends(require_module("O1_FROTA"))
 ):
     svc = FrotaService(session, tenant_id)
     filters = {}
@@ -45,7 +45,7 @@ async def detalhar_maquinario(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("O1"))
+    _: None = Depends(require_module("O1_FROTA"))
 ):
     svc = FrotaService(session, tenant_id)
     return await svc.get_or_fail(id)
@@ -56,7 +56,7 @@ async def atualizar_maquinario(
     dados: MaquinarioUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("O1"))
+    _: None = Depends(require_module("O1_FROTA"))
 ):
     svc = FrotaService(session, tenant_id)
     maq = await svc.update(id, dados)
@@ -71,7 +71,7 @@ async def criar_plano(
     dados: PlanoManutencaoCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("O1"))
+    _: None = Depends(require_module("O1_FROTA"))
 ):
     svc = FrotaService(session, tenant_id)
     return await svc.criar_plano_manutencao(dados)
@@ -81,7 +81,7 @@ async def listar_planos(
     maquinario_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("O1"))
+    _: None = Depends(require_module("O1_FROTA"))
 ):
     svc = FrotaService(session, tenant_id)
     return await svc.listar_planos(maquinario_id)
@@ -93,7 +93,7 @@ async def abrir_ordem_servico(
     dados: OrdemServicoCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("O1"))
+    _: None = Depends(require_module("O1_FROTA"))
 ):
     svc = FrotaService(session, tenant_id)
     return await svc.abrir_os(dados)
@@ -104,7 +104,7 @@ async def adicionar_peça_os(
     dados: ItemOrdemServicoCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("O1"))
+    _: None = Depends(require_module("O1_FROTA"))
 ):
     svc = FrotaService(session, tenant_id)
     return await svc.adicionar_item_os(os_id, dados)
@@ -115,7 +115,7 @@ async def fechar_ordem_servico(
     dados: OrdemServicoUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("O1"))
+    _: None = Depends(require_module("O1_FROTA"))
 ):
     svc = FrotaService(session, tenant_id)
     return await svc.fechar_os(os_id, dados)

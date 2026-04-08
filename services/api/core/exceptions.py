@@ -8,7 +8,11 @@ class EntityNotFoundError(AgroSaaSError):
 
 class TenantViolationError(AgroSaaSError):
     """Tentativa de acesso a dados de outro tenant / fazenda não autoriazada."""
-    pass
+    def __init__(self, message: str, tenant_id=None, user_id=None, resource: str | None = None):
+        super().__init__(message)
+        self.tenant_id = tenant_id
+        self.user_id = user_id
+        self.resource = resource
 
 class ModuleNotContractedError(AgroSaaSError):
     """Tentativa de usar rotas de módulos não comprados no plano."""

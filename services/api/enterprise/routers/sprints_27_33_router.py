@@ -6,14 +6,14 @@ from typing import List, Optional
 from datetime import date
 
 from core.database import get_db
-from core.dependencies import get_current_tenant
+from core.dependencies import get_current_tenant, require_module
 from enterprise.services.sprints_27_33_service import (
     MRVService, ESGService, PisciculturaService,
     ConfinamentoService, GeneticaService, HedgingService,
     IoTService, ILPFService, ColaboradorService
 )
 
-router = APIRouter(prefix="/sprints27-33", tags=["Sprints 27-33"])
+router = APIRouter(prefix="/sprints27-33", tags=["Sprints 27-33"], dependencies=[Depends(require_module("EXT_IA"))])
 
 
 def get_mrv_service(db: Session = Depends(get_db)) -> MRVService:

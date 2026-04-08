@@ -19,6 +19,8 @@ TENANT_A_ID = uuid.UUID("aaaaaaaa-1111-0000-0000-000000000001")
 TENANT_B_ID = uuid.UUID("bbbbbbbb-2222-0000-0000-000000000002")
 FAZENDA_A_ID = uuid.UUID("aaaaaaaa-1111-0000-0000-000000000010")
 FAZENDA_B_ID = uuid.UUID("bbbbbbbb-2222-0000-0000-000000000010")
+GRUPO_A_ID = uuid.UUID("aaaaaaaa-1111-0000-0000-000000000020")
+GRUPO_B_ID = uuid.UUID("bbbbbbbb-2222-0000-0000-000000000020")
 
 
 def _token(tenant_id: uuid.UUID, modules: list[str] = None) -> str:
@@ -38,13 +40,15 @@ def _token(tenant_id: uuid.UUID, modules: list[str] = None) -> str:
 @pytest.fixture(scope="module")
 def headers_a():
     return {"Authorization": f"Bearer {_token(TENANT_A_ID)}",
-            "X-Tenant-ID": str(TENANT_A_ID)}
+            "X-Tenant-ID": str(TENANT_A_ID),
+            "x-fazenda-id": str(FAZENDA_A_ID)}
 
 
 @pytest.fixture(scope="module")
 def headers_b():
     return {"Authorization": f"Bearer {_token(TENANT_B_ID)}",
-            "X-Tenant-ID": str(TENANT_B_ID)}
+            "X-Tenant-ID": str(TENANT_B_ID),
+            "x-fazenda-id": str(FAZENDA_B_ID)}
 
 
 @pytest.fixture
@@ -63,10 +67,10 @@ async def test_tenant_a_nao_ve_safras_de_tenant_b(client, session, headers_a, he
     """INT-TEN-01: Safras criadas pelo Tenant B não aparecem para Tenant A"""
     from sqlalchemy import text
 
-    # Setup: garante fazendas e talhão para ambos os tenants
-    for t_id, f_id, doc in [
-        (TENANT_A_ID, FAZENDA_A_ID, "11111111111"),
-        (TENANT_B_ID, FAZENDA_B_ID, "22222222222"),
+    # Setup: garante grupos, fazendas e talhão para ambos os tenants
+    for t_id, f_id, g_id, doc in [
+        (TENANT_A_ID, FAZENDA_A_ID, GRUPO_A_ID, "11111111111"),
+        (TENANT_B_ID, FAZENDA_B_ID, GRUPO_B_ID, "22222222222"),
     ]:
         await session.execute(text("""
             INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
@@ -75,10 +79,16 @@ async def test_tenant_a_nao_ve_safras_de_tenant_b(client, session, headers_a, he
         """), {"id": str(t_id), "nome": f"Tenant {str(t_id)[:4]}", "doc": doc})
 
         await session.execute(text("""
-            INSERT INTO fazendas (id, tenant_id, nome, ativo, created_at, updated_at)
+            INSERT INTO grupos_fazendas (id, tenant_id, nome, ativo, created_at, updated_at)
             VALUES (:id, :tenant_id, :nome, true, NOW(), NOW())
             ON CONFLICT (id) DO NOTHING
-        """), {"id": str(f_id), "tenant_id": str(t_id), "nome": f"Fazenda {str(t_id)[:4]}"})
+        """), {"id": str(g_id), "tenant_id": str(t_id), "nome": f"Grupo {str(t_id)[:4]}"})
+
+        await session.execute(text("""
+            INSERT INTO fazendas (id, tenant_id, grupo_id, nome, ativo, created_at, updated_at)
+            VALUES (:id, :tenant_id, :grupo_id, :nome, true, NOW(), NOW())
+            ON CONFLICT (id) DO NOTHING
+        """), {"id": str(f_id), "tenant_id": str(t_id), "grupo_id": str(g_id), "nome": f"Fazenda {str(t_id)[:4]}"})
 
     talhao_b_id = uuid.uuid4()
     await session.execute(text("""
@@ -91,7 +101,7 @@ async def test_tenant_a_nao_ve_safras_de_tenant_b(client, session, headers_a, he
     await session.commit()
 
     # Tenant B cria uma safra
-    r_b = await client.post("/api/v1/agricola/safras/", json={
+    r_b = await client.post("/api/v1/safras/", json={
         "talhao_id": str(talhao_b_id),
         "ano_safra": "2099/00",
         "cultura": "SOJA_EXCLUSIVA_B",
@@ -102,7 +112,7 @@ async def test_tenant_a_nao_ve_safras_de_tenant_b(client, session, headers_a, he
         pytest.skip(f"Não foi possível criar safra do Tenant B: {r_b.text}")
 
     # Tenant A lista safras — não deve ver a safra do Tenant B
-    r_a = await client.get("/api/v1/agricola/safras/", headers=headers_a)
+    r_a = await client.get("/api/v1/safras/", headers=headers_a)
     assert r_a.status_code == 200
 
     safras_a = r_a.json()
@@ -121,11 +131,35 @@ async def test_tenant_a_nao_ve_financeiro_de_tenant_b(client, session, headers_a
     """INT-TEN-02: Receitas do Tenant B não aparecem para Tenant A"""
     from sqlalchemy import text
 
+    # Setup: garante tenants, grupos e fazendas
+    for t_id, f_id, g_id, doc in [
+        (TENANT_A_ID, FAZENDA_A_ID, GRUPO_A_ID, "11111111111"),
+        (TENANT_B_ID, FAZENDA_B_ID, GRUPO_B_ID, "22222222222"),
+    ]:
+        await session.execute(text("""
+            INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+            VALUES (:id, :nome, :doc, true, '["CORE","A1","F1"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+            ON CONFLICT (id) DO NOTHING
+        """), {"id": str(t_id), "nome": f"Tenant {str(t_id)[:4]}", "doc": doc})
+
+        await session.execute(text("""
+            INSERT INTO grupos_fazendas (id, tenant_id, nome, ativo, created_at, updated_at)
+            VALUES (:id, :tenant_id, :nome, true, NOW(), NOW())
+            ON CONFLICT (id) DO NOTHING
+        """), {"id": str(g_id), "tenant_id": str(t_id), "nome": f"Grupo {str(t_id)[:4]}"})
+
+        await session.execute(text("""
+            INSERT INTO fazendas (id, tenant_id, grupo_id, nome, ativo, created_at, updated_at)
+            VALUES (:id, :tenant_id, :grupo_id, :nome, true, NOW(), NOW())
+            ON CONFLICT (id) DO NOTHING
+        """), {"id": str(f_id), "tenant_id": str(t_id), "grupo_id": str(g_id), "nome": f"Fazenda {str(t_id)[:4]}"})
+    await session.commit()
+
     plano_b_id = uuid.uuid4()
     await session.execute(text("""
         INSERT INTO fin_planos_conta
-            (id, tenant_id, codigo, nome, tipo, natureza, nivel, ativo, created_at, updated_at)
-        VALUES (:id, :tenant_id, '4.9.99', 'Conta Secreta B', 'RECEITA', 'CREDITO', 3, true, NOW(), NOW())
+            (id, tenant_id, codigo, nome, tipo, natureza, ativo, ordem, is_sistema, created_at, updated_at)
+        VALUES (:id, :tenant_id, '4.9.99', 'Conta Secreta B', 'RECEITA', 'CREDITO', true, 99, false, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(plano_b_id), "tenant_id": str(TENANT_B_ID)})
     await session.commit()
@@ -165,11 +199,35 @@ async def test_tenant_a_nao_acessa_recurso_por_id_direto(client, session, header
     from sqlalchemy import text
     from datetime import date
 
+    # Setup: garante tenants, grupos e fazendas
+    for t_id, f_id, g_id, doc in [
+        (TENANT_A_ID, FAZENDA_A_ID, GRUPO_A_ID, "11111111111"),
+        (TENANT_B_ID, FAZENDA_B_ID, GRUPO_B_ID, "22222222222"),
+    ]:
+        await session.execute(text("""
+            INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+            VALUES (:id, :nome, :doc, true, '["CORE","A1","F1"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+            ON CONFLICT (id) DO NOTHING
+        """), {"id": str(t_id), "nome": f"Tenant {str(t_id)[:4]}", "doc": doc})
+
+        await session.execute(text("""
+            INSERT INTO grupos_fazendas (id, tenant_id, nome, ativo, created_at, updated_at)
+            VALUES (:id, :tenant_id, :nome, true, NOW(), NOW())
+            ON CONFLICT (id) DO NOTHING
+        """), {"id": str(g_id), "tenant_id": str(t_id), "nome": f"Grupo {str(t_id)[:4]}"})
+
+        await session.execute(text("""
+            INSERT INTO fazendas (id, tenant_id, grupo_id, nome, ativo, created_at, updated_at)
+            VALUES (:id, :tenant_id, :grupo_id, :nome, true, NOW(), NOW())
+            ON CONFLICT (id) DO NOTHING
+        """), {"id": str(f_id), "tenant_id": str(t_id), "grupo_id": str(g_id), "nome": f"Fazenda {str(t_id)[:4]}"})
+    await session.commit()
+
     plano_b_id = uuid.uuid4()
     await session.execute(text("""
         INSERT INTO fin_planos_conta
-            (id, tenant_id, codigo, nome, tipo, natureza, nivel, ativo, created_at, updated_at)
-        VALUES (:id, :tenant_id, '4.9.98', 'Conta Secreta B2', 'RECEITA', 'CREDITO', 3, true, NOW(), NOW())
+            (id, tenant_id, codigo, nome, tipo, natureza, ativo, ordem, is_sistema, created_at, updated_at)
+        VALUES (:id, :tenant_id, '4.9.98', 'Conta Secreta B2', 'RECEITA', 'CREDITO', true, 98, false, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(plano_b_id), "tenant_id": str(TENANT_B_ID)})
     await session.commit()

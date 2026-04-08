@@ -10,7 +10,7 @@ from pecuaria.services.piquete_service import PiqueteService
 router = APIRouter(
     prefix="/pecuaria/piquetes",
     tags=["Pecuária - Piquetes (P1)"],
-    dependencies=[Depends(require_module("P1"))],
+    dependencies=[Depends(require_module("P1_REBANHO"))],
 )
 
 

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone, date
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, JSON, Date
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, JSON, Date, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Uuid as UUID
 from core.database import Base
@@ -22,6 +22,9 @@ class Usuario(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relacionamento com tokens de recuperação de senha
+    tokens_recuperacao: Mapped[list["TokenRecuperacaoSenha"]] = relationship("TokenRecuperacaoSenha", back_populates="usuario", lazy="select")
 
 
 class PerfilAcesso(Base):
@@ -90,17 +93,79 @@ class ConviteAcesso(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
-    
+
     email_convidado: Mapped[str] = mapped_column(String(255), nullable=False)
     perfil_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("perfis_acesso.id"), nullable=False)
-    
+
     # JSON array de strings (uuid das fazendas)
     fazendas_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
 
     token_convite: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     status: Mapped[str] = mapped_column(String(20), default="PENDENTE") # PENDENTE, ACEITO, CANCElADO, EXPIRADO
-    
+
     data_expiracao: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     data_validade_acesso: Mapped[date | None] = mapped_column(Date, nullable=True) # Definido já no convite
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class TokenRecuperacaoSenha(Base):
+    """
+    Token de recuperação de senha com expiração de 1 hora.
+    
+    Usado para implementar recuperação de senha por e-mail:
+    - Geração de token único e seguro
+    - Expiração automática após 1 hora
+    - Invalidação após uso (single-use)
+    - Rastreamento de IP de criação e uso
+    """
+    __tablename__ = "tokens_recuperacao_senha"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True)
+    token: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    
+    utilizado: Mapped[bool] = mapped_column(Boolean, default=False)
+    data_criacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    data_expiracao: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    data_utilizacao: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    
+    ip_origem: Mapped[str | None] = mapped_column(String(45))  # IPv6 max = 45 chars
+    ip_utilizacao: Mapped[str | None] = mapped_column(String(45))
+    
+    # Relacionamento
+    usuario: Mapped["Usuario"] = relationship("Usuario", back_populates="tokens_recuperacao")
+
+
+class TentativaLogin(Base):
+    """
+    Registro de tentativas de login para rate limiting e segurança.
+
+    Usado para implementar:
+    - Rate limiting: 5 tentativas por 15 minutos
+    - Bloqueio automático após 5 falhas
+    - Prevenção de brute-force attacks
+    """
+    __tablename__ = "login_tentativas"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    ip_address: Mapped[str | None] = mapped_column(String(45))  # IPv6 max = 45 chars
+    user_agent: Mapped[str | None] = mapped_column(String(500))
+
+    sucesso: Mapped[bool] = mapped_column(Boolean, default=False)
+    motivo_falha: Mapped[str | None] = mapped_column(String(100))  # SENHA_INVALIDA, USUARIO_INATIVO, USUARIO_NAO_ENCONTRADO
+
+    tentativas_count: Mapped[int] = mapped_column(Integer, default=1)
+
+    # Bloqueio automático após 5 falhas
+    bloqueado: Mapped[bool] = mapped_column(Boolean, default=False)
+    data_bloqueio: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    data_desbloqueio: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # Automático após 15 min
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc)
+    )

@@ -13,10 +13,49 @@ from core.models.tenant import Tenant
 from core.models.auth import Usuario, TenantUsuario
 from core.models.fazenda import Fazenda
 from core.models.billing import AssinaturaTenant, Fatura, PlanoAssinatura
+from core.utils.cpf_cnpj import validar_cpf_ou_cnpj, apenas_numeros
 from pydantic import BaseModel, EmailStr, Field
 from loguru import logger
 
 router = APIRouter(prefix="/onboarding", tags=["SaaS — Onboarding & Equipe"])
+
+
+class VerificarDocumentoResponse(BaseModel):
+    """Resposta da verificação de disponibilidade de CPF/CNPJ."""
+    disponivel: bool
+    mensagem: str | None = None
+
+
+@router.get(
+    "/verificar-documento/{documento}",
+    response_model=VerificarDocumentoResponse,
+    summary="Verifica se um CPF/CNPJ já está cadastrado",
+)
+async def verificar_documento(documento: str, session: AsyncSession = Depends(get_session)):
+    """
+    Verifica se o CPF ou CNPJ informado já está cadastrado no sistema.
+    Usado pelo frontend para validação em tempo real durante o cadastro.
+    """
+    # Validar formato
+    if not validar_cpf_ou_cnpj(documento):
+        return VerificarDocumentoResponse(
+            disponivel=False,
+            mensagem="CPF ou CNPJ inválido. Verifique os dados informados."
+        )
+
+    # Checar se já existe
+    documento_limpo = apenas_numeros(documento)
+    stmt = select(Tenant).where(Tenant.documento == documento_limpo)
+    tenant_existente = (await session.execute(stmt)).scalars().first()
+
+    if tenant_existente:
+        return VerificarDocumentoResponse(
+            disponivel=False,
+            mensagem="Este CPF ou CNPJ já está cadastrado no sistema."
+        )
+
+    return VerificarDocumentoResponse(disponivel=True)
+
 
 @router.post("/assinante", response_model=TokenResponse, status_code=status.HTTP_201_CREATED, summary="Registro completo do Produtor (Conta + Fazenda + Assinatura)")
 async def registrar_assinante(dados: AssinanteRegisterRequest, session: AsyncSession = Depends(get_session)):
@@ -230,6 +269,49 @@ async def ativar_conta(
         checkout_url=checkout_url,
         message="Dados confirmados. Prossiga para o pagamento.",
     )
+
+
+@router.get("/convites/{token}", summary="Verifica token e retorna detalhes do convite sem aceitá-lo ainda")
+async def obter_detalhes_convite(
+    token: str,
+    session: AsyncSession = Depends(get_session)
+):
+    onboard_svc = OnboardingService(session)
+    return await onboard_svc.obter_detalhes_convite(token)
+
+
+class RegistrarViaConviteRequest(BaseModel):
+    token: str
+    senha: str = Field(..., min_length=8)
+    nome_completo: str | None = Field(None, max_length=150)
+    foto_perfil_url: str | None = None
+
+
+@router.post("/convites/registrar", response_model=TokenResponse, summary="Cria conta a partir de convite (usuário novo)")
+async def registrar_via_convite(
+    dados: RegistrarViaConviteRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Cria um novo usuário com o e-mail do convite, define senha e foto,
+    vincula ao tenant/fazenda/perfil do convite e retorna JWT pronto.
+    Não requer autenticação prévia.
+    """
+    auth_svc = AuthService(session)
+    onboard_svc = OnboardingService(session, auth_svc)
+
+    novo_usuario = await onboard_svc.registrar_via_convite(
+        token=dados.token,
+        senha=dados.senha,
+        nome_completo=dados.nome_completo,
+        foto_perfil_url=dados.foto_perfil_url,
+    )
+
+    # Autentica imediatamente para retornar JWT
+    from core.schemas.auth_schemas import LoginRequest
+    login_data = LoginRequest(email=novo_usuario.email, senha=dados.senha)
+    _, access_token = await auth_svc.authenticate_user(login_data)
+    return TokenResponse(access_token=access_token)
 
 
 @router.post("/convites/aceitar", summary="Membro clica no link e aceita a vaga na empresa/fazenda")

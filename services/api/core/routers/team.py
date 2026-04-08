@@ -29,7 +29,8 @@ from core.dependencies import (
     get_session,
     get_tenant_id,
     get_current_user,
-    require_tenant_permission
+    require_tenant_permission,
+    require_limit  # ← Adicionado para validação de limites
 )
 from core.models.auth import (
     Usuario,
@@ -39,7 +40,9 @@ from core.models.auth import (
     ConviteAcesso
 )
 from core.models.fazenda import Fazenda
+from core.models.tenant import Tenant
 from core.constants import TenantRoles, TenantPermissions
+from core.services.email_service import email_service
 from pydantic import BaseModel, EmailStr, Field
 
 router = APIRouter(prefix="/team", tags=["Team Management"])
@@ -51,7 +54,7 @@ class FazendaSimple(BaseModel):
     nome: str
 
 class PerfilResponse(BaseModel):
-    id: str
+    id: uuid.UUID | str
     nome: str
     is_custom: bool
     descricao: str | None = None
@@ -109,8 +112,15 @@ class CreateCustomRoleRequest(BaseModel):
     descricao: str | None = Field(None, max_length=500)
     permissoes: dict = Field(
         ...,
-        description='{"agricola": "write", "pecuaria": "read", "financeiro": "none"}'
+        description='{"granted": ["agricola:operacoes:view", "financeiro:*", "agricola:relatorios:export"]}'
     )
+
+    def permissoes_validas(self) -> bool:
+        """Valida que o formato é {"granted": [...]} com strings."""
+        granted = self.permissoes.get("granted")
+        if granted is None:
+            return False
+        return isinstance(granted, list) and all(isinstance(p, str) for p in granted)
 
 
 class UpdateCustomRoleRequest(BaseModel):
@@ -118,8 +128,21 @@ class UpdateCustomRoleRequest(BaseModel):
     descricao: str | None = Field(None, max_length=500)
     permissoes: dict | None = Field(
         None,
-        description='{"agricola": "write", "pecuaria": "read", "financeiro": "none"}'
+        description='{"granted": ["agricola:operacoes:view", "financeiro:*"]}'
     )
+
+    def permissoes_validas(self) -> bool:
+        if self.permissoes is None:
+            return True
+        granted = self.permissoes.get("granted")
+        if granted is None:
+            return False
+        return isinstance(granted, list) and all(isinstance(p, str) for p in granted)
+
+
+class CloneRoleRequest(BaseModel):
+    nome: str = Field(..., min_length=3, max_length=100)
+    descricao: str | None = Field(None, max_length=500)
 
 # ==================== ENDPOINTS ====================
 
@@ -226,7 +249,13 @@ async def list_team_members(
             usuario_id=str(usuario.id),
             nome=usuario.nome_completo,
             email=usuario.email,
-            perfil=PerfilResponse.model_validate(perfil_acesso) if perfil_acesso else None,
+            perfil=PerfilResponse(
+                id=str(perfil_acesso.id),
+                nome=perfil_acesso.nome,
+                is_custom=perfil_acesso.is_custom,
+                descricao=perfil_acesso.descricao,
+                permissoes=perfil_acesso.permissoes
+            ) if perfil_acesso else None,
             is_owner=tenant_usuario.is_owner,
             status=tenant_usuario.status,
             fazendas=fazendas_simple,
@@ -237,13 +266,21 @@ async def list_team_members(
     return members
 
 
-@router.post("/invite", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_tenant_permission("tenant:users:invite"))])
+@router.post(
+    "/invite",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[
+        Depends(require_tenant_permission("tenant:users:invite")),
+        Depends(require_limit("max_usuarios")),  # ← Valida limite de usuários!
+    ],
+)
 async def invite_team_member(
     data: InviteCreateRequest,
     tenant_id: uuid.UUID = Depends(get_tenant_id),
+    current_user: Usuario = Depends(get_current_user),
     session: AsyncSession = Depends(get_session)
 ):
-    """Convida um novo membro para a equipe."""
+    """Convida um novo membro para a equipe — bloqueado se limite de usuários atingido."""
 
     # Verificar se perfil existe
     try:
@@ -309,8 +346,16 @@ async def invite_team_member(
     await session.commit()
     await session.refresh(convite)
 
-    # TODO: Enviar email com link de convite
-    # email_service.send_team_invite(data.email, token, tenant_name)
+    tenant = await session.get(Tenant, tenant_id)
+    remetente = current_user.nome_completo or current_user.username
+    await email_service.send_invite(
+        email=data.email,
+        remetente=remetente,
+        tenant_nome=tenant.nome if tenant else "",
+        perfil_nome=perfil.nome,
+        token=token,
+        tenant_id=tenant_id,
+    )
 
     return {"message": "Convite enviado com sucesso", "convite_id": str(convite.id), "token": token}
 
@@ -354,7 +399,13 @@ async def list_pending_invites(
         invites.append(InviteResponse(
             id=str(convite.id),
             email_convidado=convite.email_convidado,
-            perfil=PerfilResponse.model_validate(perfil),
+            perfil=PerfilResponse(
+                id=str(perfil.id),
+                nome=perfil.nome,
+                is_custom=perfil.is_custom,
+                descricao=perfil.descricao,
+                permissoes=perfil.permissoes
+            ),
             fazendas=fazendas,
             status=convite.status,
             data_expiracao=convite.data_expiracao,
@@ -459,6 +510,7 @@ async def cancel_invite(
 async def resend_invite(
     invite_id: str,
     tenant_id: uuid.UUID = Depends(get_tenant_id),
+    current_user: Usuario = Depends(get_current_user),
     session: AsyncSession = Depends(get_session)
 ):
     """Reenvia um convite pendente, renovando o token e a data de expiração."""
@@ -471,15 +523,39 @@ async def resend_invite(
     if not convite or convite.tenant_id != tenant_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Convite não encontrado")
 
-    if convite.status != "PENDENTE":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Convite não está pendente")
+    if convite.status not in ["PENDENTE", "EXPIRADO"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail=f"Não é possível reenviar um convite com status {convite.status}"
+        )
 
+    # Renovar dados
     convite.token_convite = secrets.token_urlsafe(32)
     convite.data_expiracao = datetime.now(timezone.utc) + timedelta(days=7)
+    convite.status = "PENDENTE"  # Garante que volta a ser pendente se estava expirado
     await session.commit()
 
-    # TODO: Enviar email com novo link de convite
-    return {"message": "Convite reenviado com sucesso"}
+    # Enviar e-mail (Seguindo o padrão do envio de convite que funciona)
+    try:
+        tenant = await session.get(Tenant, tenant_id)
+        perfil = await session.get(PerfilAcesso, convite.perfil_id)
+        remetente = current_user.nome_completo or current_user.username
+        
+        await email_service.send_invite(
+            email=convite.email_convidado,
+            remetente=remetente,
+            tenant_nome=tenant.nome if tenant else "AgroSaaS",
+            perfil_nome=perfil.nome if perfil else "Membro",
+            token=convite.token_convite,
+            tenant_id=tenant_id,
+        )
+    except Exception as e:
+        from loguru import logger
+        logger.error(f"Erro ao disparar e-mail de reenvio: {e}")
+        # Retornamos sucesso no banco mas avisamos da falha no e-mail
+        return {"message": "Convite renovado, mas o envio do e-mail falhou (Verifique seu SMTP)."}
+
+    return {"message": "Convite reenviado com sucesso!"}
 
 
 @router.get("/roles", response_model=List[PerfilResponse], dependencies=[Depends(require_tenant_permission("tenant:permissions:view"))])
@@ -520,14 +596,12 @@ async def create_custom_role(
 ):
     """Cria um perfil customizado para o tenant."""
 
-    # Validar permissões
-    valid_levels = ["write", "read", "none", "*"]
-    for module, level in data.permissoes.items():
-        if level not in valid_levels:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Nível de permissão inválido para '{module}': {level}. Use: {', '.join(valid_levels)}"
-            )
+    # Validar formato granular {"granted": [...]}
+    if not data.permissoes_validas():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Formato inválido. Use: {"granted": ["modulo:recurso:acao", "financeiro:*"]}'
+        )
 
     # Verificar nome duplicado para este tenant
     existing = await session.execute(
@@ -636,6 +710,63 @@ async def get_role(
     )
 
 
+@router.post("/roles/{role_id}/clone", response_model=PerfilResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_tenant_permission("tenant:permissions:create"))])
+async def clone_role(
+    role_id: str,
+    data: CloneRoleRequest,
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Clona um perfil (padrão do sistema ou customizado) criando uma cópia editável para o tenant.
+    Útil para partir de um perfil padrão (ex: Auditor) e ajustar as permissões.
+    """
+    try:
+        rid = uuid.UUID(role_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="ID inválido")
+
+    origem = await session.get(PerfilAcesso, rid)
+    if not origem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Perfil de origem não encontrado")
+
+    # Somente pode clonar perfis globais ou do próprio tenant
+    if origem.tenant_id is not None and origem.tenant_id != tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Perfil não encontrado")
+
+    # Verificar nome duplicado
+    existing = await session.execute(
+        select(PerfilAcesso).where(PerfilAcesso.tenant_id == tenant_id, PerfilAcesso.nome == data.nome)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Já existe um perfil com o nome '{data.nome}'")
+
+    # Converter permissoes para formato granular ao clonar perfil de sistema
+    permissoes_origem = origem.permissoes or {}
+    permissions_list = permissoes_origem.get("permissions") or permissoes_origem.get("granted")
+    permissoes_clone = {"granted": permissions_list} if permissions_list else permissoes_origem
+
+    clone = PerfilAcesso(
+        tenant_id=tenant_id,
+        nome=data.nome,
+        descricao=data.descricao or f"Baseado em: {origem.nome}",
+        is_custom=True,
+        permissoes=permissoes_clone,
+    )
+
+    session.add(clone)
+    await session.commit()
+    await session.refresh(clone)
+
+    return PerfilResponse(
+        id=str(clone.id),
+        nome=clone.nome,
+        is_custom=clone.is_custom,
+        descricao=clone.descricao,
+        permissoes=clone.permissoes,
+    )
+
+
 @router.patch("/roles/{role_id}", response_model=PerfilResponse, dependencies=[Depends(require_tenant_permission("tenant:permissions:update"))])
 async def update_custom_role(
     role_id: str,
@@ -649,13 +780,11 @@ async def update_custom_role(
     """
     perfil = await _get_tenant_custom_role_or_404(role_id, tenant_id, session)
 
-    if data.permissoes is not None:
-        for module, level in data.permissoes.items():
-            if level not in VALID_PERMISSION_LEVELS:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Nível inválido para '{module}': '{level}'. Use: {', '.join(VALID_PERMISSION_LEVELS)}"
-                )
+    if not data.permissoes_validas():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Formato inválido. Use: {"granted": ["modulo:recurso:acao", "financeiro:*"]}'
+        )
 
     if data.nome is not None and data.nome != perfil.nome:
         existing = await session.execute(

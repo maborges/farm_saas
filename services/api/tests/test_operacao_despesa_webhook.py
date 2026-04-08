@@ -18,7 +18,6 @@ from core.exceptions import EntityNotFoundError
 from agricola.operacoes.service import OperacaoService
 from agricola.operacoes.schemas import OperacaoAgricolaCreate
 from agricola.safras.models import Safra
-from agricola.talhoes.models import Talhao
 from financeiro.models.despesa import Despesa
 from financeiro.models.plano_conta import PlanoConta
 

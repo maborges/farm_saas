@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, date, timezone
 from loguru import logger
 
-from core.dependencies import get_session, get_current_tenant, get_current_user_claims
+from core.dependencies import get_session, get_current_tenant, get_current_user_claims, require_module
 from core.exceptions import BusinessRuleError
 from core.models.tenant import Tenant
 from operacional.models.compras import (
@@ -23,7 +23,7 @@ from operacional.schemas.estoque import EntradaEstoqueRequest, LoteCreate
 from operacional.models.estoque import LoteEstoque, MovimentacaoEstoque, SaldoEstoque
 from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/compras", tags=["Operacional — Compras"])
+router = APIRouter(prefix="/compras", tags=["Operacional — Compras"], dependencies=[Depends(require_module("O3_COMPRAS"))])
 
 # --- SCHEMAS ---
 class FornecedorCreate(BaseModel):

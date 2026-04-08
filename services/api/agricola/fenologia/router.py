@@ -22,7 +22,7 @@ async def listar_escalas(
     cultura: str | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     return await FenologiaEscalaService(session, tenant_id).listar(cultura=cultura)
 
@@ -32,7 +32,7 @@ async def criar_escala(
     dados: FenologiaEscalaCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     return await FenologiaEscalaService(session, tenant_id).criar(dados)
@@ -44,7 +44,7 @@ async def atualizar_escala(
     dados: FenologiaEscalaUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     return await FenologiaEscalaService(session, tenant_id).atualizar(escala_id, dados)
@@ -57,7 +57,7 @@ async def listar_grupos(
     safra_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     return await SafraTalhaoGrupoService(session, tenant_id).listar(safra_id)
 
@@ -68,7 +68,7 @@ async def criar_grupo(
     dados: GrupoTalhaoCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     return await SafraTalhaoGrupoService(session, tenant_id).criar(safra_id, dados.nome, dados.cor, dados.ordem)
@@ -81,7 +81,7 @@ async def atualizar_grupo(
     dados: GrupoTalhaoUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     return await SafraTalhaoGrupoService(session, tenant_id).atualizar(
@@ -100,7 +100,7 @@ async def sincronizar_talhoes_grupo(
     dados: GrupoSincronizarTalhoes,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     return await SafraTalhaoGrupoService(session, tenant_id).sincronizar_talhoes(grupo_id, dados.talhao_ids)
@@ -112,7 +112,7 @@ async def excluir_grupo(
     grupo_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     await SafraTalhaoGrupoService(session, tenant_id).excluir(grupo_id)
@@ -128,7 +128,7 @@ async def copiar_grupos_de_safra(
     dados: CopiarGruposDeSafra,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     return await SafraTalhaoGrupoService(session, tenant_id).copiar_de_safra(dados.safra_origem_id, safra_id)
@@ -148,7 +148,7 @@ async def registrar_fenologia_talhao(
     dados: FenologiaRegistroCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin", "operador"])),
 ):
     svc = FenologiaRegistroService(session, tenant_id)
@@ -169,7 +169,7 @@ async def registrar_fenologia_grupo(
     dados: FenologiaRegistroCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin", "operador"])),
 ):
     svc = FenologiaRegistroService(session, tenant_id)
@@ -188,7 +188,7 @@ async def historico_fenologia_talhao(
     talhao_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = FenologiaRegistroService(session, tenant_id)
     return [svc._to_response(r) for r in await svc.listar_por_talhao(safra_id, talhao_id)]
@@ -203,7 +203,7 @@ async def historico_fenologia_safra(
     safra_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A1")),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = FenologiaRegistroService(session, tenant_id)
     return [svc._to_response(r) for r in await svc.listar_por_safra(safra_id)]

@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from core.database import get_db
-from core.dependencies import get_current_tenant
+from core.dependencies import get_current_tenant, require_module
 
-router = APIRouter(prefix="/powerbi", tags=["Powerbi"])
+router = APIRouter(prefix="/powerbi", tags=["Powerbi"], dependencies=[Depends(require_module("EXT_IA"))])
 
 
 @router.get("/")

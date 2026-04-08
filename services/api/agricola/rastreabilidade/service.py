@@ -18,7 +18,7 @@ class RastreabilidadeService(BaseService[LoteRastreabilidade]):
 
     async def cadeia_rastreabilidade(self, lote_id: UUID) -> dict:
         from agricola.safras.models import Safra
-        from agricola.talhoes.models import Talhao
+        from core.cadastros.propriedades.models import AreaRural
         from agricola.operacoes.models import OperacaoAgricola, InsumoOperacao
         from agricola.romaneios.models import RomaneioColheita
         from core.cadastros.models import ProdutoCatalogo as Produto
@@ -31,7 +31,7 @@ class RastreabilidadeService(BaseService[LoteRastreabilidade]):
             raise EntityNotFoundError(f"Safra {lote.safra_id} não encontrada.")
 
         # Talhão
-        talhao = await self.session.get(Talhao, lote.talhao_id)
+        talhao = await self.session.get(AreaRural, lote.talhao_id)
 
         # Operações agrícolas no talhão/safra (com insumos via selectin)
         stmt_ops = (
@@ -88,7 +88,7 @@ class RastreabilidadeService(BaseService[LoteRastreabilidade]):
             "talhao": {
                 "id": str(talhao.id) if talhao else None,
                 "nome": talhao.nome if talhao else "—",
-                "area_ha": float(talhao.area_ha or 0) if talhao else 0,
+                "area_ha": float(talhao.area_hectares or talhao.area_hectares_manual or 0) if talhao else 0,
             } if talhao else None,
             "operacoes": [
                 {

@@ -17,7 +17,7 @@ from financeiro.services.despesa_service import DespesaService
 router = APIRouter(
     prefix="/despesas",
     tags=["Financeiro - Contas a Pagar (F1)"],
-    dependencies=[Depends(require_module("F1"))],
+    dependencies=[Depends(require_module("F1_TESOURARIA"))],
 )
 
 

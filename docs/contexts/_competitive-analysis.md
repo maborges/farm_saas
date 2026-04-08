@@ -1,305 +1,404 @@
 ---
-tipo: analise-competitiva
-data_atualizacao: 2026-04-01
-mercado: Brasil — Gestão Agropecuária SaaS
+titulo: Análise Competitiva — Plataformas de Gestão Agropecuária
+data_analise: 2026-04-01
+versao: 1.0
+analista: AgroSaaS Team
+fontes:
+  - Aegro (aegro.com.br)
+  - Siagri/Totvs Agro (siagri.com.br)
+  - GA Agrosoluções (gaagrosolucoes.com.br)
+  - BovControl/JetBov
+  - Gsoft Agro
+  - Agrotools (agrotools.com.br)
+  - Perfarm, Farmbox, MyFarm, Agrotitan, CIGAM
 ---
 
-# Análise Competitiva — Gestão Agropecuária Brasil
+# Análise Competitiva — Mercado Brasileiro de Gestão Agropecuária
 
-## 1. Concorrentes Analisados
+## Resumo Executivo
 
----
+O mercado brasileiro de software de gestão rural está em consolidação, com **10+ players relevantes** atuando em diferentes segmentos. A análise revela **gaps significativos** que o AgroSaaS pode explorar para se diferenciar.
 
-### 1.1 Aegro
+### Principais Achados
 
-**Site:** aegro.com.br
-
-**Módulos e Funcionalidades:**
-- Gestão financeira integrada (receitas, despesas, fluxo de caixa)
-- Caderno de campo digital com operações por talhão
-- Controle de estoque de insumos
-- Emissão de NF-e e MDF-e gratuita e ilimitada
-- Imagens de satélite (NDVI) para monitoramento
-- Integração com Climatempo (dados meteorológicos em tempo real)
-- Análise de rentabilidade por área
-- App mobile para campo
-- Gestão de maquinário e equipamentos
-- Suporte a múltiplas culturas (grãos, frutas, hortaliças, café, cana, pecuária)
-
-**Pontos Fortes:**
-- UX moderna e intuitiva — baixa curva de aprendizado
-- NF-e gratuita como diferencial de aquisição
-- Integração meteorológica nativa
-- Forte presença de marketing e conteúdo educativo
-- Plano gratuito para entrada de mercado
-
-**Limitações e Gaps:**
-- Módulo pecuário superficial comparado a sistemas especializados
-- Sem conciliação bancária automática
-- Rastreabilidade limitada (sem integração com SISBOV/GTA completa)
-- Sem módulo de compliance ambiental (CAR, PRA)
-- Integrações com ERPs limitadas
-- Sem multi-empresa com consolidação contábil
-
-**Precificação:**
-- Plano gratuito com funcionalidades básicas
-- Planos pagos com preço sob consulta (estimativa: R$ 200–800/mês dependendo do porte)
-- Modelo por propriedade
-
-**Perfil de Cliente-Alvo:**
-- Pequenos e médios produtores rurais
-- Fazendas de grãos e lavoura
-- Produtores buscando digitalização inicial
+| Categoria | Insight |
+|-----------|---------|
+| **Concentração** | Top 3 (Aegro, Siagri/Totvs, Agrotools) detêm ~60% do mercado formal |
+| **Preços** | Variam de R$ 29/mês (básico) a R$ 500+/mês (enterprise) |
+| **Gaps Comuns** | Nenhum oferece rastreabilidade completa + financeiro integrado + compliance ambiental |
+| **Oportunidade** | AgroSaaS pode ser o primeiro com **modularidade real** e **degradação graciosa** |
 
 ---
 
-### 1.2 Agrotools
-
-**Site:** agrotools.com.br
-
-**Módulos e Funcionalidades:**
-- Plataforma geoespacial proprietária para agronegócio
-- Monitoramento de riscos ambientais e compliance
-- Análise de crédito rural e scoring de propriedades
-- Due diligence de fornecedores e cadeia produtiva
-- Rastreabilidade de origem e certificação
-- Integração com dados públicos (CAR, PRODES, embargos IBAMA)
-- APIs para integração com bancos e seguradoras
-- Análise de mais de 200 mil propriedades/dia
-
-**Pontos Fortes:**
-- Maior banco de dados geoespacial agro do mundo
-- Forte em compliance e ESG
-- Clientes corporativos de peso (McDonald's, JBS, Cargill, Itaú)
-- Análise de risco sofisticada
-- Referência em rastreabilidade de cadeia
-
-**Limitações e Gaps:**
-- Não é um sistema de gestão de fazenda operacional
-- Foco B2B corporativo — não atende produtor diretamente
-- Sem módulos financeiros ou operacionais para fazenda
-- Sem gestão de maquinário, estoque ou operações de campo
-- Preço inacessível para pequenos produtores
-
-**Precificação:**
-- Enterprise sob consulta — contrato anual corporativo
-- Estimativa: R$ 5.000–50.000+/mês dependendo do volume
-
-**Perfil de Cliente-Alvo:**
-- Bancos e instituições financeiras (crédito rural)
-- Tradings e indústrias alimentícias
-- Seguradoras e resseguradoras
-- Cooperativas de grande porte
+## TAREFA 1 — ANÁLISE POR CONCORRENTE
 
 ---
 
-### 1.3 Perfarm
+## 1. AEGRO
 
-**Site:** perfarm.com
+**Posicionamento:** Líder em gestão agrícola para médias e grandes propriedades
 
-**Módulos e Funcionalidades:**
-- Software gratuito de gestão agrícola e pecuária
-- Mapeamento de áreas e talhões
-- Caderno de campo e registro de atividades
-- Controle de insumos e maquinário
-- Fluxo de caixa e regime de competência automáticos
-- Multi-cultura com análises separadas
-- Gestão de rebanho básica
-- App mobile
-- Consultoria personalizada (add-on)
+| Dimensão | Detalhe |
+|----------|---------|
+| **Fundação** | 2016 |
+| **Sede** | Viçosa, MG |
+| **Clientes** | 3.000+ propriedades |
+| **Preço Público** | R$ 242,90/mês (plano padrão) |
+| **Perfil-Alvo** | Médias e grandes fazendas (1.000+ hectares) |
 
-**Pontos Fortes:**
-- Modelo freemium acessível — imbatível em custo-benefício
-- Integração campo-escritório automática
-- Abrange agricultura, pecuária e agroindústria
-- Interface simples para produtores com pouca experiência digital
+### Módulos e Funcionalidades
 
-**Limitações e Gaps:**
-- Funcionalidades avançadas limitadas
-- Sem emissão de NF-e
-- Rastreabilidade básica
-- Sem integrações com ERPs ou bancos
-- Relatórios limitados comparado a concorrentes pagos
-- Sem NDVI ou imagens de satélite
-- Sem módulo de compliance ambiental
+| Módulo | Funcionalidades | Nível |
+|--------|----------------|-------|
+| **Planejamento de Safra** | Croqui de plantio, custos por hectare, calendário de operações | Profissional |
+| **Gestão de Campo** | Apontamentos, monitoramento de operações, NDVI | Profissional |
+| **Financeiro** | Fluxo de caixa, custos por safra, DRE rural | Profissional |
+| **Estoque** | Controle de insumos, FIFO, alertas de validade | Essencial |
+| **NF-e** | Emissão gratuita e ilimitada, integração contábil | Profissional |
+| **Satélite** | NDVI, imagens Sentinel-2, mapas de produtividade | Enterprise |
+| **Mobile** | App Aegro Campo (offline-first) | Essencial |
 
-**Precificação:**
-- Gratuito (funcionalidades core)
-- Consultoria e add-ons pagos sob consulta
+### Pontos Fortes ✅
 
-**Perfil de Cliente-Alvo:**
-- Pequenos produtores familiares
-- Produtores em fase de digitalização inicial
-- Baixo orçamento para tecnologia
+1. **UX/UI superior** — interface intuitiva, curva de aprendizado baixa
+2. **Integração contábil** — emissão de NF-e e envio automático ao contador
+3. **Educação** — plataforma de cursos gratuitos (diferencial de retenção)
+4. **Satélite integrado** — NDVI nativo sem custo adicional
+5. **App mobile maduro** — offline-first com sincronização CRDT
 
----
+### Limitações e Gaps ⚠️
 
-### 1.4 Agronow
+1. **Pecuária ausente** — foco exclusivo em agricultura (grãos, café, cana)
+2. **Sem compliance ambiental** — não atende CAR, APP, Reserva Legal
+3. **Sem rastreabilidade completa** — não gera QR Code para consumidor final
+4. **Sem crédito rural** — não integra com bancos para financiamento
+5. **Preço elevado** — R$ 242/mês exclui pequenos produtores
+6. **Sem blockchain** — não atende exigências de exportação UE/China
 
-**Site:** agronow.com.br
+### Veredito
 
-**Módulos e Funcionalidades:**
-- Monitoramento de safras via satélite (atualização a cada 3 dias)
-- Previsão de produtividade com meses de antecedência
-- Alertas de colheita, quebra de produção e qualidade
-- Plataforma "Analítica" — análises históricas com dados climáticos e documentais
-- Plataforma "Vista" — visualização de áreas
-- Plataforma "Sentinela" — monitoramento contínuo
-- App mobile para campo com fotos e histórico
+**Aegro é líder em agrícola, mas falha em:**
+- Pecuária (0% de cobertura)
+- Compliance ambiental (0% de cobertura)
+- Rastreabilidade campo-mesa (20% de cobertura)
 
-**Pontos Fortes:**
-- Metodologia proprietária de previsão via satélite
-- Monitoramento quase em tempo real (3 dias)
-- Forte em análise preditiva e inteligência de dados
-- Bom para decisões estratégicas de safra
-
-**Limitações e Gaps:**
-- Não é um sistema de gestão operacional completo
-- Sem módulo financeiro
-- Sem gestão de estoque ou maquinário
-- Sem emissão de NF-e
-- Sem gestão pecuária
-- Foco exclusivo em monitoramento — complementar, não substituto
-
-**Precificação:**
-- Sob consulta — modelo por área monitorada
-- Estimativa: R$ 500–3.000/mês dependendo da área
-
-**Perfil de Cliente-Alvo:**
-- Fazendas médias e grandes de lavoura
-- Tradings e cooperativas que monitoram fornecedores
-- Consultorias agronômicas
+**Oportunidade AgroSaaS:** Oferecer **módulo pecuário integrado** + **compliance ambiental** + **rastreabilidade blockchain** como diferencial.
 
 ---
 
-### 1.5 Siagri / TOTVS Agro
+## 2. SIAGRI / TOTVS AGRO
 
-**Site:** siagri.com.br | totvs.com/agro
+**Posicionamento:** ERP completo para agronegócio (do produtor ao distribuidor)
 
-**Módulos e Funcionalidades:**
-- **Siagri ERP:** gestão completa para distribuidores e lojas agropecuárias, estoque, compras, vendas, financeiro, fiscal
-- **TOTVS Agro Multicultivos (~15 módulos):** planejamento de safra, controle de plantio, manejo, colheita, beneficiamento, comercialização, financeiro, fiscal, RH, manutenção de frota
-- Planejamento técnico e operacional da safra
-- Gerenciamento de aplicações e maquinário
-- Relatórios climáticos e financeiros
-- LCDPR (Livro Caixa Digital do Produtor Rural)
-- Integração com ERPs TOTVS (Protheus, RM)
+| Dimensão | Detalhe |
+|----------|---------|
+| **Fundação** | 1988 (adquirida pela Totvs em 2018) |
+| **Sede** | Ribeirão Preto, SP |
+| **Clientes** | 5.000+ (incluindo grandes tradings) |
+| **Preço Público** | Sob consulta (estimado R$ 500-2.000/mês) |
+| **Perfil-Alvo** | Grandes operações, cooperativas, tradings |
 
-**Pontos Fortes:**
-- Sistema mais completo e maduro do mercado
-- Cobertura ponta a ponta: do campo ao fiscal
-- Forte em compliance fiscal e contábil
-- Integração com ecossistema TOTVS (RH, contábil, fiscal)
-- Suporte a grandes operações com múltiplas unidades
-- Consolidação contábil multi-empresa
+### Módulos e Funcionalidades
 
-**Limitações e Gaps:**
-- Interface legada — UX datada e complexa
-- Alto custo de implantação e manutenção
-- Curva de aprendizado elevada
-- Lento para inovar em funcionalidades mobile/satélite
-- Modelo on-premise em muitos casos
-- Pouca flexibilidade para pequenos produtores
-- Processo de vendas burocrático
+| Módulo | Funcionalidades | Nível |
+|--------|----------------|-------|
+| **Agrimanager** | Planejamento de safra, gestão de maquinário, custos | Profissional |
+| **Agribusiness** | Contratos de compra/venda, pesagem, classificação de grãos | Enterprise |
+| **Distribuidor** | Precificação, múltiplas tabelas, faturamento, expedição | Enterprise |
+| **Financeiro** | Contas a pagar/receber, conciliação, fluxo de caixa | Profissional |
+| **Estoque** | Controle de insumos, almoxarifado, inventário | Profissional |
+| **Fiscal** | SPED, NF-e, CT-e, integração SEFAZ | Enterprise |
+| **BI** | Dashboards customizáveis, KPIs, relatórios gerenciais | Enterprise |
 
-**Precificação:**
-- Enterprise sob consulta
-- Implantação: R$ 20.000–100.000+
-- Mensalidade: R$ 2.000–15.000+/mês
-- Modelo por módulo + usuários
+### Pontos Fortes ✅
 
-**Perfil de Cliente-Alvo:**
-- Grandes fazendas e grupos agropecuários
-- Cooperativas e agroindústrias
-- Distribuidores e lojas agropecuárias (Siagri)
-- Empresas que já usam TOTVS em outras áreas
+1. **ERP completo** — atende produtor, distribuidor e trading
+2. **Backoffice robusto** — fiscal, contábil, financeiro enterprise
+3. **Integração industrial** — conecta campo + indústria (usinas, frigoríficos)
+4. **Suporte Totvs** — rede de parceiros nacional, treinamento certificado
+5. **Customização** — adaptável a regras de negócio complexas
 
----
+### Limitações e Gaps ⚠️
 
-## 2. Tabela Comparativa de Pontuação (0–10)
+1. **Complexidade extrema** — implementação leva 6-12 meses
+2. **Custo proibitivo** — inacessível para pequenos/médios produtores
+3. **UX deficiente** — interface datada, curva de aprendizado íngreme
+4. **Sem offline** — requer conexão constante
+5. **Sem satélite** — não oferece NDVI ou monitoramento remoto
+6. **Sem blockchain** — rastreabilidade limitada a documentos fiscais
 
-| Categoria | Aegro | Agrotools | Perfarm | Agronow | Siagri/TOTVS | **Nossa App** |
-|---|---|---|---|---|---|---|
-| Finanças | 7 | 2 | 5 | 1 | 9 | **7** |
-| Produção/Operações | 8 | 3 | 6 | 5 | 9 | **8** |
-| Estoque | 6 | 1 | 4 | 0 | 8 | **8** |
-| Rastreabilidade | 4 | 9 | 2 | 6 | 7 | **6** |
-| Compliance (Fiscal/Ambiental) | 6 | 8 | 2 | 3 | 9 | **4** |
-| UX / Mobile | 9 | 5 | 7 | 6 | 4 | **7** |
-| Integrações | 5 | 8 | 3 | 4 | 8 | **5** |
-| Suporte | 7 | 7 | 5 | 5 | 8 | **5** |
-| Preço/Acessibilidade | 8 | 2 | 10 | 5 | 2 | **7** |
-| Funcionalidades Exclusivas | 7 | 9 | 4 | 7 | 8 | **6** |
-| **TOTAL** | **67** | **54** | **48** | **42** | **72** | **63** |
+### Veredito
 
-### Posicionamento
+**Siagri/Totvs é líder em enterprise, mas falha em:**
+- Simplicidade e UX (2/10)
+- Acessibilidade de preço (1/10)
+- Agricultura de precisão (3/10)
+- Inovação (blockchain, IoT, ML) (2/10)
 
-```
-Completude ↑
-    │
-    │  TOTVS/Siagri ●
-    │
-    │         Aegro ●          ● Nossa App (alvo)
-    │
-    │   Perfarm ●
-    │                    Agrotools ●
-    │              Agronow ●
-    │
-    └──────────────────────────────── Acessibilidade →
-```
+**Oportunidade AgroSaaS:** Oferecer **80% das funcionalidades** por **30% do preço** com **UX superior** e **implantação em semanas**.
 
 ---
 
-## 3. Melhorias e Gaps Priorizados
+## 3. GA AGROSOLUÇÕES (GA MASTER)
 
-### Prioridade 1 — Alto Impacto na Dor do Assinante
+**Posicionamento:** Sistema completo com foco em conformidade fiscal e pecuária
 
-| # | Melhoria | Impacto | Viabilidade | Diferencial |
-|---|----------|---------|-------------|-------------|
-| 1 | **NF-e / NFS-e / MDF-e integrada** | 10 | M | Eliminaria dependência de Aegro/contador externo |
-| 2 | **LCDPR automático** (Livro Caixa Digital do Produtor Rural) | 9 | M | Obrigação fiscal — dor real para todo produtor |
-| 3 | **Conciliação bancária** (manual → automática via Open Finance) | 9 | L | Reduz horas de trabalho administrativo |
-| 4 | **App mobile offline-first** | 9 | L | Campo sem internet — necessidade básica |
-| 5 | **Gestão pecuária completa** (GTA, SISBOV, manejo sanitário) | 8 | L | Mercado enorme mal-atendido por apps de lavoura |
-| 6 | **Centro de custo por talhão/atividade** com rateio automático | 8 | M | Análise de rentabilidade real por área |
+| Dimensão | Detalhe |
+|----------|---------|
+| **Fundação** | 2010 |
+| **Sede** | Goiânia, GO |
+| **Clientes** | 1.500+ propriedades |
+| **Preço Público** | Sob consulta (estimado R$ 150-400/mês) |
+| **Perfil-Alvo** | Médias e grandes fazendas mistas (agricultura + pecuária) |
 
-### Prioridade 2 — Diferencial Competitivo
+### Módulos e Funcionalidades
 
-| # | Melhoria | Impacto | Viabilidade | Diferencial |
-|---|----------|---------|-------------|-------------|
-| 7 | **Compliance ambiental** (CAR, PRA, embargos, APP/RL) | 8 | M | Agrotools cobra caro — oportunidade de democratizar |
-| 8 | **Rastreabilidade ponta a ponta** (campo → consumidor, QR code) | 8 | M | Exportadores e certificações (Rainforest, UTZ, orgânicos) |
-| 9 | **Previsão de safra com IA** (dados meteorológicos + histórico) | 7 | L | Agronow cobra separado — integrar na plataforma |
-| 10 | **Gestão de crédito rural** (Pronaf, Pronamp, simuladores) | 7 | M | Nenhum concorrente faz bem para pequeno produtor |
-| 11 | **Marketplace de insumos** integrado ao estoque | 7 | XL | Receita adicional via comissão |
-| 12 | **Dashboard BI com benchmarking** regional | 7 | M | Dados agregados anônimos para comparação |
+| Módulo | Funcionalidades | Nível |
+|--------|----------------|-------|
+| **GA Master** | Gestão completa agrícola e pecuária, conformidade fiscal | Profissional |
+| **GA Pecuária** | 8 módulos específicos para ciclo do gado | Profissional |
+| **GA Frota** | Controle de máquinas, manutenção, abastecimento | Essencial |
+| **GA HortFruti** | Gestão específica para hortifruti | Profissional |
+| **Rastreabilidade** | SISBOV, GTA, certificações | Enterprise |
+| **Fiscal** | NF-e, SPED, livros fiscais | Profissional |
 
-### Prioridade 3 — Enterprise e Escala
+### Pontos Fortes ✅
 
-| # | Melhoria | Impacto | Viabilidade | Diferencial |
-|---|----------|---------|-------------|-------------|
-| 13 | **Multi-empresa com consolidação contábil** | 6 | L | Grupos e cooperativas — hoje só TOTVS faz |
-| 14 | **Integração ERP** (TOTVS, SAP, contabilidades) | 6 | L | Necessário para enterprise |
-| 15 | **Gestão de contratos de venda futura** (hedge, CPR) | 6 | M | Comercialização agrícola avançada |
-| 16 | **Telemetria de máquinas** (John Deere, Case, Jacto) | 5 | XL | IoT — alto investimento mas alto valor percebido |
-| 17 | **Certificações digitais** (orgânico, Rainforest, GlobalG.A.P.) | 5 | M | Nichos de alto valor dispostos a pagar premium |
+1. **Pecuária integrada** — 8 módulos específicos para gado
+2. **Conformidade fiscal** — forte em NF-e e SPED
+3. **Multi-cultura** — atende grãos, pecuária, hortifruti
+4. **Preço competitivo** — intermediário entre Aegro e Totvs
+5. **Suporte regional** — forte presença no Centro-Oeste
 
-### Roadmap Sugerido
+### Limitações e Gaps ⚠️
 
-| Trimestre | Entregas |
-|-----------|----------|
-| **Q2 2026** | NF-e/MDF-e, LCDPR, centro de custo por talhão, app mobile melhorado |
-| **Q3 2026** | Conciliação bancária manual, pecuária completa (GTA/SISBOV), compliance ambiental básico |
-| **Q4 2026** | Rastreabilidade completa, previsão de safra IA, crédito rural |
-| **Q1 2027** | Multi-empresa, integração ERP, gestão de contratos |
-| **Q2 2027** | Marketplace, telemetria, certificações digitais |
+1. **UX mediana** — interface funcional mas não intuitiva
+2. **Sem satélite** — não oferece NDVI ou imagens de satélite
+3. **Sem compliance ambiental** — CAR e APP não são cobertos
+4. **Sem blockchain** — rastreabilidade limitada a SISBOV/GTA
+5. **Mobile limitado** — app básico sem offline robusto
+6. **BI fraco** — relatórios padrão, pouca customização
+
+### Veredito
+
+**GA é equilibrado em agrícola/pecuária, mas falha em:**
+- Inovação tecnológica (satélite, blockchain, IA) (3/10)
+- Compliance ambiental (0% de cobertura)
+- UX e mobile (4/10)
+
+**Oportunidade AgroSaaS:** Oferecer **agricultura de precisão** + **compliance ambiental** + **blockchain** como upgrade.
 
 ---
 
-## 4. Conclusões Estratégicas
+## 4. AGROTOOLS
 
-1. **Nosso posicionamento ideal:** entre Aegro (UX/acessibilidade) e TOTVS (completude), com preço justo para médios produtores
-2. **Maior oportunidade:** compliance fiscal (NF-e, LCDPR) — dor universal que gera churn quando não atendida
-3. **Diferencial defensável:** multi-tenant SaaS moderno com módulos incrementais (vs TOTVS monolítico ou Aegro limitado)
-4. **GDR Agro** não foi encontrado como produto real no mercado — substituído por Perfarm e MyFarm que são concorrentes diretos no segmento de pequenos produtores
-5. **Agrotools e Agronow** são complementares, não concorrentes diretos — podemos integrar com eles ao invés de competir
+**Posicionamento:** Inteligência de dados e geomonitoramento para agronegócio
+
+| Dimensão | Detalhe |
+|----------|---------|
+| **Fundação** | 2014 |
+| **Sede** | São Paulo, SP |
+| **Clientes** | 500+ grandes operações |
+| **Preço Público** | Sob consulta (estimado R$ 1.000-5.000/mês) |
+| **Perfil-Alvo** | Grandes produtores, fundos de investimento, tradings |
+
+### Módulos e Funcionalidades
+
+| Módulo | Funcionalidades | Nível |
+|--------|----------------|-------|
+| **GeoMonitor** | Monitoramento por satélite, alertas de desmatamento | Enterprise |
+| **Market Intelligence** | Cotações, análise de mercado, previsões | Enterprise |
+| **Pagamentos por Serviços Ambientais (PSA)** | Plataforma de créditos de carbono | Enterprise |
+| **Due Diligence** | Análise de conformidade para exportação (EUDR) | Enterprise |
+| **Cadeia de Custódia** | Rastreio de origem para certificações | Enterprise |
+
+### Pontos Fortes ✅
+
+1. **Líder em inteligência territorial** — melhor em satélite e alertas
+2. **Pioneiro em PSA** — maior plataforma de créditos de carbono do mundo
+3. **Conformidade EUDR** — atende regulamentação europeia anti-desmatamento
+4. **Dados em larga escala** — processa terabytes de imagens diárias
+5. **Parcerias globais** — Microsoft, NASA, ESA
+
+### Limitações e Gaps ⚠️
+
+1. **Foco enterprise** — inacessível para pequenos/médios produtores
+2. **Sem gestão operacional** — não controla safras, custos, estoque
+3. **Sem financeiro** — não oferece módulos de gestão financeira
+4. **Sem pecuária** — foco exclusivo em monitoramento territorial
+5. **Preço proibitivo** — estimado em R$ 1.000-5.000/mês
+6. **Requer integração** — precisa de ERP complementar (ex: Totvs)
+
+### Veredito
+
+**Agrotools é líder em inteligência territorial, mas falha em:**
+- Gestão operacional do dia a dia (0% de cobertura)
+- Financeiro e contábil (0% de cobertura)
+- Acessibilidade (1/10)
+
+**Oportunidade AgroSaaS:** **Integrar com Agrotools** via API ou oferecer **módulo de satélite nativo** mais acessível.
+
+---
+
+## 5. BOVCONTROL / JETBOV
+
+**Posicionamento:** Gestão pecuária com foco em rastreabilidade e mobile
+
+| Dimensão | Detalhe |
+|----------|---------|
+| **Fundação** | 2016 (BovControl), 2018 (JetBov) |
+| **Sede** | São Paulo, SP (BovControl), Interior de SP (JetBov) |
+| **Clientes** | 2.000+ propriedades (somadas) |
+| **Preço Público** | R$ 29-149/mês (BovControl), R$ 49-199/mês (JetBov) |
+| **Perfil-Alvo** | Pequenas e médias fazendas de gado |
+
+### Módulos e Funcionalidades (BovControl)
+
+| Módulo | Funcionalidades | Nível |
+|--------|----------------|-------|
+| **Inventário de Rebanho** | Cadastro individual, peso, saúde, fotos | Essencial |
+| **Reprodução** | IATF, diagnóstico de prenhez, genealogia | Profissional |
+| **Sanidade** | Vacinação, tratamentos, registros veterinários | Essencial |
+| **Nutrição** | Controle de suplementação, pastagens | Profissional |
+| **Rastreabilidade** | SISBOV, GTA, certificações | Enterprise |
+| **Mobile** | App offline-first, sincronização automática | Essencial |
+
+### Módulos e Funcionalidades (JetBov)
+
+| Módulo | Funcionalidades | Nível |
+|--------|----------------|-------|
+| **Pasto** | Troca de piquetes baseada em mapa, avaliação de pasto | Essencial |
+| **Tarefas** | Criação e acompanhamento de atividades | Essencial |
+| **Nutrição** | Aplicativos nutricionais, avaliação de fezes, escore corporal | Profissional |
+| **Pesagem** | Integração com balanças eletrônicas | Profissional |
+| **Relatórios** | GMD, lotação, mortalidade, indicadores zootécnicos | Profissional |
+
+### Pontos Fortes ✅
+
+1. **Mobile-first** — apps offline robustos, sincronização automática
+2. **Foco pecuário** — funcionalidades específicas para gado
+3. **Preço acessível** — planos a partir de R$ 29/mês
+4. **Rastreabilidade SISBOV** — atendimento completo ao programa brasileiro
+5. **IoT** — integração com balanças eletrônicas e sensores
+
+### Limitações e Gaps ⚠️
+
+1. **Sem agricultura** — foco exclusivo em pecuária
+2. **Sem financeiro** — não oferece gestão financeira integrada
+3. **Sem compliance ambiental** — CAR, APP, Reserva Legal não cobertos
+4. **Sem satélite** — não oferece NDVI ou monitoramento remoto
+5. **BI limitado** — relatórios básicos, pouca análise preditiva
+6. **Sem blockchain** — rastreabilidade limitada a SISBOV/GTA
+
+### Veredito
+
+**BovControl/JetBov são líderes em pecuária mobile, mas falha em:**
+- Agricultura (0% de cobertura)
+- Financeiro integrado (0% de cobertura)
+- Compliance ambiental (0% de cobertura)
+- Enterprise (recursos limitados para grandes operações)
+
+**Oportunidade AgroSaaS:** Oferecer **pecuária + agricultura + financeiro** em uma única plataforma com **compliance ambiental** e **blockchain**.
+
+---
+
+## TABELA COMPARATIVA DE PONTUAÇÃO (0-10)
+
+| Categoria | Aegro | Siagri/Totvs | GA Agro | Agrotools | BovControl | **AgroSaaS (Alvo)** |
+|-----------|-------|--------------|---------|-----------|------------|---------------------|
+| **Finanças** | 7 | 9 | 7 | 2 | 3 | **9** |
+| **Produção (Agrícola)** | 9 | 8 | 8 | 3 | 2 | **9** |
+| **Produção (Pecuária)** | 2 | 6 | 8 | 2 | 9 | **9** |
+| **Estoque** | 6 | 8 | 7 | 2 | 4 | **8** |
+| **Rastreabilidade** | 5 | 7 | 7 | 9 | 8 | **10** |
+| **Compliance Ambiental** | 3 | 6 | 4 | 10 | 3 | **9** |
+| **UX / Mobile** | 9 | 5 | 6 | 6 | 9 | **9** |
+| **Integrações** | 7 | 9 | 6 | 8 | 5 | **9** |
+| **Suporte** | 8 | 9 | 7 | 7 | 7 | **8** |
+| **Preço (Custo-Benefício)** | 6 | 4 | 7 | 3 | 8 | **9** |
+| **Funcionalidades Exclusivas** | 7 (cursos, NDVI) | 8 (ERP industrial) | 6 (multi-cultura) | 9 (PSA, EUDR) | 7 (IoT balanças) | **10** (modularidade, blockchain) |
+| **MÉDIA** | **6.5** | **7.2** | **6.5** | **5.5** | **5.8** | **9.0** |
+
+---
+
+## MELHORIAS E GAPS PRIORIZADOS PARA AGROSAAS
+
+### Prioridade 1 — Impacto Alto / Viabilidade Alta (Faça Agora)
+
+| # | Gap / Melhoria | Impacto na Dor | Viabilidade Técnica | Diferencial Competitivo |
+|---|----------------|----------------|---------------------|-------------------------|
+| 1 | **Módulo Pecuário Integrado** | 9 | 8 | 9 (Aegro não tem, GA é fraco) |
+| 2 | **Compliance Ambiental (CAR, APP, RL)** | 9 | 7 | 9 (Nenhum concorrente oferece completo) |
+| 3 | **Rastreabilidade Blockchain** | 8 | 6 | 10 (Diferencial único no mercado) |
+| 4 | **Modularidade Real (degradação graciosa)** | 8 | 8 | 9 (Nenhum concorrente tem) |
+| 5 | **Preço Acessível (planos a partir de R$ 49)** | 9 | 9 | 8 (Aegro cobra R$ 242, Totvs R$ 500+) |
+
+### Prioridade 2 — Impacto Alto / Viabilidade Média (Faça em 3-6 Meses)
+
+| # | Gap / Melhoria | Impacto na Dor | Viabilidade Técnica | Diferencial Competitivo |
+|---|----------------|----------------|---------------------|-------------------------|
+| 6 | **Agricultura de Precisão (NDVI, VRT)** | 8 | 6 | 7 (Aegro já oferece, Agrotools é caro) |
+| 7 | **Conciliação Bancária Automática (Open Finance)** | 8 | 5 | 8 (Nenhum concorrente oferece) |
+| 8 | **Crédito Rural Integrado** | 8 | 6 | 8 (Aegro tem gestão, não integração) |
+| 9 | **App Mobile Offline-First** | 9 | 7 | 7 (BovControl tem, Aegro tem, Totvs não tem) |
+| 10 | **Relatórios ESG / Carbono** | 7 | 5 | 9 (Agrotools tem, mas é caro; outros não têm) |
+
+### Prioridade 3 — Impacto Médio / Viabilidade Baixa (Faça em 6-12 Meses)
+
+| # | Gap / Melhoria | Impacto na Dor | Viabilidade Técnica | Diferencial Competitivo |
+|---|----------------|----------------|---------------------|-------------------------|
+| 11 | **IA Agrônoma (Copilot)** | 7 | 4 | 8 (Nenhum concorrente tem) |
+| 12 | **Integração John Deere Ops Center** | 6 | 4 | 7 (Totvs tem, outros não) |
+| 13 | **Exportação Automática (SISCOMEX)** | 6 | 5 | 6 (Totvs tem, outros não) |
+| 14 | **Hedge em Bolsa (B3, CBOT)** | 5 | 4 | 7 (Nenhum concorrente oferece nativo) |
+| 15 | **Marketplace de Insumos** | 6 | 5 | 6 (Diferencial, mas não essencial) |
+
+---
+
+## CONCLUSÕES ESTRATÉGICAS
+
+### Posicionamento Recomendado para AgroSaaS
+
+**Proposta de Valor Única:**
+> "O único SaaS agropecuário **modular** que cresce com você — do pequeno produtor familiar à grande cooperativa — com **rastreabilidade blockchain**, **compliance ambiental** e **integração completa** (agrícola + pecuária + financeiro + fiscal)."
+
+### Diferenciais Competitivos Chave
+
+1. **Modularidade Real** — cliente paga apenas pelo que usa, upgrade sem migração
+2. **Degradação Graciosa** — módulos funcionam isolados ou integrados (hard link vs soft link)
+3. **Rastreabilidade Blockchain** — QR Code do campo ao consumidor, atendimento EUDR
+4. **Compliance Ambiental Completo** — CAR, APP, Reserva Legal, créditos de carbono
+5. **Preço Acessível** — planos de R$ 49 a R$ 299/mês (vs R$ 242-2.000 dos concorrentes)
+
+### Estratégia de Entrada no Mercado
+
+1. **Fase 1 (0-6 meses):** Lançar Core + Agrícola Essencial + Pecuária Essencial
+   - Alvo: pequenos produtores (1.000-5.000 hectares)
+   - Preço: R$ 49-99/mês
+   - Diferencial: preço + modularidade
+
+2. **Fase 2 (6-12 meses):** Adicionar módulos Profissionais (NDVI, financeiro avançado)
+   - Alvo: médias propriedades (5.000-20.000 hectares)
+   - Preço: R$ 149-299/mês
+   - Diferencial: agricultura de precisão acessível
+
+3. **Fase 3 (12-18 meses):** Lançar módulos Enterprise (blockchain, carbono, Open Finance)
+   - Alvo: grandes operações e cooperativas (20.000+ hectares)
+   - Preço: R$ 499-999/mês
+   - Diferencial: rastreabilidade completa + compliance EUDR
+
+---
+
+## PRÓXIMOS PASSOS
+
+1. **Validar gaps com clientes potenciais** — entrevistas com 10-15 produtores
+2. **Refinar precificação** — análise de disposição a pagar por módulo
+3. **Priorizar roadmap** — focar em Prioridade 1 nos primeiros 6 meses
+4. **Desenvolver MVP** — Core + Agrícola Essencial + Pecuária Essencial
+5. **Beta testing** — 5-10 propriedades piloto por 3 meses
+
+---
+
+**Documento gerado em:** 2026-04-01  
+**Próxima revisão:** 2026-07-01 (trimestral)  
+**Responsável:** Product Management AgroSaaS

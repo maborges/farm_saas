@@ -47,6 +47,11 @@ PERFIS_PADRAO = [
         "descricao": TenantRoles.DESCRIPTIONS[TenantRoles.FINANCEIRO],
         "permissoes": {"permissions": TenantPermissions.PERMISSIONS_MAP[TenantRoles.FINANCEIRO]},
     },
+    {
+        "nome": TenantRoles.AUDITOR,
+        "descricao": TenantRoles.DESCRIPTIONS[TenantRoles.AUDITOR],
+        "permissoes": {"permissions": TenantPermissions.PERMISSIONS_MAP[TenantRoles.AUDITOR]},
+    },
 ]
 
 

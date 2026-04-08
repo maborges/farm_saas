@@ -15,7 +15,7 @@ from operacional.schemas.checklist import (
 router = APIRouter(
     prefix="/frota/checklists",
     tags=["Frota — Checklists"],
-    dependencies=[Depends(require_module("O1"))],
+    dependencies=[Depends(require_module("O1_FROTA"))],
 )
 
 

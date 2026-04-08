@@ -16,6 +16,7 @@
 8. [Testes & Cobertura Mínima](#8-testes--cobertura-mínima)
 9. [Git, Commits & PR Workflow](#9-git-commits--pr-workflow)
 10. [Checklist de Code Review](#10-checklist-de-code-review)
+11. [Arquitetura de Módulos de Negócio](#11-arquitetura-de-módulos-de-negócio)
 
 ---
 
@@ -1444,6 +1445,305 @@ Use este checklist ao revisar qualquer PR no AgroSaaS.
 - [ ] Branch parte de `develop` (não de `main`)?
 - [ ] PR tem descrição clara e checklist preenchido?
 - [ ] Sem arquivos desnecessários (`.DS_Store`, `__pycache__`, `.env`)?
+
+---
+
+## 11. Arquitetura de Módulos de Negócio
+
+Esta seção conecta as regras técnicas deste manual com a estratégia de módulos e funcionalidades do AgroSaaS.
+
+### 11.1 Visão Geral da Arquitetura Modular
+
+O AgroSaaS é organizado em **módulos de negócio** que mapeiam para **microsserviços técnicos**:
+
+| Módulo de Negócio | Microsserviço(s) | Níveis de Maturidade |
+|------------------|------------------|---------------------|
+| **Core** | `api-core` | Core (obrigatório) |
+| **Agrícola** | `api-agricola` | Essencial, Profissional, Enterprise |
+| **Pecuária** | `api-pecuaria` | Essencial, Profissional, Enterprise |
+| **Financeiro** | `api-financeiro` | Essencial, Profissional, Enterprise |
+| **Operacional** | `api-operacional` | Essencial, Profissional, Enterprise |
+| **IA & Diagnóstico** | `api-ia` | Add-on Enterprise |
+
+### 11.2 Níveis de Maturidade por Módulo
+
+Cada módulo é implantado progressivamente em 3 níveis:
+
+| Nível | Nome | Feature Flag | Quando Implantar |
+|-------|------|--------------|------------------|
+| 1 | **Essencial** | `{MODULO}_E` | MVP do módulo — funcionalidades básicas |
+| 2 | **Profissional** | `{MODULO}_P1`, `{MODULO}_P2` | Automações, relatórios, integrações |
+| 3 | **Enterprise** | `{MODULO}_E1`, `{MODULO}_E2` | BI, multi-empresa, integrações fiscais |
+
+**Exemplo de uso no código:**
+
+```python
+# routers/animais.py
+@router.post("/animais/")
+async def criar_animal(
+    dados: AnimalCreate,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("PECUARIA_E")),  # Essencial
+):
+    ...
+
+@router.post("/animais/{id}/pesagens/gmd-avancado")
+async def calcular_gmd_avancado(
+    animal_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("PECUARIA_P1")),  # Profissional
+):
+    ...
+
+@router.get("/relatorios/dre-lote")
+async def dre_lote(
+    fazenda_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("FINANCEIRO_E1")),  # Enterprise
+):
+    ...
+```
+
+### 11.3 Pacotes de Assinatura
+
+Os níveis de maturidade são combinados em **pacotes de assinatura**:
+
+| Pacote | Módulos Incluídos | Nível Máximo | Público-Alvo |
+|--------|------------------|--------------|--------------|
+| **Produtor** | Core + 1 módulo | Essencial | Pequeno produtor |
+| **Gestão** | Core + 3 módulos | Profissional | Fazenda média |
+| **Pecuária** | Core + Pecuária + Operacional | Profissional | Pecuária especializada |
+| **Lavoura** | Core + Agrícola + Financeiro | Profissional | Agricultura de grãos |
+| **Rastreabilidade** | Core + Rastreabilidade + Compliance | Enterprise | Exportadores |
+| **Enterprise** | Todos os módulos | Enterprise | Grandes grupos, cooperativas |
+
+**Controle via banco de dados:**
+
+```sql
+-- Tabela: assinaturas
+CREATE TABLE assinaturas (
+    id UUID PRIMARY KEY,
+    tenant_id UUID NOT NULL REFERENCES tenants(id),
+    pacote VARCHAR(50) NOT NULL, -- 'produtor', 'gestao', 'pecuaria', etc.
+    status VARCHAR(20) NOT NULL, -- 'ativa', 'cancelada', 'trial'
+    data_inicio DATE NOT NULL,
+    data_vencimento DATE,
+    limites JSONB NOT NULL, -- {'max_propriedades': 5, 'max_usuarios': 10}
+    modulos_contratados TEXT[] NOT NULL, -- ['PECUARIA_E', 'PECUARIA_P1', ...]
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Índice para consulta rápida de feature flags
+CREATE INDEX ix_assinaturas_tenant_modulos ON assinaturas USING GIN (modulos_contratados);
+```
+
+### 11.4 Documentação de Contexto por Módulo
+
+Cada módulo possui documentação detalhada em `docs/contexts/`:
+
+```
+docs/contexts/
+├── _index.md                        ← Índice mestre
+├── _competitive-analysis.md         ← Análise de concorrentes
+├── _bundle-packages.md              ← Pacotes de assinatura
+├── _module-dependency-graph.md      ← Dependências entre módulos
+├── _parallel-agent-workflow.md      ← Workflow de desenvolvimento
+│
+├── core/                            ← Módulo Core (fundação)
+│   ├── _overview.md
+│   ├── _implantation-workflow.md
+│   ├── identidade-acesso.md
+│   ├── cadastro-propriedade.md
+│   └── ... (7 submódulos)
+│
+├── agricola/                        ← Módulo Agrícola
+│   ├── _overview.md
+│   ├── _implantation-workflow.md
+│   ├── essencial/
+│   │   ├── safras.md
+│   │   ├── operacoes-campo.md
+│   │   └── caderno-campo.md
+│   ├── profissional/
+│   │   ├── planejamento-safra.md
+│   │   ├── monitoramento-ndvi.md
+│   │   └── custos-producao.md
+│   └── enterprise/
+│       ├── rastreabilidade-campo.md
+│       ├── prescricoes-vrt.md
+│       └── beneficiamento.md
+│
+└── ... (demais módulos: pecuaria, financeiro, operacional, etc.)
+```
+
+**Template de documento de submódulo:**
+
+```markdown
+---
+modulo: [nome do módulo]
+submodulo: [nome do submódulo]
+nivel: essencial | profissional | enterprise | core
+core: true | false
+dependencias_core: [submódulos do core necessários]
+dependencias_modulos: [outros submódulos dependentes]
+standalone: true | false
+complexidade: XS | S | M | L | XL
+assinante_alvo: [pequeno produtor | fazenda média | grande operação]
+---
+
+## Descrição Funcional
+## Personas
+## Dores que resolve
+## Regras de Negócio
+## Entidades de Dados Principais
+## Integrações Necessárias
+## Fluxo de Uso Principal
+## Casos Extremos e Exceções
+## Critérios de Aceite (DoD)
+## Sugestões de Melhoria Futura
+```
+
+### 11.5 Ordem de Implantação
+
+**Regra obrigatória:** módulos são implantados **sempre na ordem ascendente de maturidade**:
+
+```
+Fase 1: Core (obrigatório para todos os pacotes)
+  └── Identidade e Acesso
+  └── Cadastro de Propriedade
+  └── Multipropriedade
+  └── Configurações Globais
+  └── Notificações
+  └── Integrações Essenciais
+  └── Planos e Assinatura
+
+Fase 2: Módulos Essenciais (paralelo)
+  ├── Agrícola Essencial
+  ├── Pecuária Essencial
+  ├── Financeiro Essencial
+  └── Operacional Essencial
+
+Fase 3: Módulos Profissionais (paralelo)
+  ├── Agrícola Profissional
+  ├── Pecuária Profissional
+  ├── Financeiro Profissional
+  └── Operacional Profissional
+
+Fase 4: Módulos Enterprise (paralelo)
+  ├── Agrícola Enterprise
+  ├── Pecuária Enterprise
+  ├── Financeiro Enterprise
+  ├── Operacional Enterprise
+  ├── Rastreabilidade Enterprise
+  ├── Compliance Enterprise
+  └── Comercialização Enterprise
+```
+
+**Nunca** implante Profissional antes do Essencial, ou Enterprise antes do Profissional.
+
+### 11.6 Feature Flags na Prática
+
+**Backend (Python/FastAPI):**
+
+```python
+# dependencies.py
+from fastapi import HTTPException, Depends
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+async def require_module(module_flag: str):
+    """
+    Dependency que verifica se o tenant contratou o módulo.
+    Uso: _: None = Depends(require_module("PECUARIA_P1"))
+    """
+    async def _check_module(
+        tenant_id: UUID = Depends(get_tenant_id),
+        session: AsyncSession = Depends(get_session),
+    ):
+        result = await session.execute(
+            select(Assinatura.modulos_contratados)
+            .where(Assinatura.tenant_id == tenant_id)
+            .where(Assinatura.status == "ativa")
+        )
+        assinatura = result.scalar_one_or_none()
+        
+        if not assinatura:
+            raise HTTPException(status_code=402, detail="Assinatura não encontrada")
+        
+        if module_flag not in assinatura.modulos_contratados:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Módulo {module_flag} não contratado",
+            )
+    
+    return _check_module
+```
+
+**Frontend (TypeScript/React):**
+
+```typescript
+// lib/modules.ts
+export type ModuleId =
+  | 'CORE'
+  | 'AGRICOLA_E'
+  | 'AGRICOLA_P1'
+  | 'AGRICOLA_E1'
+  | 'PECUARIA_E'
+  | 'PECUARIA_P1'
+  | 'PECUARIA_E1'
+  | 'FINANCEIRO_E'
+  | 'FINANCEIRO_P1'
+  | 'FINANCEIRO_E1'
+  | 'OPERACIONAL_E'
+  | 'OPERACIONAL_P1'
+  | 'OPERACIONAL_E1'
+
+export function useModule(moduleId: ModuleId): boolean {
+  const { modules } = useAppStore()
+  return modules.includes(moduleId)
+}
+
+// components/shared/module-gate.tsx
+export function ModuleGate({
+  moduleId,
+  children,
+  fallback = null,
+}: {
+  moduleId: ModuleId
+  children: React.ReactNode
+  fallback?: React.ReactNode
+}) {
+  const hasModule = useModule(moduleId)
+  
+  if (!hasModule) {
+    return <>{fallback}</>
+  }
+  
+  return <>{children}</>
+}
+
+// Uso em páginas
+<ModuleGate
+  moduleId="PECUARIA_P1"
+  fallback={<UpgradePrompt module="Pecuária Profissional" />}
+>
+  <GmdAvancadoChart />
+</ModuleGate>
+```
+
+### 11.7 Links para Documentação Estratégica
+
+| Documento | Localização | Propósito |
+|-----------|-------------|-----------|
+| **Arquitetura Modular** | [`../strategy/module-architecture.md`](../strategy/module-architecture.md) | Missão, tarefas, estrutura de documentação |
+| **Análise Competitiva** | [`../contexts/_competitive-analysis.md`](../contexts/_competitive-analysis.md) | Comparativo com concorrentes |
+| **Pacotes de Assinatura** | [`../contexts/_bundle-packages.md`](../contexts/_bundle-packages.md) | Detalhe de pacotes, preços, limites |
+| **Dependências** | [`../contexts/_module-dependency-graph.md`](../contexts/_module-dependency-graph.md) | Grafo de dependências entre módulos |
+| **Workflow de Agentes** | [`../contexts/_parallel-agent-workflow.md`](../contexts/_parallel-agent-workflow.md) | Como múltiplos agentes trabalham em paralelo |
+| **Índice de Contextos** | [`../contexts/_index.md`](../contexts/_index.md) | Navegação completa da documentação |
 
 ---
 
