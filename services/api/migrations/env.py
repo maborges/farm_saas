@@ -65,6 +65,7 @@ from core.cadastros.pessoas.models import (
 
 # Propriedades / Áreas Rurais
 from core.cadastros.propriedades.models import AreaRural, MatriculaImovel, RegistroAmbiental
+from core.cadastros.propriedades.propriedade_models import Propriedade, ExploracaoRural, DocumentoExploracao
 
 # Equipamentos
 from core.cadastros.equipamentos.models import Equipamento
