@@ -62,15 +62,16 @@ Assinatura = Tenant = Produtor.
 ## Tarefas Técnicas
 
 ### Backend
-- [ ] Criar/refatorar model `Usuario` — CPF, email únicos globais
-- [ ] Criar model `Assinatura` — tenant_id, usuario_id, plano_id, status, vigencia
-- [ ] Migration: `usuarios` e `assinaturas`
-- [ ] Validação CPF (algoritmo) no Pydantic schema
-- [ ] Endpoint `POST /auth/register` — cria usuário
-- [ ] Endpoint `POST /assinaturas` — cria assinatura/produtor
-- [ ] Atualizar geração de JWT para incluir `assinatura_id` como `tenant_id`
-- [ ] Teste de isolamento: usuário não acessa dados de assinatura que não pertence
+- [x] Model `Usuario` — adicionados `cpf` (unique) e `telefone` — `core/models/auth.py`
+- [x] Migration `f58b4e673940_add_cpf_telefone_to_usuarios` — aplicada
+- [x] Schemas atualizados: `UsuarioMeResponse`, `UserCreateRequest`, `UserUpdateRequest` — `core/schemas/auth_schemas.py`
+- [x] `Assinatura` = `Tenant` (já existe) — modelo validado
+- [x] `AssinaturaUsuario` = `TenantUsuario` (já existe com vigência) — modelo validado
+- [x] `ConviteAcesso` (já existe) — modelo validado
+- [ ] Validação CPF (algoritmo) no Pydantic schema — `UserCreateRequest`
+- [ ] Endpoint `PUT /auth/me` — atualiza perfil (usa `UserUpdateRequest`)
+- [ ] Teste: CPF duplicado → 422
 
 ### Schemas (packages/zod-schemas)
-- [ ] `UsuarioCreateSchema`, `UsuarioPublicSchema`
-- [ ] `AssinaturaCreateSchema`, `AssinaturaPublicSchema`
+- [ ] `UsuarioCreateSchema` — adicionar `cpf`, `telefone`
+- [ ] `UsuarioPublicSchema` — adicionar `cpf`, `telefone`

@@ -12,6 +12,8 @@ class Usuario(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
+    cpf: Mapped[str | None] = mapped_column(String(11), unique=True, index=True, nullable=True, comment="CPF sem formatação — único na plataforma")
+    telefone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     nome_completo: Mapped[str | None] = mapped_column(String(150))
     foto_perfil_url: Mapped[str | None] = mapped_column(String(500))
     senha_hash: Mapped[str | None] = mapped_column(String(255)) # Pode ser None se usar SSO
