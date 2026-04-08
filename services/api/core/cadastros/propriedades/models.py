@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from sqlalchemy import String, Boolean, DateTime, Float, ForeignKey, Text, JSON, Numeric, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Uuid as UUID
@@ -85,12 +86,12 @@ class AreaRural(Base):
     descricao: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Dimensões
-    area_hectares: Mapped[float | None] = mapped_column(
-        Float, nullable=True,
+    area_hectares: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 4), nullable=True,
         comment="Calculado do polígono ou preenchido manualmente"
     )
-    area_hectares_manual: Mapped[float | None] = mapped_column(
-        Float, nullable=True,
+    area_hectares_manual: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 4), nullable=True,
         comment="Override manual quando não há geometria"
     )
 
