@@ -249,6 +249,7 @@ from core.api_publica.routers.versions import router as api_versions_router
 # from enterprise.routers.preditivo import router as preditivo_router
 from enterprise.routers.sprints_27_33_router import router as sprints_27_33_router
 from integracoes.sankhya.routers import router as sankhya_router
+from integracoes.regulatorias.router import router as regulatorias_router
 
 # Contabilidade (COMENTADO - Usa Session síncrono, requer migração para AsyncSession)
 # from contabilidade.routers.integracoes import router as contabilidade_integracoes_router
@@ -318,6 +319,7 @@ app.include_router(api_versions_router, prefix="/api/v1/api-publica")
 # app.include_router(preditivo_router, prefix="/api/v1/enterprise")
 app.include_router(sprints_27_33_router, prefix="/api/v1/enterprise")
 app.include_router(sankhya_router, prefix="/api/v1/integracoes")
+app.include_router(regulatorias_router, prefix="/api/v1/integracoes/regulatorias")
 
 # Contabilidade (COMENTADO)
 # app.include_router(contabilidade_integracoes_router, prefix="/api/v1/contabilidade")
