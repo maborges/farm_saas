@@ -322,6 +322,71 @@ async def aceitar_convite(
 ):
     user_id = uuid.UUID(claims["sub"])
     onboard_svc = OnboardingService(session)
-    
+
     resultado = await onboard_svc.aceitar_convite(token, user_id)
     return resultado
+
+
+# ---------------------------------------------------------------------------
+# Status do Onboarding — usado pelo OnboardingGuard do frontend
+# ---------------------------------------------------------------------------
+
+class OnboardingStatusResponse(BaseModel):
+    completo: bool
+    etapa1_produtor: bool
+    etapa2_propriedade: bool
+    etapa3_equipe: bool
+
+
+@router.get(
+    "/status",
+    response_model=OnboardingStatusResponse,
+    summary="Retorna status do wizard de onboarding para o tenant ativo"
+)
+async def onboarding_status(
+    claims: dict = Depends(get_current_user_claims),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Verifica quais etapas do onboarding foram concluídas.
+    Usado pelo OnboardingGuard para redirecionar ao wizard se incompleto.
+    """
+    tenant_id_str = claims.get("tenant_id")
+    if not tenant_id_str:
+        return OnboardingStatusResponse(
+            completo=False,
+            etapa1_produtor=False,
+            etapa2_propriedade=False,
+            etapa3_equipe=False,
+        )
+
+    tenant_id = uuid.UUID(tenant_id_str)
+
+    # Etapa 1: Tenant existe e está ativo
+    tenant = await session.get(Tenant, tenant_id)
+    etapa1 = tenant is not None and tenant.ativo
+
+    # Etapa 2: Tem ao menos 1 fazenda ativa
+    fazendas_stmt = select(Fazenda.id).where(
+        Fazenda.tenant_id == tenant_id,
+        Fazenda.ativo == True,
+    ).limit(1)
+    fazenda_result = await session.execute(fazendas_stmt)
+    etapa2 = fazenda_result.scalar_one_or_none() is not None
+
+    # Etapa 3: Tem mais de 1 usuário ativo (owner + ao menos 1 convidado)
+    usuarios_stmt = select(TenantUsuario.id).where(
+        TenantUsuario.tenant_id == tenant_id,
+        TenantUsuario.status == "ATIVO",
+    ).limit(2)
+    usuarios_result = await session.execute(usuarios_stmt)
+    etapa3 = len(usuarios_result.fetchall()) > 1
+
+    completo = etapa1 and etapa2
+
+    return OnboardingStatusResponse(
+        completo=completo,
+        etapa1_produtor=etapa1,
+        etapa2_propriedade=etapa2,
+        etapa3_equipe=etapa3,
+    )

@@ -61,14 +61,11 @@ Validação deve ocorrer em runtime, não só no frontend.
 ## Tarefas Técnicas
 
 ### Backend
-- [ ] Refatorar model `PlanoAssinatura` — adicionar `max_propriedades`, `max_usuarios_simultaneos`
-- [ ] Função `check_propriedade_limit(tenant_id, session)` → `BusinessRuleError` se excedido
-- [ ] Função `get_uso_plano(tenant_id, session)` → dict com contadores
-- [ ] Endpoint `GET /billing/uso` — retorna uso atual vs limites
-- [ ] Migration: adicionar colunas ao `planos`
-- [ ] Hook no `PropriedadeService.create()` para verificar limite
+- [x] `PlanoAssinatura.max_fazendas` e `limite_usuarios_maximo` já existem
+- [x] `FazendaService._check_limite_fazendas()` — BusinessRuleError 422 (BL-02)
+- [x] `GET /billing/limites` — retorna uso atual vs limites (já existe)
+- [x] Integração Stripe/Asaas já existe
 
-### Frontend
+### Frontend (BL-08)
 - [ ] Componente `PlanUsageBanner` — barra de progresso com alertas
 - [ ] Integrar banner na página `/settings/propriedades`
-- [ ] Adaptar página `/settings/billing` para novo modelo
