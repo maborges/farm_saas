@@ -90,7 +90,7 @@ async def obter_propriedade_com_hierarquia(
     for expl in exploracoes:
         # Buscar áreas rurais da fazenda
         areas_service = AreaRuralService(AreaRural, session, tenant_id)
-        areas_raizes = await areas_service.listar_raizes(fazenda_id=expl.fazenda_id)
+        areas_raizes = await areas_service.listar_raizes(unidade_produtiva_id=expl.unidade_produtiva_id)
         
         # Construir árvore para cada raiz
         arvore_areas = []
@@ -99,7 +99,7 @@ async def obter_propriedade_com_hierarquia(
             arvore_areas.append(arvore)
         
         fazendas_com_hierarquia.append({
-            "fazenda_id": expl.fazenda_id,
+            "unidade_produtiva_id": expl.unidade_produtiva_id,
             "exploracao_id": expl.id,
             "natureza": expl.natureza,
             "data_inicio": expl.data_inicio,
@@ -114,12 +114,12 @@ async def obter_propriedade_com_hierarquia(
 
 
 @router.get(
-    "/{propriedade_id}/fazendas/{fazenda_id}/areas",
+    "/{propriedade_id}/fazendas/{unidade_produtiva_id}/areas",
     response_model=list[AreaRuralTreeResponse],
 )
 async def listar_areas_por_fazenda(
     propriedade_id: uuid.UUID,
-    fazenda_id: uuid.UUID,
+    unidade_produtiva_id: uuid.UUID,
     tipo: Optional[str] = Query(None, description="Filtrar por tipo (GLEBA, TALHAO, etc)"),
     session: AsyncSession = Depends(get_session),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
@@ -131,7 +131,7 @@ async def listar_areas_por_fazenda(
     stmt = select(ExploracaoRural).where(
         and_(
             ExploracaoRural.propriedade_id == propriedade_id,
-            ExploracaoRural.fazenda_id == fazenda_id,
+            ExploracaoRural.unidade_produtiva_id == unidade_produtiva_id,
             ExploracaoRural.tenant_id == tenant_id,
         )
     )
@@ -143,9 +143,9 @@ async def listar_areas_por_fazenda(
     areas_service = AreaRuralService(AreaRural, session, tenant_id)
     
     if tipo:
-        areas_raizes = await areas_service.listar(fazenda_id=fazenda_id, tipo=tipo, parent_id=None)
+        areas_raizes = await areas_service.listar(unidade_produtiva_id=unidade_produtiva_id, tipo=tipo, parent_id=None)
     else:
-        areas_raizes = await areas_service.listar_raizes(fazenda_id=fazenda_id)
+        areas_raizes = await areas_service.listar_raizes(unidade_produtiva_id=unidade_produtiva_id)
     
     # Construir árvores
     arvores = []
@@ -161,13 +161,13 @@ async def listar_areas_por_fazenda(
 # ============================================================================
 
 @router.post(
-    "/{propriedade_id}/fazendas/{fazenda_id}/areas",
+    "/{propriedade_id}/fazendas/{unidade_produtiva_id}/areas",
     response_model=AreaRuralResponse,
     status_code=201,
 )
 async def criar_area_rural(
     propriedade_id: uuid.UUID,
-    fazenda_id: uuid.UUID,
+    unidade_produtiva_id: uuid.UUID,
     data: AreaRuralCreate,
     session: AsyncSession = Depends(get_session),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
@@ -179,7 +179,7 @@ async def criar_area_rural(
     stmt = select(ExploracaoRural).where(
         and_(
             ExploracaoRural.propriedade_id == propriedade_id,
-            ExploracaoRural.fazenda_id == fazenda_id,
+            ExploracaoRural.unidade_produtiva_id == unidade_produtiva_id,
             ExploracaoRural.tenant_id == tenant_id,
         )
     )
@@ -190,17 +190,17 @@ async def criar_area_rural(
     # Criar área
     areas_service = AreaRuralService(AreaRural, session, tenant_id)
     area_data = data.model_dump()
-    area_data["fazenda_id"] = fazenda_id
+    area_data["unidade_produtiva_id"] = unidade_produtiva_id
     
     return await areas_service.criar_area(area_data)
 
 
 @router.patch(
-    "/fazendas/{fazenda_id}/areas/{area_id}",
+    "/fazendas/{unidade_produtiva_id}/areas/{area_id}",
     response_model=AreaRuralResponse,
 )
 async def atualizar_area_rural(
-    fazenda_id: uuid.UUID,
+    unidade_produtiva_id: uuid.UUID,
     area_id: uuid.UUID,
     data: AreaRuralUpdate,
     session: AsyncSession = Depends(get_session),
@@ -212,11 +212,11 @@ async def atualizar_area_rural(
 
 
 @router.delete(
-    "/fazendas/{fazenda_id}/areas/{area_id}",
+    "/fazendas/{unidade_produtiva_id}/areas/{area_id}",
     status_code=204,
 )
 async def remover_area_rural(
-    fazenda_id: uuid.UUID,
+    unidade_produtiva_id: uuid.UUID,
     area_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
@@ -272,7 +272,7 @@ async def _construir_arvore_areas(
     return AreaRuralTreeResponse(
         id=area.id,
         tenant_id=area.tenant_id,
-        fazenda_id=area.fazenda_id,
+        unidade_produtiva_id=area.unidade_produtiva_id,
         parent_id=area.parent_id,
         tipo=area.tipo,
         nome=area.nome,

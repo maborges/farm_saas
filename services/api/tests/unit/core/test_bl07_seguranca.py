@@ -78,8 +78,8 @@ class TestFazendaLimite:
 
     async def test_limite_ilimitado_nao_bloqueia(self):
         """max_fazendas = -1 → ilimitado → não lança exceção."""
-        from core.services.fazenda_service import FazendaService
-        from core.models.fazenda import Fazenda
+        from core.services.unidade_produtiva_service import UnidadeProdutivaService as FazendaService
+        from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
 
         session = AsyncMock()
         tenant_id = uuid.uuid4()
@@ -95,7 +95,7 @@ class TestFazendaLimite:
 
     async def test_limite_sem_plano_nao_bloqueia(self):
         """Sem plano ativo (None) → não bloqueia."""
-        from core.services.fazenda_service import FazendaService
+        from core.services.unidade_produtiva_service import UnidadeProdutivaService as FazendaService
 
         session = AsyncMock()
         tenant_id = uuid.uuid4()
@@ -109,7 +109,7 @@ class TestFazendaLimite:
 
     async def test_limite_atingido_lanca_business_rule_error(self):
         """Tenant com 3 fazendas e plano max=3 → BusinessRuleError."""
-        from core.services.fazenda_service import FazendaService
+        from core.services.unidade_produtiva_service import UnidadeProdutivaService as FazendaService
 
         session = AsyncMock()
         tenant_id = uuid.uuid4()
@@ -138,7 +138,7 @@ class TestFazendaLimite:
 
     async def test_abaixo_limite_nao_bloqueia(self):
         """Tenant com 2 fazendas e plano max=5 → OK."""
-        from core.services.fazenda_service import FazendaService
+        from core.services.unidade_produtiva_service import UnidadeProdutivaService as FazendaService
 
         session = AsyncMock()
         tenant_id = uuid.uuid4()

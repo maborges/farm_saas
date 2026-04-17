@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.dependencies import get_tenant_id, require_module, get_session_with_tenant, require_tenant_permission
 from agricola.dashboard.service import DashboardAgricolaService
-from agricola.dashboard.schemas import SafraResumoFinanceiro
+from agricola.dashboard.schemas import SafraResumoFinanceiro, SafraMargemCompleta
 from agricola.alertas.service import AlertasAgricolasService
 
 router = APIRouter(prefix="/agricola/dashboard", tags=["Dashboard Agrícola"])
@@ -45,6 +45,32 @@ async def resumo_financeiro_safra(
     """
     svc = DashboardAgricolaService(session, tenant_id)
     return await svc.resumo_financeiro_safra(safra_id)
+
+
+@router.get(
+    "/safras/{safra_id}/margem",
+    response_model=SafraMargemCompleta,
+    summary="Dashboard de margem por safra com breakdown por talhão"
+)
+async def margem_safra(
+    safra_id: UUID,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_tenant_permission("agricola:safras:view")),
+):
+    """
+    Dashboard completo de margem de lucro por safra.
+
+    Retorna:
+    - **Custo total** por tipo de operação (com breakdown)
+    - **Receita total** de romaneios + comercializações
+    - **Margem bruta**, margem por hectare, margem %
+    - **ROI** da safra
+    - **Breakdown por talhão**: custo, receita, margem, produtividade
+    - **Breakdown por operação**: custo por tipo de operação com % do total
+    """
+    svc = DashboardAgricolaService(session, tenant_id)
+    return await svc.margem_safra_completa(safra_id)
 
 
 @router.post(

@@ -4,7 +4,7 @@ from datetime import date, datetime
 import uuid
 
 class SafraCreate(BaseModel):
-    fazenda_id: uuid.UUID = Field(..., description="A qual fazenda esta safra pertence fisicamente.")
+    unidade_produtiva_id: uuid.UUID = Field(..., description="A qual fazenda esta safra pertence fisicamente.")
     nome: str = Field(..., min_length=3, max_length=150, description="Nome identificador. Ex: Soja 24/25")
     cultura: str = Field(..., min_length=2, max_length=100, description="Grão ou cultivar. Ex: Soja")
     data_inicio: date = Field(..., description="Data de planejamento do plantio (Kick-off).")
@@ -23,7 +23,7 @@ class SafraUpdate(BaseModel):
 class SafraResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     nome: str
     cultura: str
     data_inicio: date

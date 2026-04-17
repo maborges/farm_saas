@@ -41,6 +41,8 @@ async def criar_catalogo(
 ):
     svc = MonitoramentoCatalogoService(session, tenant_id)
     item = await svc.criar(dados.model_dump())
+    await session.commit()
+    await session.refresh(item)
     return MonitoramentoCatalogoResponse.model_validate(item)
 
 

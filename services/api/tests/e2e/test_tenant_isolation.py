@@ -73,8 +73,8 @@ async def test_tenant_a_nao_ve_safras_de_tenant_b(client, session, headers_a, he
         (TENANT_B_ID, FAZENDA_B_ID, GRUPO_B_ID, "22222222222"),
     ]:
         await session.execute(text("""
-            INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
-            VALUES (:id, :nome, :doc, true, '["CORE","A1","F1"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+            INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+            VALUES (:id, :nome, :doc, true,  0, 10240, 'pt-BR', NOW(), NOW())
             ON CONFLICT (id) DO NOTHING
         """), {"id": str(t_id), "nome": f"Tenant {str(t_id)[:4]}", "doc": doc})
 
@@ -93,11 +93,11 @@ async def test_tenant_a_nao_ve_safras_de_tenant_b(client, session, headers_a, he
     talhao_b_id = uuid.uuid4()
     await session.execute(text("""
         INSERT INTO cadastros_areas_rurais
-            (id, tenant_id, fazenda_id, tipo, nome, area_hectares, ativo, created_at, updated_at)
-        VALUES (:id, :tenant_id, :fazenda_id, 'TALHAO', 'Talhão B', 50.0, true, NOW(), NOW())
+            (id, tenant_id, unidade_produtiva_id, tipo, nome, area_hectares, ativo, created_at, updated_at)
+        VALUES (:id, :tenant_id, :unidade_produtiva_id, 'TALHAO', 'Talhão B', 50.0, true, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(talhao_b_id), "tenant_id": str(TENANT_B_ID),
-           "fazenda_id": str(FAZENDA_B_ID)})
+           "unidade_produtiva_id": str(FAZENDA_B_ID)})
     await session.commit()
 
     # Tenant B cria uma safra
@@ -137,8 +137,8 @@ async def test_tenant_a_nao_ve_financeiro_de_tenant_b(client, session, headers_a
         (TENANT_B_ID, FAZENDA_B_ID, GRUPO_B_ID, "22222222222"),
     ]:
         await session.execute(text("""
-            INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
-            VALUES (:id, :nome, :doc, true, '["CORE","A1","F1"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+            INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+            VALUES (:id, :nome, :doc, true,  0, 10240, 'pt-BR', NOW(), NOW())
             ON CONFLICT (id) DO NOTHING
         """), {"id": str(t_id), "nome": f"Tenant {str(t_id)[:4]}", "doc": doc})
 
@@ -166,7 +166,7 @@ async def test_tenant_a_nao_ve_financeiro_de_tenant_b(client, session, headers_a
 
     from datetime import date
     r_b = await client.post("/api/v1/financeiro/receitas/", json={
-        "fazenda_id": str(FAZENDA_B_ID),
+        "unidade_produtiva_id": str(FAZENDA_B_ID),
         "plano_conta_id": str(plano_b_id),
         "descricao": "RECEITA_SECRETA_TENANT_B",
         "valor_total": 999999.0,
@@ -205,8 +205,8 @@ async def test_tenant_a_nao_acessa_recurso_por_id_direto(client, session, header
         (TENANT_B_ID, FAZENDA_B_ID, GRUPO_B_ID, "22222222222"),
     ]:
         await session.execute(text("""
-            INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
-            VALUES (:id, :nome, :doc, true, '["CORE","A1","F1"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+            INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+            VALUES (:id, :nome, :doc, true,  0, 10240, 'pt-BR', NOW(), NOW())
             ON CONFLICT (id) DO NOTHING
         """), {"id": str(t_id), "nome": f"Tenant {str(t_id)[:4]}", "doc": doc})
 
@@ -233,7 +233,7 @@ async def test_tenant_a_nao_acessa_recurso_por_id_direto(client, session, header
     await session.commit()
 
     r_b = await client.post("/api/v1/financeiro/receitas/", json={
-        "fazenda_id": str(FAZENDA_B_ID),
+        "unidade_produtiva_id": str(FAZENDA_B_ID),
         "plano_conta_id": str(plano_b_id),
         "descricao": "Recurso privado Tenant B",
         "valor_total": 1000.0,

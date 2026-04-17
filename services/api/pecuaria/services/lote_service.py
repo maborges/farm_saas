@@ -22,7 +22,7 @@ class LoteBovinoService(BaseService[LoteBovino]):
         if obj_data.get("piquete_id"):
             stmt_piquete = select(Piquete).where(
                 Piquete.id == obj_data["piquete_id"],
-                Piquete.fazenda_id == obj_data["fazenda_id"],
+                Piquete.unidade_produtiva_id == obj_data["unidade_produtiva_id"],
                 Piquete.tenant_id == self.tenant_id,
                 Piquete.ativo == True
             )

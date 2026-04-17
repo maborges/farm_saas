@@ -37,7 +37,7 @@ class ContaBancariaCreate(BaseModel):
     agencia: Optional[str] = None
     conta: Optional[str] = None
     tipo: str = "CORRENTE"
-    fazenda_id: Optional[uuid.UUID] = None
+    unidade_produtiva_id: Optional[uuid.UUID] = None
 
 
 class ContaBancariaResponse(BaseModel):
@@ -48,7 +48,7 @@ class ContaBancariaResponse(BaseModel):
     conta: Optional[str]
     tipo: str
     ativa: bool
-    fazenda_id: Optional[uuid.UUID]
+    unidade_produtiva_id: Optional[uuid.UUID]
 
     model_config = {"from_attributes": True}
 
@@ -189,12 +189,12 @@ async def ignorar_lancamento(
 @router.get("/carne-leao/exportar")
 async def exportar_carne_leao(
     ano: int = Query(..., description="Ano de competência (ex: 2024)"),
-    fazenda_id: Optional[uuid.UUID] = Query(None),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_session),
 ):
     svc = CarneLeaoService(db, tenant_id)
-    csv_content = await svc.exportar_csv(ano, fazenda_id=fazenda_id)
+    csv_content = await svc.exportar_csv(ano, unidade_produtiva_id=unidade_produtiva_id)
     filename = f"carne_leao_{ano}.csv"
     return StreamingResponse(
         io.StringIO(csv_content),
@@ -209,9 +209,9 @@ async def exportar_carne_leao(
 async def resumo_contabil(
     data_inicio: date = Query(...),
     data_fim: date = Query(...),
-    fazenda_id: Optional[uuid.UUID] = Query(None),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_session),
 ):
     svc = ContabilService(db, tenant_id)
-    return await svc.resumo(data_inicio, data_fim, fazenda_id=fazenda_id)
+    return await svc.resumo(data_inicio, data_fim, unidade_produtiva_id=unidade_produtiva_id)

@@ -51,14 +51,14 @@ class RelatorioService:
         self.tenant_id = tenant_id
 
     async def _carregar_receitas(
-        self, data_inicio: date, data_fim: date, fazenda_id: uuid.UUID | None
+        self, data_inicio: date, data_fim: date, unidade_produtiva_id: uuid.UUID | None
     ) -> list[Receita]:
         stmt = select(Receita).where(
             Receita.tenant_id == self.tenant_id,
             Receita.ativo == True,
         )
-        if fazenda_id:
-            stmt = stmt.where(Receita.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt = stmt.where(Receita.unidade_produtiva_id == unidade_produtiva_id)
         # Inclui tudo com recebimento OU vencimento dentro do período
         stmt = stmt.where(
             (
@@ -72,14 +72,14 @@ class RelatorioService:
         return list((await self.session.execute(stmt)).scalars().all())
 
     async def _carregar_despesas(
-        self, data_inicio: date, data_fim: date, fazenda_id: uuid.UUID | None
+        self, data_inicio: date, data_fim: date, unidade_produtiva_id: uuid.UUID | None
     ) -> list[Despesa]:
         stmt = select(Despesa).where(
             Despesa.tenant_id == self.tenant_id,
             Despesa.ativo == True,
         )
-        if fazenda_id:
-            stmt = stmt.where(Despesa.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt = stmt.where(Despesa.unidade_produtiva_id == unidade_produtiva_id)
         stmt = stmt.where(
             (
                 (Despesa.data_pagamento >= data_inicio) &
@@ -95,10 +95,10 @@ class RelatorioService:
         self,
         data_inicio: date,
         data_fim: date,
-        fazenda_id: uuid.UUID | None = None,
+        unidade_produtiva_id: uuid.UUID | None = None,
     ) -> FluxoCaixaResponse:
-        receitas = await self._carregar_receitas(data_inicio, data_fim, fazenda_id)
-        despesas = await self._carregar_despesas(data_inicio, data_fim, fazenda_id)
+        receitas = await self._carregar_receitas(data_inicio, data_fim, unidade_produtiva_id)
+        despesas = await self._carregar_despesas(data_inicio, data_fim, unidade_produtiva_id)
 
         meses = _meses_entre(data_inicio, data_fim)
         periodos_map: dict[date, FluxoCaixaPeriodo] = {
@@ -160,7 +160,7 @@ class RelatorioService:
         return FluxoCaixaResponse(
             data_inicio=data_inicio,
             data_fim=data_fim,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             periodos=periodos,
             totais=totais,
         )
@@ -169,7 +169,7 @@ class RelatorioService:
         self,
         competencia_inicio: date,
         competencia_fim: date,
-        fazenda_id: uuid.UUID | None = None,
+        unidade_produtiva_id: uuid.UUID | None = None,
     ) -> LivroCaixaResponse:
         """
         Livro Caixa do Produtor Rural (RFB).
@@ -191,8 +191,8 @@ class RelatorioService:
             Receita.ativo == True,
             Receita.status.in_(STATUS_REALIZADO_RECEITA),
         )
-        if fazenda_id:
-            rec_stmt = rec_stmt.where(Receita.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            rec_stmt = rec_stmt.where(Receita.unidade_produtiva_id == unidade_produtiva_id)
 
         receitas = list((await self.session.execute(rec_stmt)).scalars().all())
         for r in receitas:
@@ -218,8 +218,8 @@ class RelatorioService:
             Despesa.ativo == True,
             Despesa.status.in_(STATUS_REALIZADO_DESPESA),
         )
-        if fazenda_id:
-            desp_stmt = desp_stmt.where(Despesa.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            desp_stmt = desp_stmt.where(Despesa.unidade_produtiva_id == unidade_produtiva_id)
 
         despesas = list((await self.session.execute(desp_stmt)).scalars().all())
         for d in despesas:
@@ -260,7 +260,7 @@ class RelatorioService:
         return LivroCaixaResponse(
             competencia_inicio=competencia_inicio,
             competencia_fim=competencia_fim,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             total_receitas=total_receitas,
             total_despesas=total_despesas,
             resultado=round(total_receitas - total_despesas, 2),
@@ -271,11 +271,11 @@ class RelatorioService:
         self,
         data_inicio: date,
         data_fim: date,
-        fazenda_id: uuid.UUID | None = None,
+        unidade_produtiva_id: uuid.UUID | None = None,
     ) -> DREResponse:
         """DRE simplificado: agrupa por categoria_rfb do plano de contas."""
         # Reutiliza o livro_caixa com range de competência = período do DRE
-        lc = await self.livro_caixa(data_inicio, data_fim, fazenda_id)
+        lc = await self.livro_caixa(data_inicio, data_fim, unidade_produtiva_id)
 
         totais_rfb: dict[tuple, float] = defaultdict(float)
         for g in lc.grupos:
@@ -293,7 +293,7 @@ class RelatorioService:
         return DREResponse(
             data_inicio=data_inicio,
             data_fim=data_fim,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             receita_bruta=round(receita_atividade, 2),
             total_custeio=round(custeio, 2),
             total_investimento=round(investimento, 2),
@@ -307,7 +307,7 @@ class RelatorioService:
         self,
         data_inicio: date,
         data_fim: date,
-        fazenda_id: uuid.UUID | None = None,
+        unidade_produtiva_id: uuid.UUID | None = None,
         safra_id: uuid.UUID | None = None,
     ) -> CentroCustoResponse:
         """
@@ -344,8 +344,8 @@ class RelatorioService:
             Despesa.data_pagamento >= data_inicio,
             Despesa.data_pagamento <= data_fim,
         )
-        if fazenda_id:
-            desp_stmt = desp_stmt.where(Despesa.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            desp_stmt = desp_stmt.where(Despesa.unidade_produtiva_id == unidade_produtiva_id)
         despesas_map = {
             d.id: d
             for d in (await self.session.execute(desp_stmt)).scalars().all()
@@ -355,7 +355,7 @@ class RelatorioService:
             return CentroCustoResponse(
                 data_inicio=data_inicio,
                 data_fim=data_fim,
-                fazenda_id=fazenda_id,
+                unidade_produtiva_id=unidade_produtiva_id,
                 total_geral=0.0,
                 centros=[],
             )
@@ -408,7 +408,7 @@ class RelatorioService:
         return CentroCustoResponse(
             data_inicio=data_inicio,
             data_fim=data_fim,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             total_geral=total_geral,
             centros=centros,
         )

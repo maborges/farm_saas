@@ -131,9 +131,9 @@ class DiariaService(BaseService[LancamentoDiaria]):
         from sqlalchemy import update
         dp = data_pagamento or date.today()
 
-        # Busca diarias + fazenda_id antes do update para integração financeira
+        # Busca diarias + unidade_produtiva_id antes do update para integração financeira
         stmt_fetch = (
-            select(LancamentoDiaria, ColaboradorRH.fazenda_id)
+            select(LancamentoDiaria, ColaboradorRH.unidade_produtiva_id)
             .join(ColaboradorRH, LancamentoDiaria.colaborador_id == ColaboradorRH.id)
             .where(
                 LancamentoDiaria.tenant_id == self.tenant_id,
@@ -143,10 +143,10 @@ class DiariaService(BaseService[LancamentoDiaria]):
         )
         rows = list((await self.session.execute(stmt_fetch)).all())
 
-        # Agrupa total por fazenda_id
+        # Agrupa total por unidade_produtiva_id
         por_fazenda: dict[UUID | None, float] = defaultdict(float)
-        for diaria, fazenda_id in rows:
-            por_fazenda[fazenda_id] += float(diaria.valor_diaria or 0)
+        for diaria, unidade_produtiva_id in rows:
+            por_fazenda[unidade_produtiva_id] += float(diaria.valor_diaria or 0)
 
         # Cria Despesas por fazenda
         if rows:
@@ -164,12 +164,12 @@ class DiariaService(BaseService[LancamentoDiaria]):
             )
             plano_id = (await self.session.execute(stmt_pc)).scalar()
             if plano_id:
-                for fazenda_id, total in por_fazenda.items():
-                    if fazenda_id and total > 0:
+                for unidade_produtiva_id, total in por_fazenda.items():
+                    if unidade_produtiva_id and total > 0:
                         self.session.add(Despesa(
                             id=_uuid.uuid4(),
                             tenant_id=self.tenant_id,
-                            fazenda_id=fazenda_id,
+                            unidade_produtiva_id=unidade_produtiva_id,
                             plano_conta_id=plano_id,
                             descricao=f"RH — Pagamento de Diárias ({len(ids)} lançamentos)",
                             valor_total=round(total, 2),
@@ -249,9 +249,9 @@ class EmpreitadaService(BaseService[Empreitada]):
         self.session.add(emp)
 
         # Integração Financeira: Despesa de Empreitada
-        stmt_faz = select(ColaboradorRH.fazenda_id).where(ColaboradorRH.id == emp.colaborador_id)
-        fazenda_id = (await self.session.execute(stmt_faz)).scalar()
-        if fazenda_id and emp.valor_total and float(emp.valor_total) > 0:
+        stmt_faz = select(ColaboradorRH.unidade_produtiva_id).where(ColaboradorRH.id == emp.colaborador_id)
+        unidade_produtiva_id = (await self.session.execute(stmt_faz)).scalar()
+        if unidade_produtiva_id and emp.valor_total and float(emp.valor_total) > 0:
             from financeiro.models.despesa import Despesa
             from financeiro.models.plano_conta import PlanoConta
             stmt_pc = (
@@ -269,7 +269,7 @@ class EmpreitadaService(BaseService[Empreitada]):
                 self.session.add(Despesa(
                     id=_uuid.uuid4(),
                     tenant_id=self.tenant_id,
-                    fazenda_id=fazenda_id,
+                    unidade_produtiva_id=unidade_produtiva_id,
                     plano_conta_id=plano_id,
                     descricao=f"RH — Empreitada: {emp.descricao}",
                     valor_total=round(float(emp.valor_total), 2),

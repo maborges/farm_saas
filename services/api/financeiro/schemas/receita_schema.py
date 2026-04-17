@@ -8,7 +8,7 @@ StatusReceita = Literal["A_RECEBER", "RECEBIDO", "RECEBIDO_PARCIAL", "CANCELADO"
 
 
 class ReceitaCreate(BaseModel):
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     plano_conta_id: uuid.UUID
     descricao: str = Field(..., min_length=3, max_length=255)
     valor_total: float = Field(..., gt=0)
@@ -60,7 +60,7 @@ class ReceitaUpdate(BaseModel):
 class ReceitaResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     plano_conta_id: uuid.UUID
     pessoa_id: Optional[uuid.UUID]
     descricao: str
@@ -91,7 +91,7 @@ class ReceitaResponse(BaseModel):
 class ReceitaListItem(BaseModel):
     """Versão resumida para listagens."""
     id: uuid.UUID
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     pessoa_id: Optional[uuid.UUID]
     cliente: Optional[str]
     descricao: str

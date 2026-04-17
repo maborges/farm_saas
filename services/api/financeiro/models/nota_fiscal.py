@@ -30,8 +30,8 @@ class NotaFiscal(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    fazenda_id: Mapped[uuid.UUID | None] = mapped_column(
-        SQLUUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="SET NULL"), nullable=True
+    unidade_produtiva_id: Mapped[uuid.UUID | None] = mapped_column(
+        SQLUUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="SET NULL"), nullable=True
     )
 
     tipo: Mapped[str] = mapped_column(SQLEnum(TipoNF), nullable=False, default=TipoNF.NFP_E)

@@ -1,4 +1,4 @@
-# Sprint Overview — Refatoração Estrutura Organizacional
+ok# Sprint Overview — Refatoração Estrutura Organizacional
 
 **Projeto:** AgroSaaS — Refatoração Estrutura Organizacional  
 **Referência:** [Brainstorm](../brainstorm-refatoracao-estrutura.md)  

@@ -47,8 +47,8 @@ class ApontamentoUso(Base):
     km_fim: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Onde / o quê
-    fazenda_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="SET NULL"), nullable=True
+    unidade_produtiva_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="SET NULL"), nullable=True
     )
     talhao_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),

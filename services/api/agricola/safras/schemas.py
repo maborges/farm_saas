@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import Optional
 
 class SafraCreate(BaseModel):
-    talhao_id: UUID
+    talhao_ids: list[UUID]  # Múltiplos talhões (primeiro é principal)
     ano_safra: str = Field(..., pattern=r"^\d{4}(/\d{2,4})?$")
     cultura: str
     cultivar_id: UUID | None = None
@@ -20,7 +20,9 @@ class SafraCreate(BaseModel):
     observacoes: str | None = None
 
     @model_validator(mode="after")
-    def validar_cultivar(self):
+    def validar_campos(self):
+        if not self.talhao_ids or len(self.talhao_ids) == 0:
+            raise ValueError("Informe pelo menos um talhão")
         if not self.cultivar_id and not self.cultivar_nome:
             raise ValueError("Informe cultivar_id ou cultivar_nome")
         return self

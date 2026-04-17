@@ -32,7 +32,7 @@ class TestComprasLoteIntegration:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """
         Validates complete flow:
@@ -42,7 +42,7 @@ class TestComprasLoteIntegration:
         4. FIFO consumes from correct batch
         """
         tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(fazenda_id)
+        fazenda_uuid = UUID(unidade_produtiva_id)
 
         # ── Setup: Create product and deposit ──────────────────────────────
         produto = Produto(
@@ -60,7 +60,7 @@ class TestComprasLoteIntegration:
         deposito = Deposito(
             id=uuid4(),
             tenant_id=tenant_uuid,
-            fazenda_id=fazenda_uuid,
+            unidade_produtiva_id=fazenda_uuid,
             nome="Galpão Adubos",
             tipo="GERAL",
             ativo=True,
@@ -198,11 +198,11 @@ class TestComprasLoteIntegration:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """Validate that LoteEstoque.numero_lote comes from NFe number."""
         tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(fazenda_id)
+        fazenda_uuid = UUID(unidade_produtiva_id)
 
         produto = Produto(
             id=uuid4(),
@@ -218,7 +218,7 @@ class TestComprasLoteIntegration:
         deposito = Deposito(
             id=uuid4(),
             tenant_id=tenant_uuid,
-            fazenda_id=fazenda_uuid,
+            unidade_produtiva_id=fazenda_uuid,
             nome="Galpão",
             tipo="GERAL",
             ativo=True,
@@ -252,11 +252,11 @@ class TestComprasLoteIntegration:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """Validate that LoteEstoque.custo_unitario comes from preco_real_unitario."""
         tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(fazenda_id)
+        fazenda_uuid = UUID(unidade_produtiva_id)
 
         produto = Produto(
             id=uuid4(),
@@ -272,7 +272,7 @@ class TestComprasLoteIntegration:
         deposito = Deposito(
             id=uuid4(),
             tenant_id=tenant_uuid,
-            fazenda_id=fazenda_uuid,
+            unidade_produtiva_id=fazenda_uuid,
             nome="Galpão",
             tipo="GERAL",
             ativo=True,
@@ -309,11 +309,11 @@ class TestComprasLoteIntegration:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """P0.2: Validate supplier batch number (numero_lote_fornecedor) enables traceability."""
         tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(fazenda_id)
+        fazenda_uuid = UUID(unidade_produtiva_id)
 
         produto = Produto(
             id=uuid4(),
@@ -329,7 +329,7 @@ class TestComprasLoteIntegration:
         deposito = Deposito(
             id=uuid4(),
             tenant_id=tenant_uuid,
-            fazenda_id=fazenda_uuid,
+            unidade_produtiva_id=fazenda_uuid,
             nome="Galpão",
             tipo="GERAL",
             ativo=True,
@@ -368,11 +368,11 @@ class TestComprasLoteIntegration:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """P0.2: Verify numero_lote_fornecedor is captured in ItemRecebimento."""
         tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(fazenda_id)
+        fazenda_uuid = UUID(unidade_produtiva_id)
 
         produto = Produto(
             id=uuid4(),
@@ -388,7 +388,7 @@ class TestComprasLoteIntegration:
         deposito = Deposito(
             id=uuid4(),
             tenant_id=tenant_uuid,
-            fazenda_id=fazenda_uuid,
+            unidade_produtiva_id=fazenda_uuid,
             nome="Galpão",
             tipo="GERAL",
             ativo=True,
@@ -451,11 +451,11 @@ class TestComprasLoteIntegration:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """P0.3: Verify devolução approval reverses FIFO and restores inventory."""
         tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(fazenda_id)
+        fazenda_uuid = UUID(unidade_produtiva_id)
 
         # ── Setup: Create product, deposit, and supplier ──────────────────
         produto = Produto(
@@ -472,7 +472,7 @@ class TestComprasLoteIntegration:
         deposito = Deposito(
             id=uuid4(),
             tenant_id=tenant_uuid,
-            fazenda_id=fazenda_uuid,
+            unidade_produtiva_id=fazenda_uuid,
             nome="Galpão Adubos",
             tipo="GERAL",
             ativo=True,
@@ -574,11 +574,11 @@ class TestComprasLoteIntegration:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """P0.3: Verify devolução reactivates exhausted batches."""
         tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(fazenda_id)
+        fazenda_uuid = UUID(unidade_produtiva_id)
 
         produto = Produto(
             id=uuid4(),
@@ -594,7 +594,7 @@ class TestComprasLoteIntegration:
         deposito = Deposito(
             id=uuid4(),
             tenant_id=tenant_uuid,
-            fazenda_id=fazenda_uuid,
+            unidade_produtiva_id=fazenda_uuid,
             nome="Galpão",
             tipo="GERAL",
             ativo=True,

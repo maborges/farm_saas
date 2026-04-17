@@ -12,6 +12,7 @@ from .schemas import (
     ValorPatrimonialCreate, ValorPatrimonialUpdate, ValorPatrimonialResponse,
     InfraestruturaCreate, InfraestruturaUpdate, InfraestruturaResponse,
     ArquivoGeoResponse, ArquivoGeoProcessadoResponse,
+    SumarioAreasResponse,
 )
 from .service import AreaRuralService, MatriculaService, RegistroAmbientalService, ValorPatrimonialService, InfraestruturaService, ArquivoGeoService
 
@@ -22,10 +23,32 @@ router = APIRouter(prefix="/cadastros/areas-rurais", tags=["Cadastros — Propri
 # Áreas Rurais
 # ---------------------------------------------------------------------------
 
+@router.get("/unidade/{unidade_produtiva_id}/sumario", response_model=SumarioAreasResponse)
+async def sumario_areas(
+    unidade_produtiva_id: uuid.UUID,
+    session=Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    """Agrega hectares por categoria (total, produtiva, ambiental, infraestrutura)."""
+    svc = AreaRuralService(AreaRural, session, tenant_id)
+    return await svc.sumario_areas(unidade_produtiva_id)
+
+
+@router.get("/unidade/{unidade_produtiva_id}/arvore", response_model=list[AreaRuralResponse])
+async def arvore_areas(
+    unidade_produtiva_id: uuid.UUID,
+    session=Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    """Retorna as raízes da hierarquia (GLEBA e INFRAESTRUTURA) da unidade produtiva."""
+    svc = AreaRuralService(AreaRural, session, tenant_id)
+    return await svc.listar_raizes(unidade_produtiva_id=unidade_produtiva_id)
+
+
 @router.get("", response_model=list[AreaRuralResponse])
 async def listar(
     tipo: Optional[str] = Query(None, description="Filtrar por tipo (ex: TALHAO, PASTAGEM)"),
-    fazenda_id: Optional[uuid.UUID] = Query(None),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None),
     parent_id: Optional[uuid.UUID] = Query(None, description="Filhos diretos de um parent"),
     apenas_raizes: bool = Query(False, description="Retorna apenas áreas sem parent"),
     apenas_ativos: bool = Query(True),
@@ -34,8 +57,8 @@ async def listar(
 ):
     svc = AreaRuralService(AreaRural, session, tenant_id)
     if apenas_raizes:
-        return await svc.listar_raizes(fazenda_id=fazenda_id)
-    return await svc.listar(fazenda_id=fazenda_id, tipo=tipo, parent_id=parent_id, apenas_ativos=apenas_ativos)
+        return await svc.listar_raizes(unidade_produtiva_id=unidade_produtiva_id)
+    return await svc.listar(unidade_produtiva_id=unidade_produtiva_id, tipo=tipo, parent_id=parent_id, apenas_ativos=apenas_ativos)
 
 
 @router.post("", response_model=AreaRuralResponse, status_code=201)

@@ -17,8 +17,8 @@ from tests.integration.conftest import TENANT_ID, FAZENDA_ID
 
 async def _garantir_tenant(session):
     await session.execute(text("""
-        INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
-        VALUES (:id, 'Tenant Cadastros', '33344455566', true, '["CORE"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+        INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+        VALUES (:id, 'Tenant Cadastros', '33344455566', true,  0, 10240, 'pt-BR', NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(TENANT_ID)})
     await session.execute(text("""

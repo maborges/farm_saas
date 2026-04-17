@@ -16,15 +16,15 @@ router = APIRouter(
 
 @router.get("/", response_model=List[PiqueteResponse])
 async def listar_piquetes(
-    fazenda_id: uuid.UUID | None = None,
+    unidade_produtiva_id: uuid.UUID | None = None,
     tenant_id: uuid.UUID = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_session_with_tenant),
 ):
-    """Lista piquetes do tenant. Filtra por fazenda quando `fazenda_id` fornecido."""
+    """Lista piquetes do tenant. Filtra por fazenda quando `unidade_produtiva_id` fornecido."""
     svc = PiqueteService(tenant_id)
     svc.session = db
-    if fazenda_id:
-        return await svc.listar_por_fazenda(db, fazenda_id=fazenda_id)
+    if unidade_produtiva_id:
+        return await svc.listar_por_fazenda(db, unidade_produtiva_id=unidade_produtiva_id)
     return await svc.list_all()
 
 

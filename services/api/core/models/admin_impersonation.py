@@ -47,9 +47,9 @@ class AdminImpersonation(Base):
     )
 
     # Fazenda específica (opcional)
-    fazenda_id: Mapped[uuid.UUID | None] = mapped_column(
+    unidade_produtiva_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("fazendas.id", ondelete="SET NULL"),
+        ForeignKey("unidades_produtivas.id", ondelete="SET NULL"),
         nullable=True,
         comment="Fazenda específica sendo acessada (NULL = contexto geral do tenant)"
     )

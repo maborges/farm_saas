@@ -309,28 +309,28 @@ async def remover_categoria(
 # OVERRIDE DE CONFIGURAÇÃO POR FAZENDA
 # =============================================================================
 
-@router.get("/fazenda/{fazenda_id}", response_model=ConfiguracaoFazendaResponse)
+@router.get("/fazenda/{unidade_produtiva_id}", response_model=ConfiguracaoFazendaResponse)
 async def get_configuracao_fazenda(
-    fazenda_id: UUID,
+    unidade_produtiva_id: UUID,
     tenant: Tenant = Depends(get_current_tenant),
     session: AsyncSession = Depends(get_session)
 ):
     svc = ConfiguracoesService(session, tenant.id)
-    cfg = await svc.get_configuracao_fazenda(fazenda_id)
+    cfg = await svc.get_configuracao_fazenda(unidade_produtiva_id)
     if not cfg:
-        return ConfiguracaoFazendaResponse(fazenda_id=fazenda_id, overrides={})
+        return ConfiguracaoFazendaResponse(unidade_produtiva_id=unidade_produtiva_id, overrides={})
     return cfg
 
 
-@router.put("/fazenda/{fazenda_id}", response_model=ConfiguracaoFazendaResponse)
+@router.put("/fazenda/{unidade_produtiva_id}", response_model=ConfiguracaoFazendaResponse)
 async def set_configuracao_fazenda(
-    fazenda_id: UUID,
+    unidade_produtiva_id: UUID,
     data: ConfiguracaoFazendaUpdate,
     tenant: Tenant = Depends(get_current_tenant),
     session: AsyncSession = Depends(get_session)
 ):
     svc = ConfiguracoesService(session, tenant.id)
-    return await svc.set_override_fazenda(fazenda_id, data.overrides)
+    return await svc.set_override_fazenda(unidade_produtiva_id, data.overrides)
 
 
 # =============================================================================

@@ -51,6 +51,7 @@ class RomaneioColheitaResponse(BaseModel):
     tenant_id: UUID
     safra_id: UUID
     talhao_id: UUID
+    commodity_id: UUID | None
     numero_romaneio: str | None
     data_colheita: date
     turno: str | None

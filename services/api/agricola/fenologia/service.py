@@ -81,7 +81,7 @@ class FenologiaRegistroService(BaseService[SafraFenologiaRegistro]):
         """Registra o mesmo estágio para todos os talhões do grupo."""
         await self._validar_escala(dados.escala_id)
 
-        stmt = select(SafraTalhaoGrupoItem).where(SafraTalhaoGrupoItem.grupo_id == grupo_id)
+        stmt = select(SafraTalhaoGrupoItem).where(SafraTalhaoGrupoItem.tenant_id == grupo_id)
         itens = (await self.session.execute(stmt)).scalars().all()
         if not itens:
             raise BusinessRuleError("Grupo sem talhões cadastrados.")

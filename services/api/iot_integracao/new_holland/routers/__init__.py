@@ -39,12 +39,12 @@ def get_carbono_service(db: Session = Depends(get_db)) -> CarbonoService:
 def conectar_new_holland(
     client_id: str,
     client_secret: str,
-    fazenda_id: Optional[int] = None,
+    unidade_produtiva_id: Optional[int] = None,
     tenant_id: str = Depends(get_current_tenant),
     service: NewHollandService = Depends(get_nh_service)
 ):
     """Conecta integração com New Holland PLM Connect."""
-    return service.conectar(tenant_id, client_id, client_secret, fazenda_id)
+    return service.conectar(tenant_id, client_id, client_secret, unidade_produtiva_id)
 
 
 @router.get("/new-holland", response_model=None)
@@ -133,14 +133,14 @@ def registrar_emissao(
     quantidade: float,
     unidade: str,
     data_referencia: date,
-    fazenda_id: Optional[int] = None,
+    unidade_produtiva_id: Optional[int] = None,
     tenant_id: str = Depends(get_current_tenant),
     service: CarbonoService = Depends(get_carbono_service)
 ):
     """Registra emissão de carbono."""
     return service.registrar_emissao(
         tenant_id, escopo, categoria, quantidade,
-        unidade, data_referencia, fazenda_id=fazenda_id
+        unidade, data_referencia, unidade_produtiva_id=unidade_produtiva_id
     )
 
 
@@ -160,12 +160,12 @@ def criar_projeto_carbono(
     nome: str,
     tipo: str,
     area_ha: float,
-    fazenda_id: Optional[int] = None,
+    unidade_produtiva_id: Optional[int] = None,
     tenant_id: str = Depends(get_current_tenant),
     service: CarbonoService = Depends(get_carbono_service)
 ):
     """Cria projeto de crédito de carbono."""
-    return service.criar_projeto(tenant_id, nome, tipo, area_ha, fazenda_id)
+    return service.criar_projeto(tenant_id, nome, tipo, area_ha, unidade_produtiva_id)
 
 
 @router.get("/carbono/projetos", response_model=None)

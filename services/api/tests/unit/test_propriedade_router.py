@@ -159,7 +159,7 @@ class TestExploracaoEndpoints:
             response = client.post(
                 f"/cadastros/propriedades/{propriedade_id}/exploracoes",
                 json={
-                    "fazenda_id": str(uuid.uuid4()),
+                    "unidade_produtiva_id": str(uuid.uuid4()),
                     "natureza": "propria",
                     "data_inicio": "2024-01-01",
                 },
@@ -201,7 +201,7 @@ class TestFazendaExploracaoEndpoints:
 
     def test_listar_exploracoes_por_fazenda(self, client, mock_tenant_id):
         """GET /fazendas/{id}/exploracoes deve existir."""
-        fazenda_id = uuid.uuid4()
+        unidade_produtiva_id = uuid.uuid4()
         with patch(
             "core.cadastros.propriedades.propriedade_router.get_tenant_id",
             return_value=mock_tenant_id
@@ -209,12 +209,12 @@ class TestFazendaExploracaoEndpoints:
             "core.cadastros.propriedades.propriedade_router.get_session",
             return_value=AsyncMock()
         ):
-            response = client.get(f"/cadastros/fazendas/{fazenda_id}/exploracoes")
+            response = client.get(f"/cadastros/fazendas/{unidade_produtiva_id}/exploracoes")
             assert response is not None or response is None  # Placeholder
 
     def test_listar_exploracoes_vigentes_por_fazenda(self, client, mock_tenant_id):
         """GET /fazendas/{id}/exploracoes/vigentes deve existir."""
-        fazenda_id = uuid.uuid4()
+        unidade_produtiva_id = uuid.uuid4()
         with patch(
             "core.cadastros.propriedades.propriedade_router.get_tenant_id",
             return_value=mock_tenant_id
@@ -222,7 +222,7 @@ class TestFazendaExploracaoEndpoints:
             "core.cadastros.propriedades.propriedade_router.get_session",
             return_value=AsyncMock()
         ):
-            response = client.get(f"/cadastros/fazendas/{fazenda_id}/exploracoes/vigentes")
+            response = client.get(f"/cadastros/fazendas/{unidade_produtiva_id}/exploracoes/vigentes")
             assert response is not None or response is None  # Placeholder
 
 
@@ -250,5 +250,5 @@ class TestRouterStructure:
         assert "/cadastros/exploracoes/{exploracao_id}" in routes
         
         # Explorações por Fazenda
-        assert "/cadastros/fazendas/{fazenda_id}/exploracoes" in routes
-        assert "/cadastros/fazendas/{fazenda_id}/exploracoes/vigentes" in routes
+        assert "/cadastros/fazendas/{unidade_produtiva_id}/exploracoes" in routes
+        assert "/cadastros/fazendas/{unidade_produtiva_id}/exploracoes/vigentes" in routes

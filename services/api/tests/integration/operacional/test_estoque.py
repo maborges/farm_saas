@@ -26,8 +26,8 @@ PRODUTO_ID    = uuid.UUID("ff000003-0000-0000-0000-000000000003")
 
 async def _garantir_suporte(session):
     await session.execute(text("""
-        INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
-        VALUES (:id, 'Tenant Estoque', '55566677788', true, '["CORE","O1","O2"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+        INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+        VALUES (:id, 'Tenant Estoque', '55566677788', true,  0, 10240, 'pt-BR', NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(TENANT_ID)})
 
@@ -39,11 +39,11 @@ async def _garantir_suporte(session):
 
     for dep_id, nome in [(DEPOSITO_A_ID, "Depósito A"), (DEPOSITO_B_ID, "Depósito B")]:
         await session.execute(text("""
-            INSERT INTO estoque_depositos (id, tenant_id, fazenda_id, nome, tipo, ativo)
-            VALUES (:id, :tenant_id, :fazenda_id, :nome, 'ALMOXARIFADO', true)
+            INSERT INTO estoque_depositos (id, tenant_id, unidade_produtiva_id, nome, tipo, ativo)
+            VALUES (:id, :tenant_id, :unidade_produtiva_id, :nome, 'ALMOXARIFADO', true)
             ON CONFLICT (id) DO NOTHING
         """), {"id": str(dep_id), "tenant_id": str(TENANT_ID),
-               "fazenda_id": str(FAZENDA_ID), "nome": nome})
+               "unidade_produtiva_id": str(FAZENDA_ID), "nome": nome})
 
     await session.execute(text("""
         INSERT INTO cadastros_produtos
@@ -302,7 +302,7 @@ async def test_criar_deposito(client, session, headers_operacional):
     response = await client.post(
         "/api/v1/estoque/depositos",
         json={
-            "fazenda_id": str(FAZENDA_ID),
+            "unidade_produtiva_id": str(FAZENDA_ID),
             "nome": f"Depósito Teste {uuid.uuid4().hex[:4]}",
             "tipo": "GERAL",
         },

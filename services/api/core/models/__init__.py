@@ -1,7 +1,6 @@
 from .tenant import Tenant
-from .fazenda import Fazenda
-from .grupo_fazendas import GrupoFazendas
-from .auth import Usuario, PerfilAcesso, TenantUsuario, FazendaUsuario, ConviteAcesso
+from .unidade_produtiva import UnidadeProdutiva, UnidadeProdutiva as Fazenda
+from .auth import Usuario, PerfilAcesso, TenantUsuario, UnidadeProdutivaUsuario, UnidadeProdutivaUsuario as FazendaUsuario, ConviteAcesso
 from .billing import PlanoAssinatura, AssinaturaTenant, Fatura
 from .plan_changes import PlanoPricing, MudancaPlano, CobrancaAsaas, HistoricoBloqueio
 from .support import ChamadoSuporte, MensagemChamado
@@ -42,7 +41,10 @@ from core.cadastros.produtos.models import (
 )
 
 # Cadastros — commodities (produtos de saída / receita)
-from core.cadastros.commodities.models import Commodity, CommodityClassificacao
+from core.cadastros.commodities.models import (
+    Commodity, CommodityClassificacao, CotacaoCommodity,
+    UNIDADES_PESO_FIXO, UNIDADES_SEM_PESO_FIXO,
+)
 
 # RH
 from rh.models import ColaboradorRH, LancamentoDiaria, Empreitada

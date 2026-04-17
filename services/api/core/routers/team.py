@@ -35,11 +35,11 @@ from core.dependencies import (
 from core.models.auth import (
     Usuario,
     TenantUsuario,
-    FazendaUsuario,
+    UnidadeProdutivaUsuario as FazendaUsuario,
     PerfilAcesso,
     ConviteAcesso
 )
-from core.models.fazenda import Fazenda
+from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
 from core.models.tenant import Tenant
 from core.constants import TenantRoles, TenantPermissions
 from core.services.email_service import email_service
@@ -72,7 +72,7 @@ class TeamMemberResponse(BaseModel):
     is_owner: bool
     status: str
     fazendas: List[FazendaSimple]
-    fazendas_com_perfil_especifico: List[dict]  # [{fazenda_id, fazenda_nome, perfil_id, perfil_nome}]
+    fazendas_com_perfil_especifico: List[dict]  # [{unidade_produtiva_id, fazenda_nome, perfil_id, perfil_nome}]
     data_cadastro: datetime
 
 class TeamStatsResponse(BaseModel):
@@ -104,7 +104,7 @@ class UpdateFazendasRequest(BaseModel):
     fazendas_ids: List[str]
     perfis_por_fazenda: dict[str, str] = Field(
         default_factory=dict,
-        description="Mapa {fazenda_id: perfil_id} para perfis específicos por fazenda"
+        description="Mapa {unidade_produtiva_id: perfil_id} para perfis específicos por fazenda"
     )
 
 class CreateCustomRoleRequest(BaseModel):
@@ -216,7 +216,7 @@ async def list_team_members(
         # Buscar fazendas do usuário
         stmt_fazendas = (
             select(Fazenda, FazendaUsuario)
-            .join(FazendaUsuario, Fazenda.id == FazendaUsuario.fazenda_id)
+            .join(FazendaUsuario, Fazenda.id == FazendaUsuario.unidade_produtiva_id)
             .where(
                 and_(
                     FazendaUsuario.tenant_id == tenant_id,
@@ -238,7 +238,7 @@ async def list_team_members(
                 perfil_faz = await session.get(PerfilAcesso, fazenda_usuario.perfil_fazenda_id)
                 if perfil_faz:
                     fazendas_com_perfil.append({
-                        "fazenda_id": str(fazenda.id),
+                        "unidade_produtiva_id": str(fazenda.id),
                         "fazenda_nome": fazenda.nome,
                         "perfil_id": str(perfil_faz.id),
                         "perfil_nome": perfil_faz.nome
@@ -335,7 +335,7 @@ async def invite_team_member(
         tenant_id=tenant_id,
         email_convidado=data.email,
         perfil_id=perfil_uuid,
-        fazendas_ids=data.fazendas_ids,
+        unidades_produtivas_ids=data.unidades_produtivas_ids,
         token_convite=token,
         status="PENDENTE",
         data_expiracao=expiracao,
@@ -386,8 +386,8 @@ async def list_pending_invites(
     for convite, perfil in rows:
         # Buscar fazendas
         fazendas = []
-        if convite.fazendas_ids:
-            for faz_id in convite.fazendas_ids:
+        if convite.unidades_produtivas_ids:
+            for faz_id in convite.unidades_produtivas_ids:
                 try:
                     faz_uuid = uuid.UUID(faz_id)
                     faz = await session.get(Fazenda, faz_uuid)

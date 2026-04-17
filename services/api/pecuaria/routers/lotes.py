@@ -19,7 +19,7 @@ router = APIRouter(
 
 @router.get("/", response_model=List[LoteBovinoResponse])
 async def listar_lotes(
-    fazenda_id: uuid.UUID | None = None,
+    unidade_produtiva_id: uuid.UUID | None = None,
     categoria: str | None = None,
     tenant_id: uuid.UUID = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_session_with_tenant),
@@ -27,8 +27,8 @@ async def listar_lotes(
     """Lista Lotes de Animais na propriedade, filtrado por fazenda e/ou categoria."""
     svc = LoteBovinoService(tenant_id)
     filters: dict = {}
-    if fazenda_id:
-        filters["fazenda_id"] = fazenda_id
+    if unidade_produtiva_id:
+        filters["unidade_produtiva_id"] = unidade_produtiva_id
     if categoria:
         filters["categoria"] = categoria
     svc.session = db

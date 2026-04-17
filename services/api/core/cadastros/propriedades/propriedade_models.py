@@ -62,7 +62,7 @@ class ExploracaoRural(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     propriedade_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cadastros_propriedades.id", ondelete="CASCADE"), nullable=False, index=True)
-    fazenda_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="CASCADE"), nullable=False, index=True)
+    unidade_produtiva_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="CASCADE"), nullable=False, index=True)
     natureza: Mapped[str] = mapped_column(String(30), nullable=False, default=NaturezaVinculo.PROPRIA)
     data_inicio: Mapped[date] = mapped_column(Date, nullable=False)
     data_fim: Mapped[date | None] = mapped_column(Date, nullable=True)

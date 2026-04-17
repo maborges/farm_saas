@@ -20,11 +20,11 @@ class NewHollandService:
         self.db = db
 
     def conectar(self, tenant_id: str, client_id: str, 
-                 client_secret: str, fazenda_id: Optional[int] = None) -> IntegracaoNewHolland:
+                 client_secret: str, unidade_produtiva_id: Optional[int] = None) -> IntegracaoNewHolland:
         """Inicia integração com New Holland."""
         integracao = IntegracaoNewHolland(
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             client_id=client_id,
             client_secret=client_secret,
             status="pendente"
@@ -123,7 +123,7 @@ class CarbonoService:
                           categoria: str, quantidade: float,
                           unidade: str, data_referencia: date,
                           fator_emissao: float = None,
-                          fazenda_id: int = None) -> CarbonoEmissao:
+                          unidade_produtiva_id: int = None) -> CarbonoEmissao:
         """Registra emissão de carbono."""
         # Usar fator padrão se não fornecido
         if fator_emissao is None:
@@ -133,7 +133,7 @@ class CarbonoService:
 
         emissao = CarbonoEmissao(
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             escopo=escopo,
             categoria=categoria,
             quantidade=quantidade,
@@ -171,11 +171,11 @@ class CarbonoService:
 
     def criar_projeto(self, tenant_id: str, nome: str,
                       tipo: str, area_ha: float,
-                      fazenda_id: int = None) -> CarbonoProjeto:
+                      unidade_produtiva_id: int = None) -> CarbonoProjeto:
         """Cria projeto de crédito de carbono."""
         projeto = CarbonoProjeto(
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             nome=nome,
             tipo=tipo,
             area_ha=area_ha,

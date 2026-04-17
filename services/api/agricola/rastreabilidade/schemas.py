@@ -27,7 +27,7 @@ class LoteRastreabilidadeResponse(LoteRastreabilidadeBase):
     model_config = ConfigDict(from_attributes=True)
 
 class CertificacaoBase(BaseModel):
-    fazenda_id: UUID
+    unidade_produtiva_id: UUID
     nome: str
     extensao: Optional[str] = None
     data_emissao: date

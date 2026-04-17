@@ -18,8 +18,8 @@ async def _garantir_plano_conta(session) -> uuid.UUID:
     """Garante que existe um plano de contas para usar nas receitas."""
     plano_id = uuid.UUID("dddddddd-0000-0000-0000-000000000010")
     await session.execute(text("""
-        INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
-        VALUES (:id, 'Tenant Financeiro', '98765432100', true, '["CORE","F1"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+        INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+        VALUES (:id, 'Tenant Financeiro', '98765432100', true,  0, 10240, 'pt-BR', NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(TENANT_ID)})
 
@@ -42,7 +42,7 @@ async def _garantir_plano_conta(session) -> uuid.UUID:
 
 def _payload_receita(plano_conta_id: uuid.UUID, **overrides) -> dict:
     base = {
-        "fazenda_id": str(FAZENDA_ID),
+        "unidade_produtiva_id": str(FAZENDA_ID),
         "plano_conta_id": str(plano_conta_id),
         "descricao": "Venda de soja safra 2025",
         "valor_total": 15000.0,

@@ -11,7 +11,7 @@ from core.services.auth_service import AuthService
 from core.schemas.auth_schemas import TokenResponse, UsuarioMeResponse
 from core.models.tenant import Tenant
 from core.models.auth import Usuario, TenantUsuario
-from core.models.fazenda import Fazenda
+from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
 from core.models.billing import AssinaturaTenant, Fatura, PlanoAssinatura
 from core.utils.cpf_cnpj import validar_cpf_ou_cnpj, apenas_numeros
 from pydantic import BaseModel, EmailStr, Field

@@ -9,12 +9,11 @@ import uuid
 import secrets
 from loguru import logger
 
-from core.models.auth import Usuario, TenantUsuario, PerfilAcesso, FazendaUsuario, TokenRecuperacaoSenha
-from core.models.grupo_fazendas import GrupoUsuario
+from core.models.auth import Usuario, TenantUsuario, PerfilAcesso, UnidadeProdutivaUsuario as FazendaUsuario, TokenRecuperacaoSenha
 from core.models.tenant import Tenant
-from core.models.fazenda import Fazenda
-from core.models.billing import AssinaturaTenant, PlanoAssinatura
-from core.schemas.auth_schemas import LoginRequest, UserCreateRequest, TenantAcessoResponse, FazendaAcessoResponse, PerfilSimplesResponse, UsuarioMeResponse
+from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
+from core.models.billing import AssinaturaTenant, PlanoAssinatura, Fatura
+from core.schemas.auth_schemas import LoginRequest, UserCreateRequest, TenantAcessoResponse, UnidadeProdutivaAcessoResponse as FazendaAcessoResponse, PerfilSimplesResponse, UsuarioMeResponse
 from core.config import settings
 from core.services.login_rate_limit_service import LoginRateLimitService
 
@@ -178,7 +177,6 @@ class AuthService:
         default_tenant_id = None
         modulos = ["CORE"]
         fazendas_auth = []
-        grupos_auth = []
         grupos_jwt = []
         
         # Superadministradores não entram vinculados a nenhum tenant por padrão.
@@ -187,97 +185,73 @@ class AuthService:
             first_tu = tenant_usuarios[0]
             default_tenant_id = str(first_tu.tenant_id)
             
-            # Fetch tenant to get modules
-            tenant_stmt = select(Tenant).where(Tenant.id == first_tu.tenant_id)
-            tenant = (await self.session.execute(tenant_stmt)).scalar_one_or_none()
-            if tenant:
-                modulos = tenant.modulos_ativos or ["CORE"]
-                
             # Fetch profile to get roles
             perfil_stmt = select(PerfilAcesso).where(PerfilAcesso.id == first_tu.perfil_id)
             perfil = (await self.session.execute(perfil_stmt)).scalar_one_or_none()
             role_name = perfil.nome.lower() if perfil else "operador"
             
-            # Fetch allowed fazendas
+            # Fetch allowed unidades produtivas
             fazenda_usu_stmt = select(FazendaUsuario).where(
                 FazendaUsuario.usuario_id == user.id,
                 FazendaUsuario.tenant_id == first_tu.tenant_id
             )
             f_usuarios = (await self.session.execute(fazenda_usu_stmt)).scalars().all()
             for fu in f_usuarios:
-                fazendas_auth.append({"id": str(fu.fazenda_id), "role": role_name})
+                fazendas_auth.append({"id": str(fu.unidade_produtiva_id), "role": role_name})
 
-            # Fetch grupos do usuário com assinatura e fazendas
-            grupo_usu_stmt = select(GrupoUsuario).where(
-                GrupoUsuario.user_id == user.id,
-                GrupoUsuario.tenant_id == first_tu.tenant_id
+            # Fetch subscription info for the tenant
+            assin_stmt = (
+                select(PlanoAssinatura.modulos_inclusos, PlanoAssinatura.plan_tier,
+                       PlanoAssinatura.max_fazendas, AssinaturaTenant.usuarios_contratados)
+                .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
+                .where(
+                    AssinaturaTenant.tenant_id == first_tu.tenant_id,
+                    AssinaturaTenant.status.in_(["ATIVA", "TRIAL"]),
+                )
+                .limit(1)
             )
-            g_usuarios = (await self.session.execute(grupo_usu_stmt)).scalars().all()
-            grupos_auth = [str(gu.grupo_id) for gu in g_usuarios]
+            assin_row = (await self.session.execute(assin_stmt)).first()
+            tenant_modules = (assin_row[0] if assin_row and assin_row[0] else ["CORE"])
+            tenant_tier = (assin_row[1] if assin_row and assin_row[1] else "BASICO")
+            tenant_max_fazendas = (assin_row[2] if assin_row and assin_row[2] else 1)
+            tenant_max_usuarios = (assin_row[3] if assin_row and assin_row[3] else 2)
 
-            # Monta grupos[] com assinatura e fazendas para o JWT
-            grupos_jwt = []
-            for gu in g_usuarios:
-                from core.models.grupo_fazendas import GrupoFazendas
-                grupo_stmt = select(GrupoFazendas).where(GrupoFazendas.id == gu.grupo_id)
-                grupo_obj = (await self.session.execute(grupo_stmt)).scalar_one_or_none()
-                if not grupo_obj or not grupo_obj.ativo:
-                    continue
+            # All unidades produtivas the user can access
+            faz_stmt = select(Fazenda.id, Fazenda.nome).where(
+                Fazenda.tenant_id == first_tu.tenant_id,
+                Fazenda.ativo == True,
+            )
+            faz_rows = (await self.session.execute(faz_stmt)).all()
+            all_fazendas = [{"id": str(r[0]), "nome": r[1]} for r in faz_rows]
 
-                assin_stmt = (
-                    select(PlanoAssinatura.modulos_inclusos, PlanoAssinatura.plan_tier,
-                           PlanoAssinatura.max_fazendas, AssinaturaTenant.usuarios_contratados)
-                    .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
-                    .where(
-                        AssinaturaTenant.grupo_fazendas_id == gu.grupo_id,
-                        AssinaturaTenant.tenant_id == first_tu.tenant_id,
-                        AssinaturaTenant.tipo_assinatura == "GRUPO",
-                        AssinaturaTenant.status == "ATIVA",
-                    )
-                    .limit(1)
-                )
-                assin_row = (await self.session.execute(assin_stmt)).first()
-                grupo_modules = (assin_row[0] if assin_row and assin_row[0] else ["CORE"])
-                grupo_tier = (assin_row[1] if assin_row and assin_row[1] else "BASICO")
-                grupo_max_fazendas = (assin_row[2] if assin_row and assin_row[2] else 1)
-                grupo_max_usuarios = (assin_row[3] if assin_row and assin_row[3] else 2)
+            grupos_jwt = [{
+                "id": str(first_tu.tenant_id),
+                "nome": "default",
+                "modules": tenant_modules,
+                "plan_tier": tenant_tier,
+                "max_fazendas": tenant_max_fazendas,
+                "max_usuarios": tenant_max_usuarios,
+                "fazendas": all_fazendas,
+            }]
+            modulos = list(set(modulos) | set(tenant_modules))
+            for faz in all_fazendas:
+                if not any(f["id"] == faz["id"] for f in fazendas_auth):
+                    fazendas_auth.append({"id": faz["id"], "role": role_name})
 
-                # Fazendas do grupo que o usuário tem acesso
-                from core.models.fazenda import Fazenda as FazendaModel
-                faz_grupo_stmt = select(FazendaModel.id, FazendaModel.nome).where(
-                    FazendaModel.grupo_id == gu.grupo_id,
-                    FazendaModel.tenant_id == first_tu.tenant_id,
-                    FazendaModel.ativo == True,
-                )
-                faz_rows = (await self.session.execute(faz_grupo_stmt)).all()
-                fazendas_do_grupo = [{"id": str(r[0]), "nome": r[1]} for r in faz_rows]
-
-                grupos_jwt.append({
-                    "id": str(gu.grupo_id),
-                    "nome": grupo_obj.nome,
-                    "modules": grupo_modules,
-                    "plan_tier": grupo_tier,
-                    "max_fazendas": grupo_max_fazendas,
-                    "max_usuarios": grupo_max_usuarios,
-                    "fazendas": fazendas_do_grupo,
-                })
-                # Atualiza modulos (union de todos os grupos) e fazendas_auth
-                modulos = list(set(modulos) | set(grupo_modules))
-                for faz in fazendas_do_grupo:
-                    if not any(f["id"] == faz["id"] for f in fazendas_auth):
-                        fazendas_auth.append({"id": faz["id"], "role": role_name})
-
-        # plan_tier do primeiro grupo (ou BASICO)
+        # plan_tier do tenant (ou BASICO)
         plan_tier = grupos_jwt[0]["plan_tier"] if grupos_jwt else "BASICO"
+
+        # Role do tenant (owner/admin) para acesso implícito
+        tenant_role = perfil.nome.lower() if (not user.is_superuser and perfil) else None
 
         # Generate token payload
         claims = {
             "sub": str(user.id),
             "tenant_id": default_tenant_id,
-            "modules": modulos,          # union — mantido para compatibilidade
+            "role": tenant_role,
+            "modules": modulos,
             "fazendas_auth": fazendas_auth,
-            "grupos_auth": grupos_auth,
-            "grupos": grupos_jwt,        # novo: por grupo com módulos e fazendas
+            "grupos": grupos_jwt,
             "is_superuser": user.is_superuser,
             "plan_tier": plan_tier,
         }
@@ -302,8 +276,6 @@ class AuthService:
             ultimo_heartbeat=agora,
             expira_em=agora + timedelta(minutes=30),
             status="ATIVA",
-            grupo_fazendas_id=None,
-            fazenda_id=None,
         )
         self.session.add(sessao_ativa)
         await self.session.commit()
@@ -321,7 +293,7 @@ class AuthService:
         Gera um novo JWT com grupos[] do tenant selecionado.
         Usado pelo endpoint /auth/switch-tenant.
         """
-        from core.models.grupo_fazendas import GrupoFazendas
+        # grupos_fazendas removed
 
         user = (await self.session.execute(select(Usuario).where(Usuario.id == user_id))).scalar_one_or_none()
         if not user or not user.ativo:
@@ -344,78 +316,56 @@ class AuthService:
             )).scalar_one_or_none()
         role_name = perfil.nome.lower() if perfil else "operador"
 
-        # Reutiliza a lógica de montagem de grupos do authenticate_user
-        g_usuarios = (await self.session.execute(
-            select(GrupoUsuario).where(
-                GrupoUsuario.user_id == user_id,
-                GrupoUsuario.tenant_id == tenant_id
-            )
-        )).scalars().all()
-
-        grupos_auth = [str(gu.grupo_id) for gu in g_usuarios]
+        grupos_auth = []
         modulos: list[str] = ["CORE"]
         fazendas_auth: list[dict] = []
         grupos_jwt: list[dict] = []
 
-        for gu in g_usuarios:
-            grupo_obj = (await self.session.execute(
-                select(GrupoFazendas).where(GrupoFazendas.id == gu.grupo_id)
-            )).scalar_one_or_none()
-            if not grupo_obj or not grupo_obj.ativo:
-                continue
+        # Fetch subscription info for the tenant
+        assin_row = (await self.session.execute(
+            select(PlanoAssinatura.modulos_inclusos, PlanoAssinatura.plan_tier,
+                   PlanoAssinatura.max_fazendas, AssinaturaTenant.usuarios_contratados)
+            .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
+            .where(
+                AssinaturaTenant.tenant_id == tenant_id,
+                AssinaturaTenant.status.in_(["ATIVA", "TRIAL"]),
+            )
+            .limit(1)
+        )).first()
 
-            assin_row = (await self.session.execute(
-                select(PlanoAssinatura.modulos_inclusos, PlanoAssinatura.plan_tier,
-                       PlanoAssinatura.max_fazendas, AssinaturaTenant.usuarios_contratados)
-                .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
-                .where(
-                    AssinaturaTenant.grupo_fazendas_id == gu.grupo_id,
-                    AssinaturaTenant.tenant_id == tenant_id,
-                    AssinaturaTenant.tipo_assinatura == "GRUPO",
-                    AssinaturaTenant.status == "ATIVA",
-                )
-                .limit(1)
-            )).first()
+        tenant_modules = (assin_row[0] if assin_row and assin_row[0] else ["CORE"])
+        tenant_tier = (assin_row[1] if assin_row and assin_row[1] else "BASICO")
+        tenant_max_fazendas = (assin_row[2] if assin_row and assin_row[2] else 1)
+        tenant_max_usuarios = (assin_row[3] if assin_row and assin_row[3] else 2)
 
-            grupo_modules = (assin_row[0] if assin_row and assin_row[0] else ["CORE"])
-            grupo_tier = (assin_row[1] if assin_row and assin_row[1] else "BASICO")
-            grupo_max_fazendas = (assin_row[2] if assin_row and assin_row[2] else 1)
-            grupo_max_usuarios = (assin_row[3] if assin_row and assin_row[3] else 2)
+        faz_rows = (await self.session.execute(
+            select(Fazenda.id, Fazenda.nome).where(
+                Fazenda.tenant_id == tenant_id,
+                Fazenda.ativo == True,
+            )
+        )).all()
+        all_fazendas = [{"id": str(r[0]), "nome": r[1]} for r in faz_rows]
 
-            faz_rows = (await self.session.execute(
-                select(Fazenda.id, Fazenda.nome).where(
-                    Fazenda.grupo_id == gu.grupo_id,
-                    Fazenda.tenant_id == tenant_id,
-                    Fazenda.ativo == True,
-                )
-            )).all()
-            fazendas_do_grupo = [{"id": str(r[0]), "nome": r[1]} for r in faz_rows]
+        grupos_jwt = [{
+            "id": str(tenant_id),
+            "nome": "default",
+            "modules": tenant_modules,
+            "plan_tier": tenant_tier,
+            "max_fazendas": tenant_max_fazendas,
+            "max_usuarios": tenant_max_usuarios,
+            "fazendas": all_fazendas,
+        }]
+        modulos = list(set(modulos) | set(tenant_modules))
+        fazendas_auth = [{"id": faz["id"], "role": role_name} for faz in all_fazendas]
 
-            grupos_jwt.append({
-                "id": str(gu.grupo_id),
-                "nome": grupo_obj.nome,
-                "modules": grupo_modules,
-                "plan_tier": grupo_tier,
-                "max_fazendas": grupo_max_fazendas,
-                "max_usuarios": grupo_max_usuarios,
-                "fazendas": fazendas_do_grupo,
-            })
-            modulos = list(set(modulos) | set(grupo_modules))
-            for faz in fazendas_do_grupo:
-                if not any(f["id"] == faz["id"] for f in fazendas_auth):
-                    fazendas_auth.append({"id": faz["id"], "role": role_name})
-
-        plan_tier = grupos_jwt[0]["plan_tier"] if grupos_jwt else "BASICO"
-        active_grupo_id = grupos_jwt[0]["id"] if len(grupos_jwt) == 1 else None
+        plan_tier = tenant_tier
 
         claims = {
             "sub": str(user_id),
             "tenant_id": str(tenant_id),
             "modules": modulos,
             "fazendas_auth": fazendas_auth,
-            "grupos_auth": grupos_auth,
             "grupos": grupos_jwt,
-            "active_grupo_id": active_grupo_id,
             "is_superuser": user.is_superuser,
             "plan_tier": plan_tier,
         }
@@ -437,8 +387,6 @@ class AuthService:
             ultimo_heartbeat=agora,
             expira_em=agora + timedelta(minutes=30),
             status="ATIVA",
-            grupo_fazendas_id=uuid.UUID(active_grupo_id) if active_grupo_id else None,
-            fazenda_id=None,
         ))
         await self.session.commit()
         return access_token
@@ -451,128 +399,8 @@ class AuthService:
         ip_address: str | None = None,
         user_agent: str | None = None,
     ) -> str:
-        """
-        Gera um novo JWT com o grupo de fazendas selecionado como contexto ativo.
-        Usado pelo endpoint /auth/switch-grupo.
-        """
-        from core.models.grupo_fazendas import GrupoFazendas
-
-        user = (await self.session.execute(select(Usuario).where(Usuario.id == user_id))).scalar_one_or_none()
-        if not user or not user.ativo:
-            raise HTTPException(status_code=403, detail="Usuário inativo")
-
-        # Verificar acesso ao tenant
-        first_tu = (await self.session.execute(
-            select(TenantUsuario).where(
-                TenantUsuario.tenant_id == tenant_id,
-                TenantUsuario.usuario_id == user_id,
-                TenantUsuario.status == "ATIVO"
-            )
-        )).scalar_one_or_none()
-        if not first_tu:
-            raise HTTPException(status_code=403, detail="Sem acesso ao tenant")
-
-        perfil = None
-        if first_tu.perfil_id:
-            perfil = (await self.session.execute(
-                select(PerfilAcesso).where(PerfilAcesso.id == first_tu.perfil_id)
-            )).scalar_one_or_none()
-        role_name = perfil.nome.lower() if perfil else "operador"
-
-        # Buscar o grupo específico
-        g_usuario = (await self.session.execute(
-            select(GrupoUsuario).where(
-                GrupoUsuario.user_id == user_id,
-                GrupoUsuario.tenant_id == tenant_id,
-                GrupoUsuario.grupo_id == grupo_id
-            )
-        )).scalar_one_or_none()
-
-        if not g_usuario:
-            raise HTTPException(status_code=403, detail="Usuário não tem acesso ao grupo selecionado")
-
-        grupo_obj = (await self.session.execute(
-            select(GrupoFazendas).where(GrupoFazendas.id == grupo_id, GrupoFazendas.ativo == True)
-        )).scalar_one_or_none()
-
-        if not grupo_obj:
-            raise HTTPException(status_code=404, detail="Grupo não encontrado ou inativo")
-
-        # Buscar assinatura do grupo
-        assin_row = (await self.session.execute(
-            select(PlanoAssinatura.modulos_inclusos, PlanoAssinatura.plan_tier,
-                   PlanoAssinatura.max_fazendas, AssinaturaTenant.usuarios_contratados)
-            .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
-            .where(
-                AssinaturaTenant.grupo_fazendas_id == grupo_id,
-                AssinaturaTenant.tenant_id == tenant_id,
-                AssinaturaTenant.tipo_assinatura == "GRUPO",
-                AssinaturaTenant.status == "ATIVA",
-            )
-            .limit(1)
-        )).first()
-
-        grupo_modules = (assin_row[0] if assin_row and assin_row[0] else ["CORE"])
-        grupo_tier = (assin_row[1] if assin_row and assin_row[1] else "BASICO")
-        grupo_max_fazendas = (assin_row[2] if assin_row and assin_row[2] else 1)
-        grupo_max_usuarios = (assin_row[3] if assin_row and assin_row[3] else 2)
-
-        # Buscar fazendas do grupo
-        faz_rows = (await self.session.execute(
-            select(Fazenda.id, Fazenda.nome).where(
-                Fazenda.grupo_id == grupo_id,
-                Fazenda.tenant_id == tenant_id,
-                Fazenda.ativo == True,
-            )
-        )).all()
-        fazendas_do_grupo = [{"id": str(r[0]), "nome": r[1]} for r in faz_rows]
-
-        grupos_jwt = [{
-            "id": str(grupo_id),
-            "nome": grupo_obj.nome,
-            "modules": grupo_modules,
-            "plan_tier": grupo_tier,
-            "max_fazendas": grupo_max_fazendas,
-            "max_usuarios": grupo_max_usuarios,
-            "fazendas": fazendas_do_grupo,
-        }]
-
-        fazendas_auth = [{"id": faz["id"], "role": role_name} for faz in fazendas_do_grupo]
-
-        claims = {
-            "sub": str(user_id),
-            "tenant_id": str(tenant_id),
-            "modules": grupo_modules,
-            "fazendas_auth": fazendas_auth,
-            "grupos_auth": [str(grupo_id)],
-            "grupos": grupos_jwt,
-            "active_grupo_id": str(grupo_id),
-            "is_superuser": user.is_superuser,
-            "plan_tier": grupo_tier,
-        }
-
-        access_token = self.create_access_token(data=claims)
-
-        # Registrar nova sessão
-        from core.models.sessao import SessaoAtiva
-        import hashlib
-        token_hash = hashlib.sha256(access_token.encode()).hexdigest()
-        agora = datetime.now(timezone.utc)
-        self.session.add(SessaoAtiva(
-            tenant_id=tenant_id,
-            usuario_id=user_id,
-            token_hash=token_hash,
-            ip_address=ip_address,
-            user_agent=user_agent,
-            inicio=agora,
-            ultimo_heartbeat=agora,
-            expira_em=agora + timedelta(minutes=30),
-            status="ATIVA",
-            grupo_fazendas_id=grupo_id,
-            fazenda_id=None,
-        ))
-        await self.session.commit()
-        return access_token
+        """Deprecated: grupos removed. Delegates to generate_token_for_tenant."""
+        return await self.generate_token_for_tenant(user_id, tenant_id, ip_address, user_agent)
 
     async def get_user_me(self, user_id: uuid.UUID) -> UsuarioMeResponse:
         stmt = select(Usuario).where(Usuario.id == user_id)
@@ -601,10 +429,10 @@ class AuthService:
             f_links = (await self.session.execute(fu_stmt)).scalars().all()
             fazendas_resp = []
             for fl in f_links:
-                f_stmt = select(Fazenda).where(Fazenda.id == fl.fazenda_id)
+                f_stmt = select(Fazenda).where(Fazenda.id == fl.unidade_produtiva_id)
                 fazenda_obj = (await self.session.execute(f_stmt)).scalar_one_or_none()
                 if fazenda_obj:
-                    fazendas_resp.append(FazendaAcessoResponse(fazenda_id=fazenda_obj.id, nome=fazenda_obj.nome))
+                    fazendas_resp.append(FazendaAcessoResponse(unidade_produtiva_id=fazenda_obj.id, nome=fazenda_obj.nome))
                     
             # Query plan info — agrega todos os grupos do tenant (union de módulos)
             plan_stmt = (
@@ -617,7 +445,6 @@ class AuthService:
                 .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
                 .where(
                     AssinaturaTenant.tenant_id == tenant.id,
-                    AssinaturaTenant.tipo_assinatura == "GRUPO",
                     AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
                 )
             )
@@ -672,8 +499,6 @@ class AuthService:
         Cria um novo tenant (assinatura/produtor) para um usuário já autenticado.
         Retorna um novo JWT no contexto do tenant recém-criado.
         """
-        from core.models.grupo_fazendas import GrupoFazendas
-
         # Verificar plano
         plano = (await self.session.execute(
             select(PlanoAssinatura).where(PlanoAssinatura.id == plano_id, PlanoAssinatura.ativo == True)
@@ -697,49 +522,69 @@ class AuthService:
         )
         self.session.add(tu)
 
-        # 3. Criar grupo default
-        grupo = GrupoFazendas(
-            tenant_id=tenant.id,
-            nome=nome,
-            ativo=True,
-        )
-        self.session.add(grupo)
-        await self.session.flush()
-
-        # 4. Vincular usuário ao grupo
-        gu = GrupoUsuario(
-            tenant_id=tenant.id,
-            grupo_id=grupo.id,
-            user_id=user_id,
-        )
-        self.session.add(gu)
-
-        # 5. Criar assinatura
+        # 3. Criar assinatura
         is_trial = not plano.is_free and plano.tem_trial
         if plano.is_free:
             status_assin = "ATIVA"
             trial_expira_em = None
             primeiro_vencimento = None
         else:
-            status_assin = "PENDENTE_PAGAMENTO"
-            trial_expira_em = agora + timedelta(days=plano.dias_trial)
-            # Vencimento = último dia do trial
-            primeiro_vencimento = trial_expira_em.date()
+            status_assin = "TRIAL" if is_trial else "ATIVA"
+            trial_expira_em = agora + timedelta(days=plano.dias_trial) if is_trial else None
+            # Vencimento = dia seguinte ao fim do trial
+            primeiro_vencimento = (trial_expira_em + timedelta(days=1)).date() if trial_expira_em else None
 
         assin = AssinaturaTenant(
             tenant_id=tenant.id,
             plano_id=plano.id,
-            grupo_fazendas_id=grupo.id,
-            tipo_assinatura="GRUPO",
+            tipo_assinatura="TENANT",
             ciclo_pagamento=ciclo,
             status=status_assin,
             data_inicio=agora,
             data_proxima_renovacao=trial_expira_em,
         )
         self.session.add(assin)
+        await self.session.flush()  # gera assin.id
+
+        # 6. Criar Fatura (APENAS se plano pago e tem trial)
+        if not plano.is_free and is_trial and primeiro_vencimento:
+            from decimal import Decimal
+            valor_fatura = Decimal(str(plano.preco_anual)) if ciclo == "ANUAL" else Decimal(str(plano.preco_mensal))
+            vencimento_datetime = datetime.combine(primeiro_vencimento, datetime.min.time(), tzinfo=timezone.utc)
+            fatura = Fatura(
+                tenant_id=tenant.id,
+                assinatura_id=assin.id,
+                valor=valor_fatura,
+                data_vencimento=vencimento_datetime,
+                status="ABERTA",
+            )
+            self.session.add(fatura)
+            logger.info(f"Fatura criada para assinatura {assin.id}: R${valor_fatura} vence em {primeiro_vencimento}")
+
         await self.session.commit()
 
-        # 6. Gerar token no contexto do novo tenant
+        # 7. Buscar usuário para email
+        usuario = (await self.session.execute(select(Usuario).where(Usuario.id == user_id))).scalar_one_or_none()
+
+        # 8. Enviar email com aviso de trial (background, sem bloquear)
+        if usuario and not plano.is_free and is_trial:
+            from core.services.email_service import email_service
+            try:
+                dias_trial = plano.dias_trial
+                await email_service.send_trial_notice(
+                    email=usuario.email,
+                    nome=usuario.nome_completo or usuario.username,
+                    nome_produtor=nome,
+                    nome_plano=plano.nome,
+                    dias_trial=dias_trial,
+                    data_vencimento=primeiro_vencimento,
+                    tenant_id=tenant.id,
+                )
+                logger.info(f"Email de trial enviado para {usuario.email}")
+            except Exception as e:
+                logger.error(f"Erro ao enviar email de trial: {e}")
+
+        # 9. Gerar token no contexto do novo tenant
         token = await self.generate_token_for_tenant(user_id, tenant.id, ip_address, user_agent)
 
         return {

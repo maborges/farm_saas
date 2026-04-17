@@ -4,7 +4,7 @@ from datetime import date, datetime
 import uuid
 
 class OrdemServicoCreate(BaseModel):
-    fazenda_id: uuid.UUID = Field(..., description="ID da Fazenda onde ocorre a OS.")
+    unidade_produtiva_id: uuid.UUID = Field(..., description="ID da Fazenda onde ocorre a OS.")
     safra_id: uuid.UUID = Field(..., description="A qual Safra (orçamento) esse custo e esforço pertence.")
     tipo_atividade: str = Field(..., min_length=2, max_length=50, description="Ex: Plantio, Colheita, Pulverização")
     status: str = Field("PLANEJADA", description="Estado da OS (PLANEJADA, EM_ANDAMENTO, CONCLUIDA, CANCELADA)")
@@ -22,7 +22,7 @@ class OrdemServicoUpdate(BaseModel):
 class OrdemServicoResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     safra_id: uuid.UUID
     tipo_atividade: str
     status: str

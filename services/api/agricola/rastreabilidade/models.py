@@ -37,7 +37,7 @@ class CertificacaoPropriedade(Base):
     
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
-    fazenda_id: Mapped[UUID] = mapped_column(ForeignKey("fazendas.id", ondelete="CASCADE"), nullable=False)
+    unidade_produtiva_id: Mapped[UUID] = mapped_column(ForeignKey("unidades_produtivas.id", ondelete="CASCADE"), nullable=False)
     
     nome: Mapped[str] = mapped_column(String(100), nullable=False) # Ex: GlobalGap, RTRS
     extensao: Mapped[str | None] = mapped_column(String(100)) # Escopo

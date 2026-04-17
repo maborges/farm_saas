@@ -1,6 +1,6 @@
 from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import event, text
 from core.config import settings
 from loguru import logger
@@ -27,13 +27,24 @@ engine = create_async_engine(
     connect_args={"check_same_thread": False} if "sqlite" in DB_URL else {"server_settings": {"search_path": "farms"}}
 )
 
-# Fábrica de Sessoes Assíncronas
-async_session_maker = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autoflush=False
-)
+# Fábrica de Sessoes Assíncronas (compatível com SQLAlchemy 1.4 e 2.0)
+try:
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    async_session_maker = async_sessionmaker(
+        bind=engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False
+    )
+except ImportError:
+    # Fallback para SQLAlchemy 1.4
+    async_session_maker = sessionmaker(
+        bind=engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False,
+        future=True
+    )
 
 # Base para os Models do ORM
 Base = declarative_base()

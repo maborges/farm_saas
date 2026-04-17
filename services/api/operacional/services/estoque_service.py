@@ -44,7 +44,7 @@ class EstoqueService(BaseService[SaldoEstoque]):
     async def criar_deposito(self, data: DepositoCreate) -> Deposito:
         dep = Deposito(
             tenant_id=self.tenant_id,
-            fazenda_id=data.fazenda_id,
+            unidade_produtiva_id=data.unidade_produtiva_id,
             nome=data.nome,
             tipo=data.tipo,
             localizacao_desc=data.localizacao_desc,
@@ -68,10 +68,10 @@ class EstoqueService(BaseService[SaldoEstoque]):
         await self.session.refresh(dep)
         return dep
 
-    async def listar_depositos(self, fazenda_id: UUID | None = None) -> list[Deposito]:
+    async def listar_depositos(self, unidade_produtiva_id: UUID | None = None) -> list[Deposito]:
         stmt = select(Deposito).where(Deposito.tenant_id == self.tenant_id)
-        if fazenda_id:
-            stmt = stmt.where(Deposito.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt = stmt.where(Deposito.unidade_produtiva_id == unidade_produtiva_id)
         return list((await self.session.execute(stmt)).scalars().all())
 
     # ── Saldos ────────────────────────────────────────────────────────────
@@ -88,10 +88,10 @@ class EstoqueService(BaseService[SaldoEstoque]):
             await self.session.flush()
         return saldo
 
-    async def listar_saldos(self, fazenda_id: UUID | None = None) -> list[SaldoResponse]:
+    async def listar_saldos(self, unidade_produtiva_id: UUID | None = None) -> list[SaldoResponse]:
         dep_stmt = select(Deposito).where(Deposito.tenant_id == self.tenant_id, Deposito.ativo == True)
-        if fazenda_id:
-            dep_stmt = dep_stmt.where(Deposito.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            dep_stmt = dep_stmt.where(Deposito.unidade_produtiva_id == unidade_produtiva_id)
         depositos = {d.id: d for d in (await self.session.execute(dep_stmt)).scalars().all()}
 
         prod_stmt = select(ProdutoCatalogo).where(ProdutoCatalogo.tenant_id == self.tenant_id, ProdutoCatalogo.ativo == True)
@@ -294,7 +294,7 @@ class EstoqueService(BaseService[SaldoEstoque]):
         self,
         produto_id: UUID,
         quantidade: float,
-        fazenda_id: UUID,
+        unidade_produtiva_id: UUID,
         origem_id: UUID,
         origem_tipo: str = "OPERACAO_AGRICOLA",
         motivo: str = "Uso em operação agrícola",
@@ -309,12 +309,12 @@ class EstoqueService(BaseService[SaldoEstoque]):
         else:
             stmt_deps = select(Deposito.id).where(
                 Deposito.tenant_id == self.tenant_id,
-                Deposito.fazenda_id == fazenda_id,
+                Deposito.unidade_produtiva_id == unidade_produtiva_id,
                 Deposito.ativo == True,
             )
             dep_ids = (await self.session.execute(stmt_deps)).scalars().all()
             if not dep_ids:
-                raise BusinessRuleError(f"Nenhum depósito ativo na fazenda {fazenda_id}.")
+                raise BusinessRuleError(f"Nenhum depósito ativo na fazenda {unidade_produtiva_id}.")
             stmt_saldo = select(SaldoEstoque).where(
                 SaldoEstoque.produto_id == produto_id,
                 SaldoEstoque.deposito_id.in_(dep_ids),
@@ -349,7 +349,7 @@ class EstoqueService(BaseService[SaldoEstoque]):
         self,
         nome_insumo: str,
         quantidade: float,
-        fazenda_id: UUID,
+        unidade_produtiva_id: UUID,
         origem_id: UUID,
         origem_tipo: str = "OPERACAO_AGRICOLA",
         motivo: str = "Uso em operação agrícola",
@@ -368,7 +368,7 @@ class EstoqueService(BaseService[SaldoEstoque]):
         return await self.registrar_saida_insumo(
             produto_id=prod.id,
             quantidade=quantidade,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             origem_id=origem_id,
             origem_tipo=origem_tipo,
             motivo=motivo
@@ -403,15 +403,15 @@ class EstoqueService(BaseService[SaldoEstoque]):
             await self.session.flush()
             await self.session.refresh(mov)
             return mov
-        elif data.fazenda_id:
+        elif data.unidade_produtiva_id:
             return await self.registrar_saida_insumo(
                 produto_id=data.produto_id, quantidade=data.quantidade,
-                fazenda_id=data.fazenda_id,
+                unidade_produtiva_id=data.unidade_produtiva_id,
                 origem_id=data.origem_id or uuid.uuid4(),
                 origem_tipo=data.origem_tipo or "MANUAL",
                 motivo=data.motivo or "Saída manual",
             )
-        raise BusinessRuleError("Informe deposito_id ou fazenda_id.")
+        raise BusinessRuleError("Informe deposito_id ou unidade_produtiva_id.")
 
     async def registrar_ajuste(self, data: AjusteEstoqueRequest) -> MovimentacaoEstoque:
         saldo = await self._get_ou_criar_saldo(data.deposito_id, data.produto_id)
@@ -481,7 +481,7 @@ class EstoqueService(BaseService[SaldoEstoque]):
     async def criar_requisicao(self, data: RequisicaoCreate, solicitante_id: UUID) -> RequisicaoMaterial:
         req = RequisicaoMaterial(
             tenant_id=self.tenant_id,
-            fazenda_id=data.fazenda_id,
+            unidade_produtiva_id=data.unidade_produtiva_id,
             solicitante_id=solicitante_id,
             data_necessidade=data.data_necessidade,
             origem_tipo=data.origem_tipo,
@@ -506,13 +506,13 @@ class EstoqueService(BaseService[SaldoEstoque]):
 
     async def listar_requisicoes(
         self,
-        fazenda_id: UUID | None = None,
+        unidade_produtiva_id: UUID | None = None,
         status: str | None = None,
         solicitante_id: UUID | None = None,
     ) -> list[RequisicaoMaterial]:
         stmt = select(RequisicaoMaterial).where(RequisicaoMaterial.tenant_id == self.tenant_id)
-        if fazenda_id:
-            stmt = stmt.where(RequisicaoMaterial.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt = stmt.where(RequisicaoMaterial.unidade_produtiva_id == unidade_produtiva_id)
         if status:
             stmt = stmt.where(RequisicaoMaterial.status == status)
         if solicitante_id:
@@ -696,8 +696,8 @@ class EstoqueService(BaseService[SaldoEstoque]):
             raise EntityNotFoundError(f"Reserva {reserva_id} não encontrada.")
         return reserva
 
-    async def alertas_estoque_minimo(self, fazenda_id: UUID | None = None) -> list[AlertaEstoqueItem]:
-        saldos = await self.listar_saldos(fazenda_id)
+    async def alertas_estoque_minimo(self, unidade_produtiva_id: UUID | None = None) -> list[AlertaEstoqueItem]:
+        saldos = await self.listar_saldos(unidade_produtiva_id)
 
         # Busca estoque_minimo dos produtos
         prod_ids = [s.produto_id for s in saldos if s.abaixo_minimo]

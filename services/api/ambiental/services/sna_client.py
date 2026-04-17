@@ -406,14 +406,14 @@ class SNAService:
         self.ambiente = ambiente
         self.client = SNAClient(token, ambiente)
     
-    def importar_car(self, codigo_car: str, tenant_id: str, fazenda_id: str) -> Dict[str, Any]:
+    def importar_car(self, codigo_car: str, tenant_id: str, unidade_produtiva_id: str) -> Dict[str, Any]:
         """
         Importa CAR do SNA e salva no banco de dados
         
         Args:
             codigo_car: Código do CAR
             tenant_id: ID do tenant
-            fazenda_id: ID da fazenda
+            unidade_produtiva_id: ID da fazenda
             
         Returns:
             Dicionário com resultado da importação

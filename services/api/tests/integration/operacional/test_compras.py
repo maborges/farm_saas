@@ -20,8 +20,8 @@ DEPOSITO_ID   = uuid.UUID("ff000001-0000-0000-0000-000000000001")
 
 async def _garantir_suporte(session):
     await session.execute(text("""
-        INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
-        VALUES (:id, 'Tenant Compras', '99988877766', true, '["CORE","O1","O2","O3"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+        INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+        VALUES (:id, 'Tenant Compras', '99988877766', true,  0, 10240, 'pt-BR', NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(TENANT_ID)})
 
@@ -39,11 +39,11 @@ async def _garantir_suporte(session):
     """), {"id": str(PRODUTO_ID), "tenant_id": str(TENANT_ID)})
 
     await session.execute(text("""
-        INSERT INTO estoque_depositos (id, tenant_id, fazenda_id, nome, tipo, ativo)
-        VALUES (:id, :tenant_id, :fazenda_id, 'Depósito Compras', 'ALMOXARIFADO', true)
+        INSERT INTO estoque_depositos (id, tenant_id, unidade_produtiva_id, nome, tipo, ativo)
+        VALUES (:id, :tenant_id, :unidade_produtiva_id, 'Depósito Compras', 'ALMOXARIFADO', true)
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(DEPOSITO_ID), "tenant_id": str(TENANT_ID),
-           "fazenda_id": str(FAZENDA_ID)})
+           "unidade_produtiva_id": str(FAZENDA_ID)})
 
     await session.execute(text("""
         INSERT INTO usuarios (id, email, username, is_superuser, ativo, created_at, updated_at)

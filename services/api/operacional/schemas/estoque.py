@@ -46,7 +46,7 @@ TipoMovimentacao = Literal["ENTRADA", "SAIDA", "TRANSFERENCIA", "AJUSTE"]
 # ── Depósito ──────────────────────────────────────────────────────────────────
 
 class DepositoCreate(BaseModel):
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     nome: str = Field(..., min_length=2, max_length=100)
     tipo: TipoDeposito = "GERAL"
     localizacao_desc: Optional[str] = Field(None, max_length=200)
@@ -61,7 +61,7 @@ class DepositoUpdate(BaseModel):
 
 class DepositoResponse(BaseModel):
     id: uuid.UUID
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     nome: str
     tipo: str
     localizacao_desc: Optional[str]
@@ -102,7 +102,7 @@ class EntradaEstoqueRequest(BaseModel):
 
 class SaidaEstoqueRequest(BaseModel):
     deposito_id: Optional[uuid.UUID] = None  # None = busca automática por fazenda
-    fazenda_id: Optional[uuid.UUID] = None
+    unidade_produtiva_id: Optional[uuid.UUID] = None
     produto_id: uuid.UUID
     quantidade: float = Field(..., gt=0)
     motivo: Optional[str] = Field(None, max_length=255)
@@ -152,7 +152,7 @@ class ItemRequisicaoCreate(BaseModel):
 
 
 class RequisicaoCreate(BaseModel):
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     data_necessidade: Optional[date] = None
     origem_tipo: str = Field("OUTRO", description="ORDEM_SERVICO | MANUTENCAO | PRODUCAO | OUTRO")
     origem_id: Optional[uuid.UUID] = None
@@ -194,7 +194,7 @@ class ItemRequisicaoResponse(BaseModel):
 
 class RequisicaoResponse(BaseModel):
     id: uuid.UUID
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     solicitante_id: uuid.UUID
     aprovador_id: Optional[uuid.UUID]
     data_solicitacao: datetime

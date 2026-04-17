@@ -13,25 +13,78 @@ import enum
 # ---------------------------------------------------------------------------
 
 class TipoArea(str, enum.Enum):
-    # Administrativo / legal
-    PROPRIEDADE       = "PROPRIEDADE"       # Imóvel rural (nível topo, tem matrícula)
+    # Nível raiz (parent=None, filhos de UnidadeProdutiva)
+    AREA_RURAL        = "AREA_RURAL"        # Contêiner de toda a área produtiva/ambiental
+    INFRAESTRUTURA    = "INFRAESTRUTURA"    # Agrupamento de benfeitorias físicas
+
+    # Filhos de AREA_RURAL
     GLEBA             = "GLEBA"             # Parcela legal com matrícula própria
 
-    # Produtivo
-    UNIDADE_PRODUTIVA = "UNIDADE_PRODUTIVA" # Agrupamento administrativo sem geometria
-    AREA              = "AREA"              # Subdivisão genérica de unidade produtiva
+    # Filhos de GLEBA
     TALHAO            = "TALHAO"            # Unidade de plantio (polígono)
-    PASTAGEM          = "PASTAGEM"          # Área de pastagem (polígono)
+    AREA_AMBIENTAL    = "AREA_AMBIENTAL"    # Agrupamento de áreas de preservação
+
+    # Filhos de TALHAO
+    AREA_OPERACIONAL  = "AREA_OPERACIONAL"  # Subdivisão operacional de talhão
+
+    # Filhos de AREA_OPERACIONAL
     PIQUETE           = "PIQUETE"           # Subdivisão de pastagem para rotação
+    ZONA_MANEJO       = "ZONA_MANEJO"       # Zona de manejo (agricultura de precisão)
+    SUBTALHAO         = "SUBTALHAO"         # Subdivisão administrativa de talhão
 
-    # Ambiental / legal
-    APP               = "APP"              # Área de Preservação Permanente
-    RESERVA_LEGAL     = "RESERVA_LEGAL"    # Reserva Legal (Código Florestal)
+    # Filhos de AREA_AMBIENTAL
+    APP               = "APP"               # Área de Preservação Permanente
+    RESERVA_LEGAL     = "RESERVA_LEGAL"     # Reserva Legal (Código Florestal)
 
-    # Infraestrutura (sem geometria obrigatória)
-    ARMAZEM           = "ARMAZEM"          # Armazém / silo / galpão
-    SEDE              = "SEDE"             # Sede administrativa / moradia
-    INFRAESTRUTURA    = "INFRAESTRUTURA"   # Curral, aviário, pocilga, etc.
+    # Filhos de INFRAESTRUTURA
+    SEDE              = "SEDE"              # Sede administrativa / moradia
+    ARMAZEM           = "ARMAZEM"           # Armazém / silo / galpão
+    CURRAL            = "CURRAL"            # Curral / mangueira / brete
+    OUTROS            = "OUTROS"            # Outras benfeitorias
+
+
+# ---------------------------------------------------------------------------
+# Hierarquia permitida: pai → conjunto de tipos filhos válidos
+# None = raiz (vinculado diretamente à UnidadeProdutiva)
+# ---------------------------------------------------------------------------
+
+# Camada TERRITORIAL (terra física): GLEBA → TALHAO → AREA_OPERACIONAL → folhas
+# Camada AMBIENTAL (preservação): GLEBA → AREA_AMBIENTAL → APP / RESERVA_LEGAL
+# Camada OPERACIONAL (infraestrutura): INFRAESTRUTURA → SEDE / ARMAZEM / CURRAL / OUTROS
+FILHOS_PERMITIDOS: dict[str | None, set[str]] = {
+    # Raiz — diretamente vinculados à UnidadeProdutiva
+    None: {TipoArea.AREA_RURAL, TipoArea.INFRAESTRUTURA},
+
+    # Contêiner de áreas
+    TipoArea.AREA_RURAL:       {TipoArea.GLEBA},
+
+    # Camada territorial
+    TipoArea.GLEBA:            {TipoArea.TALHAO, TipoArea.AREA_AMBIENTAL},
+    TipoArea.TALHAO:           {TipoArea.AREA_OPERACIONAL},
+    TipoArea.AREA_OPERACIONAL: {TipoArea.PIQUETE, TipoArea.ZONA_MANEJO, TipoArea.SUBTALHAO},
+
+    # Camada ambiental
+    TipoArea.AREA_AMBIENTAL:   {TipoArea.APP, TipoArea.RESERVA_LEGAL},
+
+    # Camada de infraestrutura
+    TipoArea.INFRAESTRUTURA:   {TipoArea.SEDE, TipoArea.ARMAZEM, TipoArea.CURRAL, TipoArea.OUTROS},
+
+    # Folhas — não aceitam filhos
+    TipoArea.PIQUETE:          set(),
+    TipoArea.ZONA_MANEJO:      set(),
+    TipoArea.SUBTALHAO:        set(),
+    TipoArea.APP:              set(),
+    TipoArea.RESERVA_LEGAL:    set(),
+    TipoArea.SEDE:             set(),
+    TipoArea.ARMAZEM:          set(),
+    TipoArea.CURRAL:           set(),
+    TipoArea.OUTROS:           set(),
+}
+
+# Tipos que contribuem para cada agregação de área
+TIPOS_AREA_PRODUTIVA  = {TipoArea.TALHAO, TipoArea.AREA_OPERACIONAL, TipoArea.PIQUETE, TipoArea.ZONA_MANEJO, TipoArea.SUBTALHAO}
+TIPOS_AREA_AMBIENTAL  = {TipoArea.APP, TipoArea.RESERVA_LEGAL}
+TIPOS_INFRAESTRUTURA  = {TipoArea.INFRAESTRUTURA, TipoArea.SEDE, TipoArea.ARMAZEM, TipoArea.CURRAL, TipoArea.OUTROS}
 
 
 # ---------------------------------------------------------------------------
@@ -42,24 +95,26 @@ class AreaRural(Base):
     """
     Modelo hierárquico unificado para toda subdivisão espacial de uma fazenda.
 
-    Substitui: talhoes, pec_piquetes, imoveis_rurais, imoveis_benfeitorias.
+    Hierarquia (parent=None = raiz da UnidadeProdutiva):
 
-    Hierarquia de exemplo:
-        PROPRIEDADE (Fazenda São João)
+        UNIDADE_PRODUTIVA
         ├── GLEBA (Matrícula 1234)
-        │   ├── APP (Rio das Pedras)
-        │   └── RESERVA_LEGAL
-        ├── UNIDADE_PRODUTIVA (Bloco Norte)
         │   ├── TALHAO (T-01)
-        │   ├── TALHAO (T-02)
-        │   └── PASTAGEM (P-01)
-        │       └── PIQUETE (PQ-01)
-        ├── ARMAZEM (Armazém Central)
-        └── SEDE
+        │   │   └── AREA_OPERACIONAL
+        │   │       ├── PIQUETE
+        │   │       ├── ZONA_MANEJO
+        │   │       └── SUBTALHAO
+        │   └── AREA_AMBIENTAL
+        │       ├── APP
+        │       └── RESERVA_LEGAL
+        └── INFRAESTRUTURA
+            ├── SEDE
+            ├── ARMAZEM
+            ├── CURRAL
+            └── OUTROS
 
-    Geometria: opcional — tipos administrativos (SEDE, ARMAZEM, UNIDADE_PRODUTIVA)
-    podem não ter polígono. Tipos produtivos (TALHAO, PIQUETE) normalmente têm.
-    Geometria armazenada como GeoJSON dict; em produção com PostGIS usar Geometry.
+    Validação de hierarquia: ver FILHOS_PERMITIDOS em models.py.
+    Geometria armazenada como GeoJSON dict; em produção usar PostGIS Geometry.
     """
     __tablename__ = "cadastros_areas_rurais"
 
@@ -67,8 +122,8 @@ class AreaRural(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    fazenda_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="CASCADE"), nullable=False, index=True
+    unidade_produtiva_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
     # Hierarquia (self-referencial)
@@ -246,7 +301,7 @@ class TipoInfraestrutura(str, enum.Enum):
 class Infraestrutura(Base):
     """
     Benfeitoria física de uma propriedade rural.
-    Vinculada a AreaRural tipo PROPRIEDADE (fazenda_id lógico).
+    Vinculada a AreaRural tipo PROPRIEDADE (unidade_produtiva_id lógico).
     """
     __tablename__ = "cadastros_infraestruturas"
     __table_args__ = (

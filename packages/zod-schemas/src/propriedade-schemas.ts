@@ -157,36 +157,52 @@ export type DocumentoExploracaoResponse = z.infer<typeof documentoExploracaoResp
 // ---------------------------------------------------------------------------
 
 export const TipoAreaRural = {
-  PROPRIEDADE: "PROPRIEDADE",
-  GLEBA: "GLEBA",
-  UNIDADE_PRODUTIVA: "UNIDADE_PRODUTIVA",
-  AREA: "AREA",
-  TALHAO: "TALHAO",
-  PASTAGEM: "PASTAGEM",
-  PIQUETE: "PIQUETE",
-  APP: "APP",
-  RESERVA_LEGAL: "RESERVA_LEGAL",
-  ARMAZEM: "ARMAZEM",
-  SEDE: "SEDE",
-  INFRAESTRUTURA: "INFRAESTRUTURA",
+  // Raiz — filhos diretos de UnidadeProdutiva
+  AREA_RURAL:       "AREA_RURAL",
+  INFRAESTRUTURA:   "INFRAESTRUTURA",
+  // Filhos de AREA_RURAL
+  GLEBA:            "GLEBA",
+  // Filhos de GLEBA
+  TALHAO:           "TALHAO",
+  AREA_AMBIENTAL:   "AREA_AMBIENTAL",
+  // Filhos de TALHAO
+  AREA_OPERACIONAL: "AREA_OPERACIONAL",
+  // Filhos de AREA_OPERACIONAL
+  PIQUETE:          "PIQUETE",
+  ZONA_MANEJO:      "ZONA_MANEJO",
+  SUBTALHAO:        "SUBTALHAO",
+  // Filhos de AREA_AMBIENTAL
+  APP:              "APP",
+  RESERVA_LEGAL:    "RESERVA_LEGAL",
+  // Filhos de INFRAESTRUTURA
+  SEDE:             "SEDE",
+  ARMAZEM:          "ARMAZEM",
+  CURRAL:           "CURRAL",
+  OUTROS:           "OUTROS",
 } as const;
 
 export const TipoAreaRuralValues = Object.values(TipoAreaRural) as [string, ...string[]];
 
-export const AREA_HIERARQUIA = {
-  PROPRIEDADE: ["GLEBA", "UNIDADE_PRODUTIVA", "ARMAZEM", "SEDE", "INFRAESTRUTURA"],
-  GLEBA: ["APP", "RESERVA_LEGAL", "UNIDADE_PRODUTIVA"],
-  UNIDADE_PRODUTIVA: ["AREA", "TALHAO", "PASTAGEM"],
-  AREA: ["TALHAO", "PASTAGEM"],
-  PASTAGEM: ["PIQUETE"],
-  TALHAO: [],
-  PIQUETE: [],
-  APP: [],
-  RESERVA_LEGAL: [],
-  ARMAZEM: [],
-  SEDE: [],
-  INFRAESTRUTURA: [],
-} as const;
+// Hierarquia: null = raiz da UnidadeProdutiva
+export const AREA_HIERARQUIA: Record<string, readonly string[]> = {
+  __raiz__:         ["AREA_RURAL", "INFRAESTRUTURA"],
+  AREA_RURAL:       ["GLEBA"],
+  GLEBA:            ["TALHAO", "AREA_AMBIENTAL"],
+  TALHAO:           ["AREA_OPERACIONAL"],
+  AREA_OPERACIONAL: ["PIQUETE", "ZONA_MANEJO", "SUBTALHAO"],
+  AREA_AMBIENTAL:   ["APP", "RESERVA_LEGAL"],
+  INFRAESTRUTURA:   ["SEDE", "ARMAZEM", "CURRAL", "OUTROS"],
+  // folhas
+  PIQUETE:          [],
+  ZONA_MANEJO:      [],
+  SUBTALHAO:        [],
+  APP:              [],
+  RESERVA_LEGAL:    [],
+  SEDE:             [],
+  ARMAZEM:          [],
+  CURRAL:           [],
+  OUTROS:           [],
+};
 
 export const areaRuralSchema = z.object({
   id: z.string().uuid(),

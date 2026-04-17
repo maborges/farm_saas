@@ -18,8 +18,8 @@ from tests.integration.conftest import TENANT_ID, FAZENDA_ID
 
 async def _garantir_suporte(session):
     await session.execute(text("""
-        INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
-        VALUES (:id, 'Tenant RH', '77788899900', true, '["CORE","RH1"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+        INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+        VALUES (:id, 'Tenant RH', '77788899900', true,  0, 10240, 'pt-BR', NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(TENANT_ID)})
     await session.execute(text("""
@@ -57,7 +57,7 @@ def _payload_colaborador(**overrides) -> dict:
         "nome": f"Colaborador {uuid.uuid4().hex[:4]}",
         "tipo_contrato": "DIARISTA",
         "valor_diaria": 180.0,
-        "fazenda_id": str(FAZENDA_ID),
+        "unidade_produtiva_id": str(FAZENDA_ID),
         "cargo": "Operador Rural",
     }
     # Remove cpf if not supported by schema (ColaboradorCreate has cpf as Optional)
@@ -142,7 +142,7 @@ async def test_lancar_diaria(client, session, headers_rh):
             "horas_trabalhadas": 8.0,
             "atividade": "PLANTIO",
             "valor_diaria": 180.0,
-            "fazenda_id": str(FAZENDA_ID),
+            "unidade_produtiva_id": str(FAZENDA_ID),
         },
         headers=headers_rh,
     )
@@ -172,7 +172,7 @@ async def test_pagar_diarias(client, session, headers_rh):
             "horas_trabalhadas": 8.0,
             "atividade": "COLHEITA",
             "valor_diaria": 200.0,
-            "fazenda_id": str(FAZENDA_ID),
+            "unidade_produtiva_id": str(FAZENDA_ID),
         }, headers=headers_rh)
         assert d.status_code == 201
         ids.append(d.json()["id"])
@@ -210,7 +210,7 @@ async def test_criar_empreitada(client, session, headers_rh):
             "quantidade": 50.0,
             "unidade": "HECTARE",
             "data_inicio": str(date.today()),
-            "fazenda_id": str(FAZENDA_ID),
+            "unidade_produtiva_id": str(FAZENDA_ID),
         },
         headers=headers_rh,
     )
@@ -239,7 +239,7 @@ async def test_concluir_empreitada(client, session, headers_rh):
         "quantidade": 20.0,
         "unidade": "HECTARE",
         "data_inicio": str(date.today()),
-        "fazenda_id": str(FAZENDA_ID),
+        "unidade_produtiva_id": str(FAZENDA_ID),
     }, headers=headers_rh)
     assert emp.status_code == 201
     empreitada_id = emp.json()["id"]

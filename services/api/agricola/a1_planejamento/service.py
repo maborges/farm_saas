@@ -5,9 +5,10 @@ from sqlalchemy.future import select
 from sqlalchemy import func
 
 from core.exceptions import BusinessRuleError, EntityNotFoundError
-from agricola.safras.models import Safra
+from agricola.safras.models import Safra, SafraTalhao
 from agricola.operacoes.models import OperacaoAgricola
 from agricola.a1_planejamento.models import ItemOrcamentoSafra
+from core.cadastros.propriedades.models import AreaRural
 from financeiro.models.rateio import Rateio
 from agricola.a1_planejamento.schemas import (
     ItemOrcamentoCreate,
@@ -65,6 +66,7 @@ class PlanejamentoService:
         )
         self.session.add(item)
         await self.session.flush()
+        await self.session.commit()
         await self.session.refresh(item)
         return item
 
@@ -87,6 +89,7 @@ class PlanejamentoService:
 
         self.session.add(item)
         await self.session.flush()
+        await self.session.commit()
         await self.session.refresh(item)
         return item
 
@@ -100,6 +103,7 @@ class PlanejamentoService:
             raise EntityNotFoundError(f"Item de orçamento {item_id} não encontrado.")
         await self.session.delete(item)
         await self.session.flush()
+        await self.session.commit()
 
     # ── Orçamento Previsto × Realizado ────────────────────────────────────
 
@@ -116,7 +120,25 @@ class PlanejamentoService:
 
     async def get_orcamento(self, safra_id: uuid.UUID) -> OrcamentoSafraResponse:
         safra = await self._get_safra(safra_id)
-        area_ha = float(safra.area_plantada_ha or 1.0)
+
+        # Calcula área somando os talhões associados à safra
+        # Prioridade: SafraTalhao.area_ha → AreaRural.area_hectares → safra.area_plantada_ha → 1.0
+        talhoes_stmt = select(
+            func.sum(
+                func.coalesce(
+                    SafraTalhao.area_ha,
+                    AreaRural.area_hectares,
+                    AreaRural.area_hectares_manual
+                )
+            )
+        ).select_from(SafraTalhao).join(
+            AreaRural, SafraTalhao.area_id == AreaRural.id
+        ).where(
+            SafraTalhao.safra_id == safra_id,
+            SafraTalhao.tenant_id == self.tenant_id,
+        )
+        area_talhoes = (await self.session.execute(talhoes_stmt)).scalar() or 0
+        area_ha = float(area_talhoes) if area_talhoes > 0 else float(safra.area_plantada_ha or 1.0)
 
         # ── Previsto: itens do orçamento ──────────────────────────────────
         itens = await self.listar_itens(safra_id)

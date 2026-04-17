@@ -171,22 +171,22 @@ async def remover_exploracao(
 # ===========================================================================
 
 @router.get(
-    "/fazendas/{fazenda_id}/exploracoes",
+    "/fazendas/{unidade_produtiva_id}/exploracoes",
     response_model=list[ExploracaoResponse],
 )
 async def listar_exploracoes_por_fazenda(
-    fazenda_id: uuid.UUID,
+    unidade_produtiva_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     """Lista todas as explorações de uma fazenda."""
     expl_service = ExploracaoRuralService(session, tenant_id)
-    # Filtrar manualmente por fazenda_id
+    # Filtrar manualmente por unidade_produtiva_id
     from sqlalchemy import select, and_
     
     stmt = select(ExploracaoRural).where(
         and_(
-            ExploracaoRural.fazenda_id == fazenda_id,
+            ExploracaoRural.unidade_produtiva_id == unidade_produtiva_id,
             ExploracaoRural.tenant_id == tenant_id,
         )
     ).order_by(ExploracaoRural.data_inicio.desc())
@@ -196,14 +196,14 @@ async def listar_exploracoes_por_fazenda(
 
 
 @router.get(
-    "/fazendas/{fazenda_id}/exploracoes/vigentes",
+    "/fazendas/{unidade_produtiva_id}/exploracoes/vigentes",
     response_model=list[ExploracaoResponse],
 )
 async def listar_exploracoes_vigentes_por_fazenda(
-    fazenda_id: uuid.UUID,
+    unidade_produtiva_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     """Lista explorações vigentes (ativas) de uma fazenda."""
     expl_service = ExploracaoRuralService(session, tenant_id)
-    return await expl_service.listar_vigentes_por_fazenda(fazenda_id)
+    return await expl_service.listar_vigentes_por_fazenda(unidade_produtiva_id)

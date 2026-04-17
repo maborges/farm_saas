@@ -34,6 +34,16 @@ class LoteBeneficiamento(Base):
         UUIDCol(as_uuid=True), ForeignKey("cadastros_areas_rurais.id", ondelete="SET NULL"),
         nullable=True, index=True
     )
+    romaneio_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUIDCol(as_uuid=True), ForeignKey("romaneios_colheita.id", ondelete="SET NULL"),
+        nullable=True, index=True,
+        comment="FK para rastreabilidade: qual romaneio originou este lote"
+    )
+    lote_estoque_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUIDCol(as_uuid=True), ForeignKey("estoque_lotes.id", ondelete="SET NULL"),
+        nullable=True, index=True,
+        comment="FK para LoteEstoque criado ao armazenar"
+    )
 
     # Identificação do lote
     numero_lote: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -85,6 +95,20 @@ class LoteBeneficiamento(Base):
         comment="% de perda no processamento vs. esperado"
     )
 
+    # Perdas detalhadas (rendimento granular)
+    perda_secagem_kg: Mapped[float | None] = mapped_column(
+        Numeric(10, 3), nullable=True,
+        comment="Perda de peso durante secagem (kg)"
+    )
+    perda_quebra_kg: Mapped[float | None] = mapped_column(
+        Numeric(10, 3), nullable=True,
+        comment="Grãos quebrados descartados (kg)"
+    )
+    perda_defeito_kg: Mapped[float | None] = mapped_column(
+        Numeric(10, 3), nullable=True,
+        comment="Grãos defeituosos descartados (kg)"
+    )
+
     # Classificação e qualidade
     peneira_principal: Mapped[str | None] = mapped_column(
         String(10), nullable=True,
@@ -111,3 +135,24 @@ class LoteBeneficiamento(Base):
     updated_at: Mapped[datetime] = mapped_column(
         server_default=text("(CURRENT_TIMESTAMP)"), onupdate=datetime.utcnow
     )
+
+
+class LoteBeneficiamentoRomaneio(Base):
+    """N:N junction table: um LoteBeneficiamento pode ter múltiplos Romaneios (blend/agrupamento)."""
+    __tablename__ = "cafe_lote_beneficiamento_romaneios"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUIDCol(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUIDCol(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False, index=True
+    )
+    lote_id: Mapped[uuid.UUID] = mapped_column(
+        UUIDCol(as_uuid=True), ForeignKey("cafe_lotes_beneficiamento.id", ondelete="CASCADE"),
+        nullable=False, index=True
+    )
+    romaneio_id: Mapped[uuid.UUID] = mapped_column(
+        UUIDCol(as_uuid=True), ForeignKey("romaneios_colheita.id", ondelete="SET NULL"),
+        nullable=False, index=True
+    )
+    peso_entrada_kg: Mapped[float] = mapped_column(Numeric(12, 3), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=text("(CURRENT_TIMESTAMP)"))

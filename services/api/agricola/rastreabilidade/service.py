@@ -22,6 +22,9 @@ class RastreabilidadeService(BaseService[LoteRastreabilidade]):
         from agricola.operacoes.models import OperacaoAgricola, InsumoOperacao
         from agricola.romaneios.models import RomaneioColheita
         from core.cadastros.models import ProdutoCatalogo as Produto
+        from agricola.colheita.models import ProdutoColhido
+        from financeiro.comercializacao.models import ComercializacaoCommodity
+        from core.cadastros.commodities.models import Commodity
 
         lote = await self.get_or_fail(lote_id)
 
@@ -63,6 +66,36 @@ class RastreabilidadeService(BaseService[LoteRastreabilidade]):
             .order_by(RomaneioColheita.data_colheita)
         )
         romaneios = list((await self.session.execute(stmt_rom)).scalars().all())
+
+        # ── ProdutoColhido (estoque colhido classificado) ───────────
+        stmt_pc = (
+            select(ProdutoColhido)
+            .where(
+                ProdutoColhido.safra_id == lote.safra_id,
+                ProdutoColhido.talhao_id == lote.talhao_id,
+                ProdutoColhido.tenant_id == self.tenant_id,
+            )
+            .order_by(ProdutoColhido.data_entrada)
+        )
+        produtos_colhidos = list((await self.session.execute(stmt_pc)).scalars().all())
+
+        # Buscar dados das commodities
+        pc_commodity_ids = {pc.commodity_id for pc in produtos_colhidos}
+        commodities: dict[UUID, Commodity] = {}
+        if pc_commodity_ids:
+            stmt_comm = select(Commodity).where(Commodity.id.in_(pc_commodity_ids))
+            commodities = {c.id: c for c in (await self.session.execute(stmt_comm)).scalars().all()}
+
+        # ── Comercializações (vendas vinculadas aos produtos colhidos) ─
+        pc_ids = [pc.id for pc in produtos_colhidos]
+        comercializacoes = []
+        if pc_ids:
+            stmt_comm = (
+                select(ComercializacaoCommodity)
+                .where(ComercializacaoCommodity.produto_colhido_id.in_(pc_ids))
+                .order_by(ComercializacaoCommodity.created_at)
+            )
+            comercializacoes = list((await self.session.execute(stmt_comm)).scalars().all())
 
         # Monta resposta
         return {
@@ -128,12 +161,51 @@ class RastreabilidadeService(BaseService[LoteRastreabilidade]):
                 }
                 for r in romaneios
             ],
+            "produtos_colhidos": [
+                {
+                    "id": str(pc.id),
+                    "commodity_nome": commodities[pc.commodity_id].nome if pc.commodity_id in commodities else None,
+                    "commodity_codigo": commodities[pc.commodity_id].codigo if pc.commodity_id in commodities else None,
+                    "quantidade": float(pc.quantidade),
+                    "unidade": pc.unidade,
+                    "peso_liquido_kg": float(pc.peso_liquido_kg),
+                    "umidade_pct": float(pc.umidade_pct) if pc.umidade_pct else None,
+                    "impureza_pct": float(pc.impureza_pct) if pc.impureza_pct else None,
+                    "status": pc.status,
+                    "destino": pc.destino,
+                    "data_entrada": pc.data_entrada.isoformat(),
+                }
+                for pc in produtos_colhidos
+            ],
+            "comercializacoes": [
+                {
+                    "id": str(c.id),
+                    "numero_contrato": c.numero_contrato,
+                    "comprador_id": str(c.comprador_id),
+                    "quantidade": float(c.quantidade),
+                    "unidade": c.unidade,
+                    "preco_unitario": float(c.preco_unitario),
+                    "valor_total": float(c.valor_total),
+                    "moeda": c.moeda,
+                    "status": c.status,
+                    "forma_pagamento": c.forma_pagamento,
+                    "data_entrega_prevista": c.data_entrega_prevista.isoformat() if c.data_entrega_prevista else None,
+                    "data_entrega_real": c.data_entrega_real.isoformat() if c.data_entrega_real else None,
+                    "nf_numero": c.nf_numero,
+                }
+                for c in comercializacoes
+            ],
             "resumo": {
                 "total_operacoes": len(operacoes),
                 "custo_total_operacoes": round(sum(float(op.custo_total or 0) for op in operacoes), 2),
                 "total_insumos_aplicados": sum(len(op.insumos) for op in operacoes),
                 "total_colhido_sacas": round(sum(float(r.sacas_60kg or 0) for r in romaneios), 2),
-                "receita_total": round(sum(float(r.receita_total or 0) for r in romaneios), 2),
+                "total_estoque_kg": round(sum(float(pc.peso_liquido_kg or 0) for pc in produtos_colhidos), 2),
+                "total_vendido_kg": round(
+                    sum(float(c.valor_total or 0) for c in comercializacoes if c.status == "FINALIZADO"), 2
+                ),
+                "receita_total_romaneios": round(sum(float(r.receita_total or 0) for r in romaneios), 2),
+                "receita_total_comercializacoes": round(sum(float(c.valor_total or 0) for c in comercializacoes), 2),
             },
         }
 

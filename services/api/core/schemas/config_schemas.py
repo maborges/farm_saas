@@ -146,7 +146,7 @@ class CategoriaUpdateRequest(BaseModel):
 
 class ConfiguracaoFazendaResponse(BaseModel):
     """Override de configurações por fazenda."""
-    fazenda_id: UUID
+    unidade_produtiva_id: UUID
     overrides: Dict[str, Any]
 
     class Config:

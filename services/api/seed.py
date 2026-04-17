@@ -4,7 +4,7 @@ from datetime import date, datetime
 from sqlalchemy.ext.asyncio import create_async_engine
 from core.database import Base, DB_URL, async_session_maker
 from core.models import Tenant, Fazenda
-from core.models.grupo_fazendas import GrupoFazendas
+# grupos_fazendas removed
 from core.models.billing import PlanoAssinatura, AssinaturaTenant
 from agricola.safras.models import Safra
 from core.cadastros.propriedades.models import AreaRural
@@ -43,7 +43,6 @@ async def init_db():
 
         # 1b. Grupo de fazendas + plano + assinatura
         grupo_id = uuid.UUID("a1b2c3d4-0000-0000-0000-000000000001")
-        grupo = GrupoFazendas(
             id=grupo_id,
             tenant_id=tenant_id,
             nome="Grupo Ouro Verde",
@@ -63,16 +62,16 @@ async def init_db():
         assinatura = AssinaturaTenant(
             tenant_id=tenant_id,
             plano_id=plano.id,
-            grupo_fazendas_id=grupo_id,
-            tipo_assinatura="GRUPO",
+            ,
+            tipo_assinatura="TENANT",
             status="ATIVA",
         )
         session.add(assinatura)
 
         # 2. Fazendas (vinculadas ao grupo)
-        fazenda_id = uuid.UUID("e10b4290-7d71-4828-b80c-7b243ebd9e2f")
+        unidade_produtiva_id = uuid.UUID("e10b4290-7d71-4828-b80c-7b243ebd9e2f")
         fazenda = Fazenda(
-            id=fazenda_id,
+            id=unidade_produtiva_id,
             tenant_id=tenant_id,
             grupo_id=grupo_id,
             nome="Fazenda Matriz - Chapadão",
@@ -101,7 +100,7 @@ async def init_db():
         t1 = AreaRural(
             id=uuid.uuid4(),
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             tipo="TALHAO",
             nome="Talhão 01 - Norte",
             area_hectares_manual=50.5,
@@ -110,7 +109,7 @@ async def init_db():
         t2 = AreaRural(
             id=uuid.uuid4(),
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             tipo="TALHAO",
             nome="Talhão 02 - Sul",
             area_hectares_manual=40.0,
@@ -151,7 +150,7 @@ async def init_db():
 
         despesa = Despesa(
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             plano_conta_id=plano.id,
             descricao="Compra de Sementes",
             valor_total=15000.0,
@@ -165,7 +164,7 @@ async def init_db():
         # 8. Pecuária
         piquete = Piquete(
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             nome="Pasto 01",
             area_ha=25.0
         )
@@ -174,7 +173,7 @@ async def init_db():
 
         lote = LoteBovino(
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             piquete_id=piquete.id,
             identificacao="Lote 101",
             categoria="RECRIA",

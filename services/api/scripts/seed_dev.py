@@ -25,7 +25,7 @@ from core.database import async_session_maker, DB_URL
 from core.models.tenant import Tenant
 from core.models.auth import Usuario, PerfilAcesso, TenantUsuario, FazendaUsuario
 from core.models.billing import PlanoAssinatura, AssinaturaTenant
-from core.models.fazenda import Fazenda
+from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
 from core.constants import Modulos
 
 
@@ -269,11 +269,10 @@ async def seed() -> None:
                 grupo_id = grupo_row[0] if grupo_row else None
             else:
                 from core.models.billing import AssinaturaTenant
-                from core.models.grupo_fazendas import GrupoFazendas
+                # grupos_fazendas removed
                 from datetime import timedelta
 
                 # Criar grupo de fazendas (obrigatório)
-                grupo = GrupoFazendas(
                     tenant_id=tenant_id,
                     nome="Grupo Principal",
                     descricao="Grupo criado pelo seed de desenvolvimento"
@@ -285,9 +284,9 @@ async def seed() -> None:
                 assinatura = AssinaturaTenant(
                     tenant_id=tenant_id,
                     plano_id=plano_id,
-                    grupo_fazendas_id=grupo_id,
+                    ,
                     status="ATIVA",
-                    tipo_assinatura="GRUPO",
+                    tipo_assinatura="TENANT",
                     data_inicio=datetime.now(timezone.utc),
                     data_proxima_renovacao=datetime.now(timezone.utc) + timedelta(days=30),
                 )
@@ -404,7 +403,7 @@ async def seed() -> None:
             
             if fazenda_existente:
                 print("  ⚠️  Fazenda já existe")
-                fazenda_id = fazenda_existente[0]
+                unidade_produtiva_id = fazenda_existente[0]
             else:
                 fazenda = Fazenda(
                     tenant_id=tenant_id,
@@ -419,8 +418,8 @@ async def seed() -> None:
                 session.add(fazenda)
                 await session.commit()
                 await session.refresh(fazenda)
-                fazenda_id = fazenda.id
-                print(f"  ✅ Fazenda '{fazenda.nome}' criada (ID: {fazenda_id})")
+                unidade_produtiva_id = fazenda.id
+                print(f"  ✅ Fazenda '{fazenda.nome}' criada (ID: {unidade_produtiva_id})")
             
             # ==========================================================================
             # 7. RESUMO

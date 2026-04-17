@@ -15,6 +15,7 @@ class RomaneioService(BaseService[RomaneioColheita]):
         super().__init__(RomaneioColheita, session, tenant_id)
 
     # Parâmetros de qualidade por cultura (umidade padrão MAPA, impureza padrão, saca kg)
+    # Fallback para commodities sem parâmetros configurados
     _PARAMS_CULTURA = {
         "Café":    {"umidade_padrao": 12.0, "impureza_padrao": 1.0, "saca_kg": 60.0},
         "Soja":    {"umidade_padrao": 14.0, "impureza_padrao": 1.0, "saca_kg": 60.0},
@@ -29,27 +30,31 @@ class RomaneioService(BaseService[RomaneioColheita]):
     def _params_para_cultura(self, cultura: str | None) -> dict:
         if not cultura:
             return self._PARAMS_DEFAULT
-        # match case-insensitive por prefixo
         for key, params in self._PARAMS_CULTURA.items():
             if cultura.lower().startswith(key.lower()):
                 return params
         return self._PARAMS_DEFAULT
 
     async def _params_da_safra(self, safra_obj) -> dict:
-        """Busca parâmetros de qualidade do Commodity vinculado à safra.
-        Se não houver commodity vinculado, usa o dict hardcoded por cultura (fallback).
+        """Busca parâmetros de qualidade da Commodity vinculada à safra.
+
+        Prioridade:
+        1. Commodity.umidade_padrao_pct e commodity.impureza_padrao_pct (se configurados)
+        2. Fallback por cultura do sistema (dicionário hardcoded)
+        3. Peso da saca vem de commodity.peso_unidade (se disponível)
         """
+        fallback = self._params_para_cultura(safra_obj.cultura if safra_obj else None)
+
         if safra_obj and safra_obj.commodity_id:
             from core.cadastros.commodities.models import Commodity
             commodity = await self.session.get(Commodity, safra_obj.commodity_id)
             if commodity:
                 return {
-                    "umidade_padrao": float(commodity.umidade_padrao_pct or self._PARAMS_DEFAULT["umidade_padrao"]),
-                    "impureza_padrao": float(commodity.impureza_padrao_pct or self._PARAMS_DEFAULT["impureza_padrao"]),
-                    "saca_kg": float(commodity.fator_conversao_kg or 60.0),
+                    "umidade_padrao": float(commodity.umidade_padrao_pct or fallback["umidade_padrao"]),
+                    "impureza_padrao": float(commodity.impureza_padrao_pct or fallback["impureza_padrao"]),
+                    "saca_kg": float(commodity.peso_unidade or 60.0),
                 }
-        # fallback: dict por nome de cultura
-        return self._params_para_cultura(safra_obj.cultura if safra_obj else None)
+        return fallback
 
     def _calcular_peso_padrao(
         self,
@@ -92,10 +97,14 @@ class RomaneioService(BaseService[RomaneioColheita]):
     async def criar(self, dados: RomaneioColheitaCreate) -> RomaneioColheita:
         dados_dict = dados.model_dump()
 
-        # 1. Busca parâmetros do Commodity vinculado à safra (fallback: dict por cultura)
+        # 1. Busca safra e commodity
         from agricola.safras.models import Safra as SafraModel
         safra_obj = await self.session.get(SafraModel, dados.safra_id)
         params = await self._params_da_safra(safra_obj)
+
+        # Deriva commodity_id da safra (se não informado)
+        if safra_obj and safra_obj.commodity_id:
+            dados_dict.setdefault("commodity_id", safra_obj.commodity_id)
 
         # 2. Calcular o peso líquido bruto
         peso_bruto = dados_dict.get('peso_bruto_kg', 0)
@@ -120,8 +129,8 @@ class RomaneioService(BaseService[RomaneioColheita]):
         # 4. Converter para sacas
         sacas = round(sacas, 3)
         dados_dict['sacas_60kg'] = sacas
-        
-        # 4. Calcular Receita Prevista se preço informado
+
+        # 5. Calcular Receita Prevista se preço informado
         preco = dados_dict.get('preco_saca')
         if preco:
             dados_dict['receita_total'] = sacas * preco
@@ -143,6 +152,33 @@ class RomaneioService(BaseService[RomaneioColheita]):
 
         romaneio = await super().create(dados_dict)
 
+        # ── Cria ProdutoColhido automaticamente (rastreabilidade) ─────
+        if romaneio.commodity_id:
+            from agricola.colheita.models import ProdutoColhido
+            from core.cadastros.commodities.models import Commodity
+
+            commodity = await self.session.get(Commodity, romaneio.commodity_id)
+            unidade = commodity.unidade_padrao if commodity else "SACA_60KG"
+
+            produto_colhido = ProdutoColhido(
+                tenant_id=self.tenant_id,
+                safra_id=dados.safra_id,
+                talhao_id=dados.talhao_id,
+                romaneio_id=romaneio.id,
+                commodity_id=romaneio.commodity_id,
+                quantidade=dados_dict.get("sacas_60kg") or 0,
+                unidade=unidade,
+                peso_liquido_kg=dados_dict.get("peso_liquido_padrao_kg") or romaneio.peso_liquido_kg or 0,
+                umidade_pct=dados_dict.get("umidade_pct"),
+                impureza_pct=dados_dict.get("impureza_pct"),
+                avariados_pct=dados_dict.get("avariados_pct"),
+                destino=dados_dict.get("destino"),
+                armazem_id=dados_dict.get("armazem_id"),
+                data_entrada=dados.data_colheita,
+                status="ARMAZENADO",
+            )
+            self.session.add(produto_colhido)
+
         # ── Integração com Financeiro: Receita de Venda de Grãos ──────────
         receita_total = dados_dict.get("receita_total") or 0.0
         if receita_total > 0:
@@ -151,8 +187,8 @@ class RomaneioService(BaseService[RomaneioColheita]):
             from core.cadastros.propriedades.models import AreaRural
             from agricola.safras.models import Safra
 
-            stmt_talhao = select(AreaRural.fazenda_id).where(AreaRural.id == dados.talhao_id)
-            fazenda_id = (await self.session.execute(stmt_talhao)).scalar()
+            stmt_talhao = select(AreaRural.unidade_produtiva_id).where(AreaRural.id == dados.talhao_id)
+            unidade_produtiva_id = (await self.session.execute(stmt_talhao)).scalar()
 
             stmt_pc = (
                 select(PlanoConta.id)
@@ -166,7 +202,7 @@ class RomaneioService(BaseService[RomaneioColheita]):
             )
             plano_id = (await self.session.execute(stmt_pc)).scalar()
 
-            if plano_id and fazenda_id:
+            if plano_id and unidade_produtiva_id:
                 stmt_safra = select(Safra.cultura, Safra.ano_safra).where(
                     Safra.id == dados.safra_id
                 )
@@ -179,7 +215,7 @@ class RomaneioService(BaseService[RomaneioColheita]):
                 rec = Receita(
                     id=uuid.uuid4(),
                     tenant_id=self.tenant_id,
-                    fazenda_id=fazenda_id,
+                    unidade_produtiva_id=unidade_produtiva_id,
                     plano_conta_id=plano_id,
                     descricao=descricao,
                     valor_total=float(receita_total),

@@ -44,7 +44,7 @@ class CAR(Base):
     # Identificação
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False, index=True)
-    fazenda_id = Column(UUID(as_uuid=True), ForeignKey("fazendas.id"), nullable=False)
+    unidade_produtiva_id = Column(UUID(as_uuid=True), ForeignKey("unidades_produtivas.id"), nullable=False)
     
     # Dados do CAR
     codigo_car = Column(String(50), unique=True, nullable=False, index=True)
@@ -130,7 +130,7 @@ class CAR(Base):
     
     # Relacionamentos
     tenant = relationship("Tenant")
-    fazenda = relationship("Fazenda", back_populates="car")
+    fazenda = relationship("UnidadeProdutiva", back_populates="car")
     monitoramentos = relationship("MonitoramentoAPP", back_populates="car")
     alertas = relationship("AlertaDesmatamento", back_populates="car")
     
@@ -303,7 +303,7 @@ class OutorgaHidrica(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    fazenda_id = Column(UUID(as_uuid=True), ForeignKey("fazendas.id"), nullable=False)
+    unidade_produtiva_id = Column(UUID(as_uuid=True), ForeignKey("unidades_produtivas.id"), nullable=False)
     
     # Dados da outorga
     numero_outorga = Column(String(50), nullable=True)
@@ -352,7 +352,7 @@ class OutorgaHidrica(Base):
     
     # Relacionamentos
     tenant = relationship("Tenant")
-    fazenda = relationship("Fazenda")
+    fazenda = relationship("UnidadeProdutiva")
     
     def __repr__(self):
         return f"<OutorgaHidrica {self.numero_outorga}>"
@@ -381,7 +381,7 @@ class CCIR(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
-    fazenda_id = Column(UUID(as_uuid=True), ForeignKey("fazendas.id"), nullable=False)
+    unidade_produtiva_id = Column(UUID(as_uuid=True), ForeignKey("unidades_produtivas.id"), nullable=False)
     
     # Dados do CCIR
     numero_ccir = Column(String(50), unique=True, nullable=False)
@@ -410,7 +410,7 @@ class CCIR(Base):
     
     # Relacionamentos
     tenant = relationship("Tenant")
-    fazenda = relationship("Fazenda")
+    fazenda = relationship("UnidadeProdutiva")
     
     def __repr__(self):
         return f"<CCIR {self.numero_ccir} - {self.ano_exercicio}>"

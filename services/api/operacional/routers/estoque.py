@@ -83,11 +83,11 @@ async def alertas_validade(
 
 @router.get("/depositos", response_model=List[DepositoResponse])
 async def listar_depositos(
-    fazenda_id: Optional[uuid.UUID] = Query(None),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None),
     tenant: Tenant = Depends(get_current_tenant),
     session: AsyncSession = Depends(get_session),
 ):
-    return await _svc(session, tenant).listar_depositos(fazenda_id)
+    return await _svc(session, tenant).listar_depositos(unidade_produtiva_id)
 
 
 @router.post("/depositos", response_model=DepositoResponse, status_code=201)
@@ -119,20 +119,20 @@ async def atualizar_deposito(
 
 @router.get("/saldos", response_model=List[SaldoResponse])
 async def listar_saldos(
-    fazenda_id: Optional[uuid.UUID] = Query(None),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None),
     tenant: Tenant = Depends(get_current_tenant),
     session: AsyncSession = Depends(get_session),
 ):
-    return await _svc(session, tenant).listar_saldos(fazenda_id)
+    return await _svc(session, tenant).listar_saldos(unidade_produtiva_id)
 
 
 @router.get("/alertas", response_model=List[AlertaEstoqueItem])
 async def alertas_estoque_minimo(
-    fazenda_id: Optional[uuid.UUID] = Query(None),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None),
     tenant: Tenant = Depends(get_current_tenant),
     session: AsyncSession = Depends(get_session),
 ):
-    return await _svc(session, tenant).alertas_estoque_minimo(fazenda_id)
+    return await _svc(session, tenant).alertas_estoque_minimo(unidade_produtiva_id)
 
 
 # ── Movimentações ─────────────────────────────────────────────────────────────
@@ -213,12 +213,12 @@ async def criar_requisicao(
 
 @router.get("/requisicoes", response_model=List[RequisicaoResponse])
 async def listar_requisicoes(
-    fazenda_id: Optional[uuid.UUID] = Query(None),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None),
     status: Optional[str] = Query(None),
     tenant: Tenant = Depends(get_current_tenant),
     session: AsyncSession = Depends(get_session),
 ):
-    return await _svc(session, tenant).listar_requisicoes(fazenda_id, status)
+    return await _svc(session, tenant).listar_requisicoes(unidade_produtiva_id, status)
 
 
 @router.patch("/requisicoes/{req_id}/aprovar", response_model=RequisicaoResponse)

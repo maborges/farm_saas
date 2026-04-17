@@ -33,7 +33,7 @@ MODULES_CORE = ["CORE"]
 
 # ── Helpers de token ─────────────────────────────────────────────────────────
 
-def _make_token(tenant_id: uuid.UUID, fazenda_id: uuid.UUID, modules: list[str]) -> str:
+def _make_token(tenant_id: uuid.UUID, unidade_produtiva_id: uuid.UUID, modules: list[str]) -> str:
     from datetime import timedelta
     from unittest.mock import MagicMock
     from core.services.auth_service import AuthService
@@ -43,7 +43,7 @@ def _make_token(tenant_id: uuid.UUID, fazenda_id: uuid.UUID, modules: list[str])
             "sub": str(USER_ID),
             "tenant_id": str(tenant_id),
             "modules": modules,
-            "fazendas_auth": [{"id": str(fazenda_id), "role": "admin"}],
+            "fazendas_auth": [{"id": str(unidade_produtiva_id), "role": "admin"}],
             "is_superuser": False,
             "plan_tier": "PROFISSIONAL",
         },
@@ -51,22 +51,22 @@ def _make_token(tenant_id: uuid.UUID, fazenda_id: uuid.UUID, modules: list[str])
     )
 
 
-def _headers(tenant_id: uuid.UUID, fazenda_id: uuid.UUID, modules: list[str]) -> dict:
+def _headers(tenant_id: uuid.UUID, unidade_produtiva_id: uuid.UUID, modules: list[str]) -> dict:
     return {
-        "Authorization": f"Bearer {_make_token(tenant_id, fazenda_id, modules)}",
-        "X-Fazenda-ID": str(fazenda_id),
+        "Authorization": f"Bearer {_make_token(tenant_id, unidade_produtiva_id, modules)}",
+        "X-Fazenda-ID": str(unidade_produtiva_id),
     }
 
 
 # ── DB Fixtures ───────────────────────────────────────────────────────────────
 
-async def _setup_tenant(session, tenant_id: uuid.UUID, fazenda_id: uuid.UUID, modules: list[str]):
+async def _setup_tenant(session, tenant_id: uuid.UUID, unidade_produtiva_id: uuid.UUID, modules: list[str]):
     """Insere tenant, fazenda, plano e assinatura de teste via ORM."""
     from datetime import date
     from sqlalchemy import select
     from core.models.tenant import Tenant
-    from core.models.fazenda import Fazenda
-    from core.models.grupo_fazendas import GrupoFazendas
+    from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
+    # grupos_fazendas removed
     from core.models.billing import PlanoAssinatura, AssinaturaTenant
 
     # Tenant
@@ -74,21 +74,16 @@ async def _setup_tenant(session, tenant_id: uuid.UUID, fazenda_id: uuid.UUID, mo
     if not t:
         session.add(Tenant(
             id=tenant_id, nome=f"Tenant Gate {str(tenant_id)[:8]}",
-            documento=str(tenant_id.int)[:11], ativo=True, modulos_ativos=modules,
-            max_usuarios_simultaneos=10, storage_usado_mb=0,
+            documento=str(tenant_id.int)[:11], ativo=True, storage_usado_mb=0,
             storage_limite_mb=10240, idioma_padrao="pt-BR",
         ))
-    else:
-        t.modulos_ativos = modules
 
     await session.flush()
 
     # Grupo
     grupo = await session.scalar(
-        select(GrupoFazendas).where(GrupoFazendas.tenant_id == tenant_id).limit(1)
     )
     if not grupo:
-        grupo = GrupoFazendas(
             id=uuid.uuid4(), tenant_id=tenant_id, nome="Grupo Gate Test",
             cor="#000000", icone="home", ordem=0, ativo=True,
         )
@@ -96,10 +91,10 @@ async def _setup_tenant(session, tenant_id: uuid.UUID, fazenda_id: uuid.UUID, mo
         await session.flush()
 
     # Fazenda
-    faz = await session.get(Fazenda, fazenda_id)
+    faz = await session.get(Fazenda, unidade_produtiva_id)
     if not faz:
         session.add(Fazenda(
-            id=fazenda_id, tenant_id=tenant_id, grupo_id=grupo.id,
+            id=unidade_produtiva_id, tenant_id=tenant_id, grupo_id=grupo.id,
             nome="Fazenda Gate Test", ativo=True,
         ))
         await session.flush()
@@ -119,8 +114,8 @@ async def _setup_tenant(session, tenant_id: uuid.UUID, fazenda_id: uuid.UUID, mo
     # Upsert assinatura: atualiza existente ou cria nova
     existing_sub = await session.scalar(
         select(AssinaturaTenant).where(
-            AssinaturaTenant.grupo_fazendas_id == grupo.id,
-            AssinaturaTenant.tipo_assinatura == "GRUPO",
+            AssinaturaTenant.tenant_id == grupo.id,
+            AssinaturaTenant.tipo_assinatura == "TENANT",
         ).limit(1)
     )
     if existing_sub:
@@ -130,8 +125,8 @@ async def _setup_tenant(session, tenant_id: uuid.UUID, fazenda_id: uuid.UUID, mo
     else:
         session.add(AssinaturaTenant(
             id=uuid.uuid4(), tenant_id=tenant_id, plano_id=plano_id,
-            grupo_fazendas_id=grupo.id,
-            status="ATIVA", tipo_assinatura="GRUPO", data_inicio=date.today(),
+            ,
+            status="ATIVA", tipo_assinatura="TENANT", data_inicio=date.today(),
         ))
 
     await session.commit()

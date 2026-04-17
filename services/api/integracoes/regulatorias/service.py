@@ -67,26 +67,7 @@ async def consultar_cep(cep: str) -> Optional[dict]:
     if cached:
         return cached
 
-    # Tenta BrasilAPI primeiro
-    try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-            resp = await client.get(f"https://brasilapi.com.br/api/cep/v2/{cep_limpo}")
-            if resp.status_code == 200:
-                data = resp.json()
-                result = {
-                    "cep": cep_limpo,
-                    "logradouro": data.get("street", ""),
-                    "bairro": data.get("neighborhood", ""),
-                    "municipio": data.get("city", ""),
-                    "uf": data.get("state", ""),
-                    "ibge_municipio_codigo": data.get("city_ibge", ""),
-                }
-                _cache_set(f"cep:{cep_limpo}", result, _CEP_TTL)
-                return result
-    except Exception as e:
-        logger.warning(f"BrasilAPI CEP falhou para {cep_limpo}: {e}")
-
-    # Fallback: ViaCEP
+    # Tenta ViaCEP primeiro — retorna código IBGE do município
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
             resp = await client.get(f"https://viacep.com.br/ws/{cep_limpo}/json/")
@@ -105,6 +86,25 @@ async def consultar_cep(cep: str) -> Optional[dict]:
                     return result
     except Exception as e:
         logger.warning(f"ViaCEP falhou para {cep_limpo}: {e}")
+
+    # Fallback: BrasilAPI (não retorna IBGE)
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.get(f"https://brasilapi.com.br/api/cep/v2/{cep_limpo}")
+            if resp.status_code == 200:
+                data = resp.json()
+                result = {
+                    "cep": cep_limpo,
+                    "logradouro": data.get("street", ""),
+                    "bairro": data.get("neighborhood", ""),
+                    "municipio": data.get("city", ""),
+                    "uf": data.get("state", ""),
+                    "ibge_municipio_codigo": "",
+                }
+                _cache_set(f"cep:{cep_limpo}", result, _CEP_TTL)
+                return result
+    except Exception as e:
+        logger.warning(f"BrasilAPI CEP falhou para {cep_limpo}: {e}")
 
     return None
 

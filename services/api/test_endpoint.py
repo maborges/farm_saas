@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import async_session_maker
 from core.models.tenant import Tenant
 from core.models.billing import AssinaturaTenant, PlanoAssinatura
-from core.models.fazenda import Fazenda, GrupoFazendas
+from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
 from core.models.auth import Usuario, TenantUsuario, FazendaUsuario, PerfilAcesso
 from sqlalchemy import select
 
@@ -27,9 +27,7 @@ async def test_tenant_details():
         print("\n2. Buscando assinaturas...")
         try:
             stmt_assinaturas = (
-                select(AssinaturaTenant, PlanoAssinatura, GrupoFazendas)
                 .join(PlanoAssinatura, AssinaturaTenant.plano_id == PlanoAssinatura.id)
-                .outerjoin(GrupoFazendas, AssinaturaTenant.grupo_fazendas_id == GrupoFazendas.id)
                 .where(AssinaturaTenant.tenant_id == tenant_id)
             )
             result = await session.execute(stmt_assinaturas)
@@ -59,8 +57,6 @@ async def test_tenant_details():
         print("\n4. Buscando grupos...")
         try:
             stmt_grupos = (
-                select(GrupoFazendas)
-                .where(GrupoFazendas.tenant_id == tenant_id, GrupoFazendas.ativo == True)
             )
             result = await session.execute(stmt_grupos)
             grupos = result.scalars().all()

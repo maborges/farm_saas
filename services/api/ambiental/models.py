@@ -60,8 +60,8 @@ class RegistroCAR(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    fazenda_id: Mapped[uuid.UUID | None] = mapped_column(
-        SQLUUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="SET NULL"), nullable=True, index=True
+    unidade_produtiva_id: Mapped[uuid.UUID | None] = mapped_column(
+        SQLUUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="SET NULL"), nullable=True, index=True
     )
     fazenda_nome: Mapped[str] = mapped_column(String(200), nullable=False)
     codigo_car: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
@@ -87,8 +87,8 @@ class AlertaAmbiental(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    fazenda_id: Mapped[uuid.UUID | None] = mapped_column(
-        SQLUUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="SET NULL"), nullable=True, index=True
+    unidade_produtiva_id: Mapped[uuid.UUID | None] = mapped_column(
+        SQLUUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="SET NULL"), nullable=True, index=True
     )
     fazenda_nome: Mapped[str | None] = mapped_column(String(200), nullable=True)
     tipo: Mapped[str] = mapped_column(SQLEnum(TipoAlerta), nullable=False, default=TipoAlerta.DESMATAMENTO)
@@ -113,8 +113,8 @@ class OutorgaHidrica(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         SQLUUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    fazenda_id: Mapped[uuid.UUID | None] = mapped_column(
-        SQLUUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="SET NULL"), nullable=True, index=True
+    unidade_produtiva_id: Mapped[uuid.UUID | None] = mapped_column(
+        SQLUUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="SET NULL"), nullable=True, index=True
     )
     fazenda_nome: Mapped[str | None] = mapped_column(String(200), nullable=True)
     numero_outorga: Mapped[str] = mapped_column(String(100), nullable=False)

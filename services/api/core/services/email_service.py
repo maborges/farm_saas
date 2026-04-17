@@ -127,4 +127,20 @@ class EmailService:
         )
         await self._send(email, "Recuperação de Senha - AgroSaaS 🔑", html, tenant_id)
 
+    async def send_trial_notice(self, email: str, nome: str, nome_produtor: str, nome_plano: str, dias_trial: int, data_vencimento, tenant_id: uuid.UUID = None):
+        """Envia e-mail com aviso de período de trial para nova assinatura."""
+        template = self.env.get_template("emails/trial_notice.html")
+        from datetime import datetime
+        data_vencimento_str = data_vencimento.strftime("%d/%m/%Y") if hasattr(data_vencimento, 'strftime') else str(data_vencimento)
+
+        html = template.render(
+            nome_usuario=nome,
+            nome_produtor=nome_produtor,
+            nome_plano=nome_plano,
+            dias_trial=dias_trial,
+            data_vencimento=data_vencimento_str,
+            dashboard_url=f"{settings.frontend_url}/dashboard"
+        )
+        await self._send(email, f"Período de Trial Iniciado - {dias_trial} dias grátis 🎉", html, tenant_id)
+
 email_service = EmailService()

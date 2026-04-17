@@ -15,10 +15,17 @@ class SafraService(BaseService[Safra]):
         super().__init__(Safra, session, tenant_id)
 
     async def criar(self, dados: SafraCreate) -> Safra:
-        # 1. Verifica se já existe safra ativa para talhao+ano+cultura
+        # 1. Valida lista de talhões
+        if not dados.talhao_ids:
+            raise BusinessRuleError("Informe pelo menos um talhão")
+
+        # 2. Usa primeiro talhão como principal
+        talhao_principal_id = dados.talhao_ids[0]
+
+        # 3. Verifica se já existe safra ativa para talhao_principal+ano+cultura
         stmt = select(Safra).filter_by(
             tenant_id=self.tenant_id,
-            talhao_id=dados.talhao_id,
+            talhao_id=talhao_principal_id,
             ano_safra=dados.ano_safra,
             cultura=dados.cultura
         ).where(Safra.status != 'CANCELADA')
@@ -26,12 +33,27 @@ class SafraService(BaseService[Safra]):
         if result.scalars().first():
             raise BusinessRuleError("Já existe uma safra ativa para este talhão, ano e cultura.")
 
-        # O cálculo da colheita_prevista baseado na cultivar.ciclo_dias_media
-        # (Isso assumiria uma consulta ao CULTIVAR, simplificando aqui para não sobrecarregar)
-
-        # 3. Cria a Safra
+        # 4. Cria a Safra com talhão principal
         dados_dict = dados.model_dump()
-        return await super().create(dados_dict)
+        dados_dict['talhao_id'] = talhao_principal_id
+        # Remove talhao_ids do dict antes de criar (não é campo do modelo)
+        dados_dict.pop('talhao_ids', None)
+
+        safra = await super().create(dados_dict)
+
+        # 5. Sincroniza múltiplos talhões (criar SafraTalhoes)
+        if len(dados.talhao_ids) > 1:
+            from agricola.safras.models import SafraTalhao
+            for talhao_id in dados.talhao_ids:
+                st = SafraTalhao(
+                    safra_id=safra.id,
+                    tenant_id=self.tenant_id,
+                    area_id=talhao_id,
+                    principal=False  # Nenhum talhão é "principal"
+                )
+                self.session.add(st)
+
+        return safra
 
     async def avancar_fase(
         self,
@@ -191,8 +213,11 @@ class SafraService(BaseService[Safra]):
         """Substitui a lista de talhões da safra (upsert idempotente).
         O primeiro ID da lista é marcado como principal.
         """
-        # Remove existentes
         from sqlalchemy import delete
+        from core.cadastros.propriedades.models import AreaRural
+        from sqlalchemy.future import select
+
+        # Remove existentes
         await self.session.execute(
             delete(SafraTalhao).where(
                 SafraTalhao.safra_id == safra_id,
@@ -202,13 +227,42 @@ class SafraService(BaseService[Safra]):
         await self.session.flush()
 
         novos = []
-        for i, tid in enumerate(talhao_ids):
+        for tid in talhao_ids:
+            # Procura area_ha com chaves como str (UUID) ou UUID direto
+            area_ha_valor = None
+            if areas_ha:
+                area_ha_valor = areas_ha.get(str(tid)) or areas_ha.get(tid)
+
+            # Validar se area_ha foi informado
+            if area_ha_valor is not None:
+                # Buscar área cadastrada do talhão
+                area_stmt = select(AreaRural).where(
+                    AreaRural.id == tid,
+                    AreaRural.tenant_id == self.tenant_id,
+                )
+                area = (await self.session.execute(area_stmt)).scalars().first()
+
+                if not area:
+                    raise BusinessRuleError(f"Talhão {tid} não encontrado.")
+
+                # Validar valor negativo
+                if area_ha_valor < 0:
+                    raise BusinessRuleError(f"Área em hectares não pode ser negativa.")
+
+                # Validar se não excede área cadastrada
+                area_cadastrada = float(area.area_hectares or area.area_hectares_manual or 0)
+                if area_cadastrada > 0 and area_ha_valor > area_cadastrada:
+                    raise BusinessRuleError(
+                        f"Área informada ({area_ha_valor} ha) não pode ser maior que a área "
+                        f"cadastrada do talhão ({area_cadastrada} ha)."
+                    )
+
             st = SafraTalhao(
                 tenant_id=self.tenant_id,
                 safra_id=safra_id,
                 area_id=tid,
-                principal=(i == 0),
-                area_ha=(areas_ha or {}).get(str(tid)),
+                principal=False,  # Nenhum talhão é "principal" - todos têm igual importância
+                area_ha=area_ha_valor,
             )
             self.session.add(st)
             novos.append(st)

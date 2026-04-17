@@ -10,12 +10,19 @@ from .models import TipoArea, TipoInfraestrutura, FormatoArquivoGeo, StatusProce
 # AreaRural
 # ---------------------------------------------------------------------------
 
+class SumarioAreasResponse(BaseModel):
+    area_total_ha: float
+    area_produtiva_ha: float
+    area_ambiental_ha: float
+    area_infraestrutura_ha: float
+
+
 class AreaRuralCreate(BaseModel):
     nome: str
-    tipo: str = TipoArea.PROPRIEDADE
+    tipo: str = TipoArea.GLEBA
     codigo: Optional[str] = None
     descricao: Optional[str] = None
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     parent_id: Optional[uuid.UUID] = None
     area_hectares: Optional[float] = None
     area_hectares_manual: Optional[float] = None
@@ -68,7 +75,7 @@ class AreaRuralUpdate(BaseModel):
 class AreaRuralResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     parent_id: Optional[uuid.UUID]
     tipo: str
     nome: str
@@ -366,7 +373,7 @@ class ValorPatrimonialResponse(BaseModel):
 
 class FazendaHierarquiaResponse(BaseModel):
     """Resposta de uma fazenda com sua hierarquia de áreas rurais."""
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     exploracao_id: uuid.UUID
     natureza: str
     data_inicio: datetime

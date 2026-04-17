@@ -17,7 +17,7 @@ class IntegracaoNewHolland(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(String(50), nullable=False, index=True)
-    fazenda_id = Column(Integer, ForeignKey("fazendas.id"))
+    unidade_produtiva_id = Column(Integer, ForeignKey("unidades_produtivas.id"))
     
     # Credenciais
     client_id = Column(String(200))
@@ -164,7 +164,7 @@ class CarbonoEmissao(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(String(50), nullable=False, index=True)
-    fazenda_id = Column(Integer, ForeignKey("fazendas.id"))
+    unidade_produtiva_id = Column(Integer, ForeignKey("unidades_produtivas.id"))
     
     # Tipo de emissão
     escopo = Column(Integer, nullable=False)  # 1, 2, 3
@@ -198,7 +198,7 @@ class CarbonoProjeto(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(String(50), nullable=False, index=True)
-    fazenda_id = Column(Integer, ForeignKey("fazendas.id"))
+    unidade_produtiva_id = Column(Integer, ForeignKey("unidades_produtivas.id"))
     
     # Identificação
     nome = Column(String(200), nullable=False)
@@ -232,7 +232,7 @@ class CarbonoProjeto(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relacionamentos
-    fazenda = relationship("Fazenda", backref="carbono_projetos")
+    fazenda = relationship("UnidadeProdutiva", backref="carbono_projetos")
 
 
 class CarbonoRelatorio(Base):

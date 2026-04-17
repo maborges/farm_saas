@@ -4,7 +4,7 @@ from datetime import date, datetime
 import uuid
 
 class LoteBovinoCreate(BaseModel):
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     piquete_id: Optional[uuid.UUID] = None
     identificacao: str = Field(..., min_length=2, max_length=100, description="Nome ou Número do Lote")
     categoria: str = Field(..., max_length=50, description="Ex: Bezerros, Vacas Paridas")
@@ -16,7 +16,7 @@ class LoteBovinoCreate(BaseModel):
 class LoteBovinoResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     piquete_id: Optional[uuid.UUID] = Field(None, validation_alias="area_id")
     identificacao: str
     categoria: str

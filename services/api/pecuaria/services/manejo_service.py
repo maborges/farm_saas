@@ -113,7 +113,7 @@ class ManejoLoteService(BaseService[ManejoLote]):
                 despesa = Despesa(
                     id=uuid.uuid4(),
                     tenant_id=self.tenant_id,
-                    fazenda_id=lote.fazenda_id,
+                    unidade_produtiva_id=lote.unidade_produtiva_id,
                     plano_conta_id=plano_id,
                     descricao=f"Pecuária — {tipo.capitalize()} Lote {lote.identificacao}",
                     valor_total=float(obj_in.custo_total),
@@ -142,7 +142,7 @@ class ManejoLoteService(BaseService[ManejoLote]):
                 receita = Receita(
                     id=uuid.uuid4(),
                     tenant_id=self.tenant_id,
-                    fazenda_id=lote.fazenda_id,
+                    unidade_produtiva_id=lote.unidade_produtiva_id,
                     plano_conta_id=plano_id,
                     descricao=f"Pecuária — {tipo.capitalize()} Lote {lote.identificacao}",
                     valor_total=float(obj_in.valor_venda),

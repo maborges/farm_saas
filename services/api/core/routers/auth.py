@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, HTTPException, Request
+from fastapi import APIRouter, Depends, status, HTTPException, Request, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import uuid
@@ -12,14 +12,14 @@ from core.schemas.auth_schemas import (
 from core.schemas.auth_schemas import (
     ForgotPasswordRequest, ForgotPasswordResponse,
     VerifyResetTokenRequest, VerifyResetTokenResponse,
-    ResetPasswordRequest, ResetPasswordResponse
+    ResetPasswordRequest, ResetPasswordResponse,
+    ChangePasswordRequest, ChangePasswordResponse
 )
 from core.services.auth_service import AuthService
 from core.services.login_rate_limit_service import LoginRateLimitService
-from core.models.auth import Usuario, TenantUsuario, FazendaUsuario
-from core.models.grupo_fazendas import GrupoFazendas, GrupoUsuario
+from core.models.auth import Usuario, TenantUsuario, UnidadeProdutivaUsuario as FazendaUsuario
 from core.models.billing import AssinaturaTenant, PlanoAssinatura
-from core.models.fazenda import Fazenda
+from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
@@ -76,7 +76,7 @@ async def get_my_tenants(claims: dict = Depends(get_current_user_claims), sessio
     svc = AuthService(session)
     user_id = uuid.UUID(claims["sub"])
     me = await svc.get_user_me(user_id)
-    return {"tenants": [{"tenant_id": str(t.tenant_id), "nome_tenant": t.nome_tenant, "is_owner": t.is_owner, "fazendas": [{"fazenda_id": str(f.fazenda_id), "nome": f.nome} for f in t.fazendas]} for t in me.tenants]}
+    return {"tenants": [{"tenant_id": str(t.tenant_id), "nome_tenant": t.nome_tenant, "is_owner": t.is_owner, "fazendas": [{"unidade_produtiva_id": str(f.unidade_produtiva_id), "nome": f.nome} for f in t.fazendas]} for t in me.tenants]}
 
 
 @router.post("/create-subscription", response_model=CreateSubscriptionResponse, summary="Cria nova assinatura (tenant) para usuário logado")
@@ -131,6 +131,65 @@ async def update_me(
 
     svc = AuthService(session)
     return await svc.get_user_me(user_id)
+
+
+@router.post("/me/avatar", response_model=dict, summary="Upload de foto de perfil")
+async def upload_avatar(
+    file: UploadFile = File(..., description="Arquivo de imagem para foto de perfil"),
+    usuario: dict = Depends(get_current_user_claims),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Faz upload de uma imagem e atualiza foto_perfil_url do usuário.
+    Suporta JPEG, PNG, WebP. Tamanho máximo: 5MB.
+    """
+    # Valida tipo
+    allowed = {"image/jpeg", "image/png", "image/webp"}
+    if file.content_type not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Tipo de arquivo não suportado. Use: {', '.join(allowed)}"
+        )
+
+    # Valida tamanho (5MB max)
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Imagem deve ter no máximo 5MB."
+        )
+
+    # Gera path do arquivo
+    import hashlib as _hashlib
+    filename_hash = _hashlib.md5(content).hexdigest()[:12]
+    ext = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+    }.get(file.content_type, ".jpg")
+
+    # Salva em storage local (em produção: S3/Cloudinary)
+    from pathlib import Path
+    storage_dir = Path("/tmp/agrosaas_avatars")
+    storage_dir.mkdir(parents=True, exist_ok=True)
+
+    file_path = storage_dir / f"{filename_hash}{ext}"
+    file_path.write_bytes(content)
+
+    # URL pública (em produção: URL do S3/CDN)
+    avatar_url = f"/static/avatars/{file_path.name}"
+
+    # Atualiza usuário
+    user_id = uuid.UUID(usuario["sub"])
+    result = await session.execute(select(Usuario).where(Usuario.id == user_id))
+    user_obj = result.scalar_one_or_none()
+    if not user_obj:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    user_obj.foto_perfil_url = avatar_url
+    await session.commit()
+
+    return {"url": avatar_url}
 
 
 @router.post("/switch-tenant", response_model=TokenResponse, summary="Troca o contexto de tenant e gera novo JWT com grupos[]")
@@ -191,83 +250,44 @@ async def listar_minhas_assinaturas(
     user_id = uuid.UUID(claims["sub"])
     tenant_id = uuid.UUID(claims["tenant_id"])
 
-    # Buscar todos os grupos que o usuário tem acesso
-    stmt_grupos = (
-        select(GrupoFazendas, GrupoUsuario.perfil_id)
-        .join(GrupoUsuario, GrupoUsuario.grupo_id == GrupoFazendas.id)
-        .where(
-            GrupoFazendas.tenant_id == tenant_id,
-            GrupoFazendas.ativo == True,
-            GrupoUsuario.user_id == user_id
-        )
-        .order_by(GrupoFazendas.ordem, GrupoFazendas.nome)
-    )
-    result_grupos = await session.execute(stmt_grupos)
-    grupos_rows = result_grupos.all()
-
+    # Simplified: return tenant subscription info without grupos
     assinaturas = []
-    for grupo, perfil_id in grupos_rows:
-        # Buscar assinatura do grupo
-        stmt_assinatura = (
-            select(AssinaturaTenant, PlanoAssinatura)
-            .join(PlanoAssinatura, AssinaturaTenant.plano_id == PlanoAssinatura.id)
-            .where(
-                AssinaturaTenant.grupo_fazendas_id == grupo.id,
-                AssinaturaTenant.tenant_id == tenant_id,
-                AssinaturaTenant.tipo_assinatura == "GRUPO",
-            )
-            .limit(1)
-        )
-        result_ass = await session.execute(stmt_assinatura)
-        row_ass = result_ass.first()
+    stmt_assinatura = (
+        select(AssinaturaTenant, PlanoAssinatura)
+        .join(PlanoAssinatura, AssinaturaTenant.plano_id == PlanoAssinatura.id)
+        .where(AssinaturaTenant.tenant_id == tenant_id)
+        .limit(1)
+    )
+    row_ass = (await session.execute(stmt_assinatura)).first()
 
-        # Buscar fazendas do grupo
-        stmt_fazendas = select(FazendaUsuario.fazenda_id, Fazenda.nome).join(
-            Fazenda, Fazenda.id == FazendaUsuario.fazenda_id
-        ).where(
-            Fazenda.grupo_id == grupo.id,
-            Fazenda.tenant_id == tenant_id,
-            Fazenda.ativo == True
-        )
-        result_faz = await session.execute(stmt_fazendas)
-        fazendas_rows = result_faz.all()
+    faz_rows = (await session.execute(
+        select(Fazenda.id, Fazenda.nome).where(Fazenda.tenant_id == tenant_id, Fazenda.ativo == True)
+    )).all()
+    fazendas_list = [{"id": str(f[0]), "nome": f[1]} for f in faz_rows]
 
-        # Se não tem fazendas via FazendaUsuario, buscar todas as fazendas do grupo
-        if not fazendas_rows:
-            stmt_fazendas_all = select(Fazenda.id, Fazenda.nome).where(
-                Fazenda.grupo_id == grupo.id,
-                Fazenda.tenant_id == tenant_id,
-                Fazenda.ativo == True
-            )
-            result_faz_all = await session.execute(stmt_fazendas_all)
-            fazendas_rows = result_faz_all.all()
-
-        fazendas_list = [{"id": str(f[0]), "nome": f[1]} for f in fazendas_rows]
-
-        if row_ass:
-            assinatura, plano = row_ass
-            assinaturas.append(AssinaturaInfo(
-                grupo_id=str(grupo.id),
-                grupo_nome=grupo.nome,
-                plano_nome=plano.nome,
-                plano_tier=plano.plan_tier,
-                status=assinatura.status,
-                total_fazendas=len(fazendas_list),
-                fazendas=fazendas_list,
-                modulos=plano.modulos_inclusos,
-                is_ativa=assinatura.status == "ATIVA"
-            ))
-        else:
-            # Grupo sem assinatura (pode ser grupo livre ou em trial)
-            assinaturas.append(AssinaturaInfo(
-                grupo_id=str(grupo.id),
-                grupo_nome=grupo.nome,
-                plano_nome="Sem assinatura",
-                plano_tier="BASICO",
-                status="PENDENTE",
-                total_fazendas=len(fazendas_list),
-                fazendas=fazendas_list,
-                modulos=["CORE"],
+    if row_ass:
+        assinatura, plano = row_ass
+        assinaturas.append(AssinaturaInfo(
+            grupo_id=str(tenant_id),
+            grupo_nome="default",
+            plano_nome=plano.nome,
+            plano_tier=plano.plan_tier,
+            status=assinatura.status,
+            total_fazendas=len(fazendas_list),
+            fazendas=fazendas_list,
+            modulos=plano.modulos_inclusos,
+            is_ativa=assinatura.status == "ATIVA"
+        ))
+    else:
+        assinaturas.append(AssinaturaInfo(
+            grupo_id=str(tenant_id),
+            grupo_nome="default",
+            plano_nome="Sem assinatura",
+            plano_tier="BASICO",
+            status="PENDENTE",
+            total_fazendas=len(fazendas_list),
+            fazendas=fazendas_list,
+            modulos=["CORE"],
                 is_ativa=False
             ))
 
@@ -291,64 +311,33 @@ async def switch_grupo(
     Permite que um usuário alterne entre diferentes assinaturas (grupos)
     do mesmo tenant sem precisar fazer logout/login.
     """
+    # grupos removed — switch-grupo now delegates to switch-tenant
     user_id = uuid.UUID(claims["sub"])
     tenant_id = uuid.UUID(claims["tenant_id"])
 
-    try:
-        grupo_id = uuid.UUID(data.grupo_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="ID do grupo inválido")
-
-    # Verifica que o usuário tem acesso ao grupo
-    result_grupo = await session.execute(
-        select(GrupoUsuario).where(
-            GrupoUsuario.grupo_id == grupo_id,
-            GrupoUsuario.user_id == user_id,
-            GrupoUsuario.tenant_id == tenant_id
-        )
-    )
-    if not result_grupo.scalar_one_or_none():
-        raise HTTPException(status_code=403, detail="Sem acesso ao grupo selecionado")
-
-    # Verifica que o grupo está ativo
-    grupo = await session.get(GrupoFazendas, grupo_id)
-    if not grupo or not grupo.ativo or grupo.tenant_id != tenant_id:
-        raise HTTPException(status_code=404, detail="Grupo não encontrado ou inativo")
-
-    # Gera novo token com contexto do grupo alvo
     svc = AuthService(session)
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
-    token = await svc.generate_token_for_grupo(user_id, tenant_id, grupo_id, ip_address, user_agent)
+    token = await svc.generate_token_for_tenant(user_id, tenant_id, ip_address, user_agent)
 
-    # Buscar informações do grupo ativo para retornar
+    faz_rows = (await session.execute(
+        select(Fazenda.id, Fazenda.nome).where(Fazenda.tenant_id == tenant_id, Fazenda.ativo == True)
+    )).all()
+    fazendas_list = [{"id": str(f[0]), "nome": f[1]} for f in faz_rows]
+
     stmt_assinatura = (
         select(AssinaturaTenant, PlanoAssinatura)
         .join(PlanoAssinatura, AssinaturaTenant.plano_id == PlanoAssinatura.id)
-        .where(
-            AssinaturaTenant.grupo_fazendas_id == grupo_id,
-            AssinaturaTenant.tenant_id == tenant_id,
-            AssinaturaTenant.tipo_assinatura == "GRUPO",
-        )
+        .where(AssinaturaTenant.tenant_id == tenant_id)
         .limit(1)
     )
-    result_ass = await session.execute(stmt_assinatura)
-    row_ass = result_ass.first()
-
-    stmt_fazendas = select(Fazenda.id, Fazenda.nome).where(
-        Fazenda.grupo_id == grupo_id,
-        Fazenda.tenant_id == tenant_id,
-        Fazenda.ativo == True
-    )
-    result_faz = await session.execute(stmt_fazendas)
-    fazendas_rows = result_faz.all()
-    fazendas_list = [{"id": str(f[0]), "nome": f[1]} for f in fazendas_rows]
+    row_ass = (await session.execute(stmt_assinatura)).first()
 
     if row_ass:
         assinatura, plano = row_ass
         grupo_ativo = AssinaturaInfo(
-            grupo_id=str(grupo_id),
-            grupo_nome=grupo.nome,
+            grupo_id=str(tenant_id),
+            grupo_nome="default",
             plano_nome=plano.nome,
             plano_tier=plano.plan_tier,
             status=assinatura.status,
@@ -359,8 +348,8 @@ async def switch_grupo(
         )
     else:
         grupo_ativo = AssinaturaInfo(
-            grupo_id=str(grupo_id),
-            grupo_nome=grupo.nome,
+            grupo_id=str(tenant_id),
+            grupo_nome="default",
             plano_nome="Sem assinatura",
             plano_tier="BASICO",
             status="PENDENTE",
@@ -546,6 +535,43 @@ async def gestor_ver_tentativas_usuario(
         )
     
     return LoginTentativasInfoResponse(**info)
+
+
+# ==================== ALTERAÇÃO DE SENHA (PRÓPRIO USUÁRIO) ====================
+
+@router.post("/me/change-password", response_model=ChangePasswordResponse, summary="Alterar própria senha")
+async def change_my_password(
+    dados: ChangePasswordRequest,
+    usuario: Usuario = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Permite ao usuário alterar sua própria senha.
+    Requer a senha atual para confirmação de identidade.
+    """
+    # Verifica se as senhas novas coincidem
+    if dados.nova_senha != dados.confirmar_senha:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="As senhas não coincidem."
+        )
+
+    # Verifica se a senha atual está correta
+    auth_service = AuthService(session)
+    if not usuario.senha_hash or not auth_service.verify_password(dados.senha_atual, usuario.senha_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Senha atual incorreta."
+        )
+
+    # Atualiza a senha
+    usuario.senha_hash = auth_service.get_password_hash(dados.nova_senha)
+    await session.commit()
+
+    return ChangePasswordResponse(
+        success=True,
+        message="Senha alterada com sucesso."
+    )
 
 
 # ==================== RECUPERAÇÃO DE SENHA ====================

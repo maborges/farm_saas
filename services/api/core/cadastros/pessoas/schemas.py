@@ -128,7 +128,7 @@ class TipoRelacionamentoResponse(TipoRelacionamentoBase):
 
 class RelacionamentoCreate(BaseModel):
     tipo_id: uuid.UUID
-    fazenda_id: Optional[uuid.UUID] = None
+    unidade_produtiva_id: Optional[uuid.UUID] = None
     observacoes: Optional[str] = None
     ativo_desde: Optional[date] = None
     ativo_ate: Optional[date] = None

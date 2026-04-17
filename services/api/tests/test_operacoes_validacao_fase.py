@@ -27,7 +27,7 @@ class TestOperacaoValidacaoFase:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Operação PLANTIO não deve ser permitida em fase COLHEITA."""
@@ -70,7 +70,7 @@ class TestOperacaoValidacaoFase:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Operação COLHEITA deve ser permitida em fase COLHEITA."""
@@ -112,7 +112,7 @@ class TestOperacaoValidacaoFase:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Operação com data futura deve ser rejeitada."""
@@ -152,7 +152,7 @@ class TestOperacaoValidacaoFase:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Operação com tipo não cadastrado na lookup table deve falhar."""
@@ -231,7 +231,7 @@ class TestOperacaoValidacaoFase:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Operação deve registrar snapshot da fase_safra no momento da criação."""

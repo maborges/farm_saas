@@ -21,14 +21,14 @@ class OperacionalRelatorioService:
 
     async def custo_por_maquinario(
         self,
-        fazenda_id: Optional[UUID] = None,
+        unidade_produtiva_id: Optional[UUID] = None,
         data_inicio: Optional[date] = None,
         data_fim: Optional[date] = None,
     ) -> list[dict]:
         # Busca maquinários do tenant
         stmt_maq = select(Maquinario).where(Maquinario.tenant_id == self.tenant_id)
-        if fazenda_id:
-            stmt_maq = stmt_maq.where(Maquinario.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt_maq = stmt_maq.where(Maquinario.unidade_produtiva_id == unidade_produtiva_id)
         maquinas = {m.id: m for m in (await self.session.execute(stmt_maq)).scalars().all()}
 
         if not maquinas:
@@ -153,12 +153,12 @@ class OperacionalRelatorioService:
         self,
         data_inicio: date,
         data_fim: date,
-        fazenda_id: Optional[UUID] = None,
+        unidade_produtiva_id: Optional[UUID] = None,
     ) -> list[dict]:
         # Depósitos do tenant (com filtro opcional por fazenda)
         stmt_deps = select(Deposito.id, Deposito.nome).where(Deposito.tenant_id == self.tenant_id)
-        if fazenda_id:
-            stmt_deps = stmt_deps.where(Deposito.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt_deps = stmt_deps.where(Deposito.unidade_produtiva_id == unidade_produtiva_id)
         dep_rows = (await self.session.execute(stmt_deps)).all()
         dep_ids = {r.id for r in dep_rows}
         dep_nomes = {r.id: r.nome for r in dep_rows}

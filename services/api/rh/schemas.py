@@ -77,7 +77,7 @@ class ColaboradorCreate(BaseModel):
     valor_diaria: Optional[float] = None
     valor_hora: Optional[float] = None
     data_admissao: Optional[date] = None
-    fazenda_id: Optional[UUID] = None
+    unidade_produtiva_id: Optional[UUID] = None
     observacoes: Optional[str] = None
 
 
@@ -98,7 +98,7 @@ class DiariaCreate(BaseModel):
     horas_trabalhadas: float = 8.0
     atividade: str = "GERAL"
     valor_diaria: float = Field(..., gt=0)
-    fazenda_id: Optional[UUID] = None
+    unidade_produtiva_id: Optional[UUID] = None
     safra_id: Optional[UUID] = None
     observacoes: Optional[str] = None
 
@@ -128,7 +128,7 @@ class EmpreitadaCreate(BaseModel):
     valor_unitario: float = Field(..., gt=0)
     data_inicio: date
     data_fim: Optional[date] = None
-    fazenda_id: Optional[UUID] = None
+    unidade_produtiva_id: Optional[UUID] = None
     safra_id: Optional[UUID] = None
     observacoes: Optional[str] = None
 

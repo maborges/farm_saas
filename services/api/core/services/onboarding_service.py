@@ -7,11 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException, status
 
-from core.models.auth import Usuario, ConviteAcesso, PerfilAcesso, TenantUsuario, FazendaUsuario
+from core.models.auth import Usuario, ConviteAcesso, PerfilAcesso, TenantUsuario, UnidadeProdutivaUsuario as FazendaUsuario
 from core.models.tenant import Tenant
-from core.models.fazenda import Fazenda
-from core.models.grupo_fazendas import GrupoFazendas, GrupoUsuario
-from core.models.billing import PlanoAssinatura, AssinaturaTenant
+from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
+from core.models.billing import PlanoAssinatura, AssinaturaTenant, Fatura
 from core.schemas.onboarding_schemas import AssinanteRegisterRequest, ConviteCreateRequest, ConviteResponse
 from core.services.email_service import email_service
 from loguru import logger
@@ -39,120 +38,127 @@ class OnboardingService:
 
     async def register_new_tenant(self, data: AssinanteRegisterRequest) -> Usuario:
         """
-        Cria do zero: Usuário (Dono) -> Tenant (SaaS) -> Fazenda (Propriedade) -> Assinatura Padrão
+        Cria do zero: Usuário (Assinante) -> Tenant (Produtor) -> Assinatura + Fatura + Email
         """
-        # 1. Checar email/username
+        from decimal import Decimal
+
+        # 1. Checar email/username duplicado
         stmt = select(Usuario).where((Usuario.email == data.email) | (Usuario.username == data.username))
         if (await self.session.execute(stmt)).scalars().first():
             raise HTTPException(status_code=400, detail="E-mail ou Username já existe no sistema.")
 
-        # 2. Checar se CPF/CNPJ já está cadastrado (o schema já validou o formato)
-        stmt = select(Tenant).where(Tenant.documento == data.cnpj_tenant)
-        if (await self.session.execute(stmt)).scalars().first():
-            raise HTTPException(status_code=400, detail="Este CPF ou CNPJ já está cadastrado no sistema.")
+        # 2. Checar CNPJ/CPF duplicado (se informado)
+        if data.cnpj_tenant:
+            stmt = select(Tenant).where(Tenant.documento == data.cnpj_tenant)
+            if (await self.session.execute(stmt)).scalars().first():
+                raise HTTPException(status_code=400, detail="Este CPF ou CNPJ já está cadastrado no sistema.")
 
-        # 3. Criar Usuario Global
+        # 3. Verificar plano escolhido
+        plano = (await self.session.execute(
+            select(PlanoAssinatura).where(PlanoAssinatura.id == data.plano_id, PlanoAssinatura.ativo == True)
+        )).scalar_one_or_none()
+        if not plano:
+            raise HTTPException(status_code=404, detail="Plano não encontrado.")
+
+        agora = datetime.now(timezone.utc)
+
+        # 4. Criar Usuário Global (Assinante Administrador)
         hashed_pw = self.auth_svc.get_password_hash(data.senha) if self.auth_svc else "hash_dummy"
         user = Usuario(
             email=data.email,
             username=data.username,
             nome_completo=data.nome_completo,
-            senha_hash=hashed_pw
+            senha_hash=hashed_pw,
+            cpf=data.cpf or None,
+            telefone=data.telefone or None,
+            ativo=True,
         )
         self.session.add(user)
         await self.session.flush()
 
-        # 4. Criar a Conta (Tenant) — sem modulos_ativos (deprecado)
+        # 5. Criar Tenant (Produtor Rural)
         tenant = Tenant(
-            nome=f"Fazendas {data.nome_completo}",
-            documento=data.cnpj_tenant,
+            nome=data.nome_produtor,
+            documento=data.cnpj_tenant or "",
+            ativo=True,
         )
         self.session.add(tenant)
         await self.session.flush()
 
-        # 5. Buscar Perfil de Acesso Root (sistema, compartilhado)
+        # 6. Buscar Perfil Owner do sistema
         perfil_admin = await self._get_perfil_owner_sistema()
 
-        # 6. Criar vínculo Usuario <-> Tenant como Owner
+        # 7. Vincular Usuário -> Tenant como Owner
         tu = TenantUsuario(
             tenant_id=tenant.id,
             usuario_id=user.id,
             perfil_id=perfil_admin.id,
-            is_owner=True
+            is_owner=True,
+            status="ATIVO",
         )
         self.session.add(tu)
 
-        # 7. Criar o Grupo com nome informado pelo produtor
-        grupo = GrupoFazendas(
-            tenant_id=tenant.id,
-            nome=data.nome_grupo,
-            descricao=f"Grupo criado no cadastro por {data.nome_completo}"
-        )
-        self.session.add(grupo)
-        await self.session.flush()
-
-        # 8. Vincular Owner ao grupo
-        grupo_usuario = GrupoUsuario(
-            tenant_id=tenant.id,
-            grupo_id=grupo.id,
-            user_id=user.id,
-            perfil_id=perfil_admin.id
-        )
-        self.session.add(grupo_usuario)
-
-        # 9. Criar a primeira fazenda (opcional — se não informada, fica pendente)
-        if data.nome_fazenda:
-            fazenda = Fazenda(
-                tenant_id=tenant.id,
-                nome=data.nome_fazenda,
-                grupo_id=grupo.id
-            )
-            self.session.add(fazenda)
-            await self.session.flush()
-
-            fu = FazendaUsuario(
-                tenant_id=tenant.id,
-                usuario_id=user.id,
-                fazenda_id=fazenda.id
-            )
-            self.session.add(fu)
-
-        # 10. Criar Assinatura vinculada ao grupo (obrigatório)
-        # Priorizar o plano padrão (is_default=True), senão usar primeiro plano ativo
-        plano_stmt = (
-            select(PlanoAssinatura)
-            .where(PlanoAssinatura.ativo == True)
-            .order_by(PlanoAssinatura.is_default.desc(), PlanoAssinatura.created_at.asc())
-            .limit(1)
-        )
-        plano = (await self.session.execute(plano_stmt)).scalar_one_or_none()
-
-        if not plano:
-            plano = PlanoAssinatura(nome="Plano Base Starter", modulos_inclusos=["CORE", "A1"])
-            self.session.add(plano)
-            await self.session.flush()
+        # 8. Criar Assinatura com status e trial corretos
+        is_trial = not plano.is_free and plano.tem_trial
+        if plano.is_free:
+            status_assin = "ATIVA"
+            trial_expira_em = None
+            primeiro_vencimento = None
+        else:
+            status_assin = "TRIAL" if is_trial else "ATIVA"
+            trial_expira_em = agora + timedelta(days=plano.dias_trial) if is_trial else None
+            primeiro_vencimento = (trial_expira_em + timedelta(days=1)).date() if trial_expira_em else None
 
         assinatura = AssinaturaTenant(
             tenant_id=tenant.id,
             plano_id=plano.id,
-            grupo_fazendas_id=grupo.id,         # obrigatório — toda assinatura pertence a um grupo
-            tipo_assinatura="GRUPO",
-            status="PENDENTE"                   # aguarda comprovante + aprovação
+            tipo_assinatura="TENANT",
+            ciclo_pagamento=data.ciclo,
+            status=status_assin,
+            data_inicio=agora,
+            data_proxima_renovacao=trial_expira_em,
         )
         self.session.add(assinatura)
+        await self.session.flush()
+
+        # 11. Criar Fatura automática (apenas se plano pago com trial)
+        if not plano.is_free and is_trial and primeiro_vencimento:
+            valor_fatura = Decimal(str(plano.preco_anual)) if data.ciclo == "ANUAL" else Decimal(str(plano.preco_mensal))
+            vencimento_dt = datetime.combine(primeiro_vencimento, datetime.min.time(), tzinfo=timezone.utc)
+            fatura = Fatura(
+                tenant_id=tenant.id,
+                assinatura_id=assinatura.id,
+                valor=valor_fatura,
+                data_vencimento=vencimento_dt,
+                status="ABERTA",
+            )
+            self.session.add(fatura)
+            logger.info(f"Fatura criada: R${valor_fatura} vence em {primeiro_vencimento} para {tenant.nome}")
 
         await self.session.commit()
 
-        # Enviar Boas-vindas (Background)
+        # 12. Enviar email (trial ou boas-vindas)
         try:
-            await email_service.send_welcome(
-                email=user.email,
-                nome=user.nome_completo or user.username,
-                tenant_nome=tenant.nome,
-                username=user.username
-            )
+            if not plano.is_free and is_trial:
+                await email_service.send_trial_notice(
+                    email=user.email,
+                    nome=user.nome_completo or user.username,
+                    nome_produtor=tenant.nome,
+                    nome_plano=plano.nome,
+                    dias_trial=plano.dias_trial,
+                    data_vencimento=primeiro_vencimento,
+                    tenant_id=tenant.id,
+                )
+            else:
+                await email_service.send_welcome(
+                    email=user.email,
+                    nome=user.nome_completo or user.username,
+                    tenant_nome=tenant.nome,
+                    username=user.username,
+                    tenant_id=tenant.id,
+                )
         except Exception as e:
-            logger.error(f"Falha ao enviar email de boas-vindas: {e}")
+            logger.error(f"Falha ao enviar email para {user.email}: {e}")
 
         return user
 
@@ -174,7 +180,7 @@ class OnboardingService:
             tenant_id=tenant_id,
             email_convidado=data.email_convidado,
             perfil_id=data.perfil_id,
-            fazendas_ids=data.fazendas_ids,
+            unidades_produtivas_ids=data.unidades_produtivas_ids,
             token_convite=token,
             data_expiracao=datetime.now(timezone.utc) + timedelta(days=3), # Expira em 3 dias
             data_validade_acesso=dt_val
@@ -219,13 +225,13 @@ class OnboardingService:
         tenant = await self.session.get(Tenant, convite.tenant_id)
         perfil = await self.session.get(PerfilAcesso, convite.perfil_id)
 
-        # Buscar fazendas
+        # Buscar unidades produtivas
         fazendas_nomes = []
-        if convite.fazendas_ids:
-            for f_id in convite.fazendas_ids:
-                f = await self.session.get(Fazenda, uuid.UUID(f_id))
-                if f:
-                    fazendas_nomes.append(f.nome)
+        unidades_ids = getattr(convite, 'unidades_produtivas_ids', None) or []
+        for f_id in unidades_ids:
+            f = await self.session.get(Fazenda, uuid.UUID(f_id))
+            if f:
+                fazendas_nomes.append(f.nome)
 
         # Verificar se o email já tem conta na plataforma
         stmt_user = select(Usuario).where(Usuario.email == convite.email_convidado)
@@ -320,18 +326,19 @@ class OnboardingService:
             )
             self.session.add(tu)
             
-        # Vínculo nas Fazendas
-        for fazenda_id_str in convite.fazendas_ids:
+        # Vínculo nas Unidades Produtivas
+        unidades_ids = getattr(convite, 'unidades_produtivas_ids', None) or getattr(convite, 'fazendas_ids', [])
+        for fazenda_id_str in unidades_ids:
             check_fu = select(FazendaUsuario).where(
                 FazendaUsuario.usuario_id == user_id,
-                FazendaUsuario.fazenda_id == uuid.UUID(fazenda_id_str)
+                FazendaUsuario.unidade_produtiva_id == uuid.UUID(fazenda_id_str)
             )
             existe_fu = (await self.session.execute(check_fu)).scalar_one_or_none()
             if not existe_fu:
                 fu = FazendaUsuario(
                     tenant_id=convite.tenant_id,
                     usuario_id=user_id,
-                    fazenda_id=uuid.UUID(fazenda_id_str)
+                    unidade_produtiva_id=uuid.UUID(fazenda_id_str)
                 )
                 self.session.add(fu)
 

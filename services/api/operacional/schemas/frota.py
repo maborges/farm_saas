@@ -28,7 +28,7 @@ class MaquinarioBase(BaseModel):
     horimetro_atual: float = 0.0
     km_atual: float = 0.0
     status: StatusMaquinario = "ATIVO"
-    fazenda_id: UUID
+    unidade_produtiva_id: UUID
 
 class MaquinarioCreate(MaquinarioBase):
     pass

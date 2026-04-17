@@ -53,10 +53,6 @@ pnpm run dev
 ### Matar processo do servidor
 pkill -f "uvicorn main:app" && sleep 2 && echo "✅ Processo uvicorn parado" (Parar processo uvicorn travado)
 
-
-
-
-
 # AGRO-03: Frontend Web (Next.js 16 & UI)
 
 **CONTEXTO:** Interface premium, performance RSC e estado sincronizado para gestão rural.

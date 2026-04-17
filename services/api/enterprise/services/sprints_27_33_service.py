@@ -95,14 +95,14 @@ class PisciculturaService:
 
     def criar_tanque(self, tenant_id: str, nome: str,
                      volume_m3: float, especie: str,
-                     fazenda_id: int = None) -> TanqueRede:
+                     unidade_produtiva_id: int = None) -> TanqueRede:
         """Cria tanque-rede."""
         tanque = TanqueRede(
             tenant_id=tenant_id,
             nome=nome,
             volume_m3=volume_m3,
             especie=especie,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             status="vazio"
         )
         self.db.add(tanque)
@@ -156,7 +156,7 @@ class ConfinamentoService:
                    total_animais: int,
                    peso_inicial: float,
                    data_entrada: date,
-                   fazenda_id: int = None) -> ConfinamentoLote:
+                   unidade_produtiva_id: int = None) -> ConfinamentoLote:
         """Cria lote de confinamento."""
         lote = ConfinamentoLote(
             tenant_id=tenant_id,
@@ -165,7 +165,7 @@ class ConfinamentoService:
             peso_inicial_kg=peso_inicial,
             peso_inicial_total_kg=peso_inicial * total_animais,
             data_entrada=data_entrada,
-            fazenda_id=fazenda_id
+            unidade_produtiva_id=unidade_produtiva_id
         )
         self.db.add(lote)
         self.db.commit()
@@ -272,14 +272,14 @@ class IoTService:
 
     def cadastrar_sensor(self, tenant_id: str, nome: str,
                         tipo: str, protocolo: str,
-                        fazenda_id: int = None) -> SensorIoT:
+                        unidade_produtiva_id: int = None) -> SensorIoT:
         """Cadastra sensor IoT."""
         sensor = SensorIoT(
             tenant_id=tenant_id,
             nome=nome,
             tipo=tipo,
             protocolo=protocolo,
-            fazenda_id=fazenda_id
+            unidade_produtiva_id=unidade_produtiva_id
         )
         self.db.add(sensor)
         self.db.commit()
@@ -310,7 +310,7 @@ class ILPFService:
                     tipo_ilpf: str, area_ha: float,
                     cultura: str,
                     especie_florestal: str,
-                    fazenda_id: int = None) -> ILPFModulo:
+                    unidade_produtiva_id: int = None) -> ILPFModulo:
         """Cria módulo ILPF."""
         modulo = ILPFModulo(
             tenant_id=tenant_id,
@@ -319,7 +319,7 @@ class ILPFService:
             area_ha=area_ha,
             cultura=cultura,
             especie_florestal=especie_florestal,
-            fazenda_id=fazenda_id
+            unidade_produtiva_id=unidade_produtiva_id
         )
         self.db.add(modulo)
         self.db.commit()

@@ -20,7 +20,7 @@ class OrdemServicoService(BaseService[OrdemServico]):
         stmt = select(Safra).where(
             Safra.id == obj_data["safra_id"], 
             Safra.tenant_id == self.tenant_id,
-            Safra.fazenda_id == obj_data["fazenda_id"]
+            Safra.unidade_produtiva_id == obj_data["unidade_produtiva_id"]
         )
         result = await self.session.execute(stmt)
         safra = result.scalars().first()

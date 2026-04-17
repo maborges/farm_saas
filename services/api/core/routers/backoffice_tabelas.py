@@ -384,21 +384,25 @@ async def remover_cultura_sistema(cultura_id: uuid.UUID, session: AsyncSession =
 
 class CommoditySistemaCreate(BaseModel):
     nome: str
+    codigo: str
     tipo: str
     unidade_padrao: str = "SACA_60KG"
-    fator_conversao_kg: Optional[float] = None
-    umidade_padrao_pct: Optional[float] = None
-    impureza_padrao_pct: Optional[float] = None
+    peso_unidade: Optional[float] = None
+    possui_cotacao: bool = False
+    bolsa_referencia: Optional[str] = None
+    codigo_bolsa: Optional[str] = None
     descricao: Optional[str] = None
     ativo: bool = True
 
 class CommoditySistemaUpdate(BaseModel):
     nome: Optional[str] = None
+    codigo: Optional[str] = None
     tipo: Optional[str] = None
     unidade_padrao: Optional[str] = None
-    fator_conversao_kg: Optional[float] = None
-    umidade_padrao_pct: Optional[float] = None
-    impureza_padrao_pct: Optional[float] = None
+    peso_unidade: Optional[float] = None
+    possui_cotacao: Optional[bool] = None
+    bolsa_referencia: Optional[str] = None
+    codigo_bolsa: Optional[str] = None
     descricao: Optional[str] = None
     ativo: Optional[bool] = None
 

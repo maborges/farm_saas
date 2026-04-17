@@ -27,10 +27,10 @@ class OperacaoService(BaseService[OperacaoAgricola]):
         self.estoque_svc = EstoqueService(session, tenant_id)
 
     async def criar(self, dados: OperacaoAgricolaCreate) -> OperacaoAgricola:
-        # 1. Busca talhão para obter fazenda_id
-        stmt_talhao = select(AreaRural.fazenda_id).where(AreaRural.id == dados.talhao_id)
-        fazenda_id = (await self.session.execute(stmt_talhao)).scalar()
-        if not fazenda_id:
+        # 1. Busca talhão para obter unidade_produtiva_id
+        stmt_talhao = select(AreaRural.unidade_produtiva_id).where(AreaRural.id == dados.talhao_id)
+        unidade_produtiva_id = (await self.session.execute(stmt_talhao)).scalar()
+        if not unidade_produtiva_id:
             raise EntityNotFoundError("Talhão", dados.talhao_id)
 
         # 2. Auto-preenche fase_safra com fase atual da safra (override permitido)
@@ -198,7 +198,7 @@ class OperacaoService(BaseService[OperacaoAgricola]):
                     despesa = Despesa(
                         id=uuid.uuid4(),
                         tenant_id=self.tenant_id,
-                        fazenda_id=fazenda_id,
+                        unidade_produtiva_id=unidade_produtiva_id,
                         plano_conta_id=plano_id,
                         descricao=descricao[:255],
                         valor_total=float(custo_total_operacao),

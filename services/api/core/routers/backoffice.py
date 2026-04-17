@@ -155,7 +155,7 @@ async def list_tenants(session: AsyncSession = Depends(get_session)):
             "nome": tenant.nome,
             "documento": tenant.documento,
             "ativo": tenant.ativo,
-            "modulos": tenant.modulos_ativos,
+            "modulos": plano.modulos_inclusos if plano else [],
             "data_cadastro": tenant.created_at,
             "assinatura": {
                 "plano": plano.nome if plano else "Sem Plano",
@@ -303,15 +303,11 @@ async def assign_plan_to_tenant(
         assinatura.plano_id = plan_id
         assinatura.status = "ATIVA" # Garante Reativação se estivesse pendente
         
-    # Sincronizar limites do Tenant com o Plano
-    tenant.modulos_ativos = plan.modulos_inclusos
-    tenant.max_usuarios_simultaneos = plan.limite_usuarios_maximo if plan.limite_usuarios_maximo else -1
-    
     await session.commit()
-    
+
     return {
         "message": f"Plano {plan.nome} atribuído ao tenant {tenant.nome}",
-        "modulos_liberados": tenant.modulos_ativos
+        "modulos_liberados": plan.modulos_inclusos
     }
 
 @router.get("/invoices", response_model=List[FaturaResponse], dependencies=[Depends(get_current_admin)])
@@ -407,17 +403,21 @@ async def review_invoice(
 @router.get("/users", dependencies=[Depends(get_current_admin)])
 async def list_global_users(session: AsyncSession = Depends(get_session)):
     """Lista todos os usuários da plataforma com seus vínculos."""
-    
-    # Busca usuários e nomes dos tenants aos quais pertencem
+
+    # Busca usuários, nomes dos tenants e se é owner
     stmt = (
-        select(Usuario, func.string_agg(Tenant.nome, ',').label("tenants"))
+        select(
+            Usuario,
+            func.string_agg(Tenant.nome, ',').label("tenants"),
+            func.bool_or(TenantUsuario.is_owner).label("is_owner")
+        )
         .outerjoin(TenantUsuario, Usuario.id == TenantUsuario.usuario_id)
         .outerjoin(Tenant, TenantUsuario.tenant_id == Tenant.id)
         .group_by(Usuario.id)
         .order_by(Usuario.created_at.desc())
     )
     result = await session.execute(stmt)
-    
+
     users = []
     for row in result:
         u = row.Usuario
@@ -427,6 +427,7 @@ async def list_global_users(session: AsyncSession = Depends(get_session)):
             "email": u.email,
             "username": u.username,
             "is_superuser": u.is_superuser,
+            "is_owner": row.is_owner or False,
             "ativo": u.ativo,
             "data_cadastro": u.created_at,
             "tenants": row.tenants.split(",") if row.tenants else []
@@ -439,13 +440,77 @@ async def toggle_user_status(user_id: uuid.UUID, session: AsyncSession = Depends
     user = await session.get(Usuario, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    
+
     if user.is_superuser:
         raise HTTPException(status_code=400, detail="Não é possível desativar um superusuário por aqui.")
+
+    # Verifica se o usuário é owner de algum tenant
+    stmt_owner = select(TenantUsuario).where(
+        TenantUsuario.usuario_id == user_id,
+        TenantUsuario.is_owner == True
+    )
+    result = await session.execute(stmt_owner)
+    if result.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400,
+            detail="Não é possível desativar o proprietário (owner) de um tenant."
+        )
 
     user.ativo = not user.ativo
     await session.commit()
     return {"id": user_id, "novo_status": user.ativo}
+
+@router.post("/users/{user_id}/reset-password", dependencies=[Depends(get_current_admin)])
+async def reset_user_password(
+    user_id: uuid.UUID,
+    enviar_email: bool = True,
+    session: AsyncSession = Depends(get_session)
+):
+    """
+    Reseta a senha de um usuário global e retorna a senha temporária.
+    Opcionalmente envia a senha por e-mail.
+    """
+    import secrets
+    import string
+    from core.services.auth_service import hash_password
+
+    user = await session.get(Usuario, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    if user.is_superuser:
+        raise HTTPException(status_code=400, detail="Não é possível resetar senha de superusuário por aqui.")
+
+    # Gerar senha aleatória segura (12 caracteres com símbolos)
+    caracteres = string.ascii_letters + string.digits + "!@#$%&*"
+    senha_temporaria = ''.join(secrets.choice(caracteres) for _ in range(12))
+
+    user.senha_hash = hash_password(senha_temporaria)
+    await session.commit()
+
+    # Enviar e-mail com a senha temporária
+    if enviar_email and user.email:
+        try:
+            await email_service.send_email(
+                to=user.email,
+                subject="Redefinição de Senha - AgroSaaS",
+                html_content=f"""
+                <h2>Olá {user.nome_completo or user.username},</h2>
+                <p>Sua senha foi redefinida pelo administrador do sistema AgroSaaS.</p>
+                <p><strong>Senha temporária:</strong> <code>{senha_temporaria}</code></p>
+                <p>Por segurança, recomendamos criar uma nova senha no próximo acesso.</p>
+                """
+            )
+        except Exception as e:
+            import logging
+            logging.error(f"Erro ao enviar e-mail de reset: {e}")
+
+    return {
+        "success": True,
+        "senha_temporaria": senha_temporaria if not enviar_email else "Enviada por e-mail",
+        "email_enviado": enviar_email,
+        "usuario_email": user.email
+    }
 
 @router.get("/tickets", response_model=List[dict], dependencies=[Depends(get_current_admin)])
 async def list_all_tickets(session: AsyncSession = Depends(get_session)):
@@ -625,10 +690,6 @@ async def change_tenant_plan(
     # Atualizar assinatura
     assinatura.plano_id = novo_plano_id
 
-    # Atualizar módulos do tenant
-    tenant.modulos_ativos = novo_plano.modulos_inclusos
-    tenant.max_usuarios_simultaneos = novo_plano.limite_usuarios_maximo if novo_plano.limite_usuarios_maximo else -1
-
     # Registrar no audit log
     from core.models.admin_audit_log import AdminAuditLog
     audit = AdminAuditLog(
@@ -651,7 +712,7 @@ async def change_tenant_plan(
         "plano_anterior_id": plano_anterior_id,
         "plano_novo_id": novo_plano_id,
         "plano_novo_nome": novo_plano.nome,
-        "novos_modulos": tenant.modulos_ativos
+        "novos_modulos": novo_plano.modulos_inclusos
     }
 
 
@@ -664,8 +725,8 @@ async def get_tenant_details(tenant_id: uuid.UUID, session: AsyncSession = Depen
     - Grupos de fazendas com suas fazendas
     - Usuários por fazenda com perfis
     """
-    from core.models.fazenda import Fazenda
-    from core.models.grupo_fazendas import GrupoFazendas
+    from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
+    # grupos_fazendas removed
     from core.models.auth import FazendaUsuario, PerfilAcesso
     from datetime import datetime, timedelta, timezone
     from loguru import logger
@@ -678,26 +739,23 @@ async def get_tenant_details(tenant_id: uuid.UUID, session: AsyncSession = Depen
 
         # Buscar TODAS as assinaturas do tenant
         stmt_assinaturas = (
-            select(AssinaturaTenant, PlanoAssinatura, GrupoFazendas)
+            select(AssinaturaTenant, PlanoAssinatura)
             .join(PlanoAssinatura, AssinaturaTenant.plano_id == PlanoAssinatura.id)
-            .outerjoin(GrupoFazendas, AssinaturaTenant.grupo_fazendas_id == GrupoFazendas.id)
             .where(AssinaturaTenant.tenant_id == tenant_id)
             .order_by(AssinaturaTenant.tipo_assinatura, AssinaturaTenant.created_at.desc())
         )
         result_assinaturas = await session.execute(stmt_assinaturas)
 
         assinaturas = []
-        for assinatura, plano, grupo in result_assinaturas:
+        for assinatura, plano in result_assinaturas:
             # Calcular próxima renovação
             proxima_renovacao = None
             if assinatura.data_proxima_renovacao:
                 proxima_renovacao = assinatura.data_proxima_renovacao
             elif assinatura.data_inicio and assinatura.status == "ATIVA":
                 if assinatura.ciclo_pagamento == "MENSAL":
-                    # Aproximação: 30 dias = 1 mês
                     proxima_renovacao = assinatura.data_inicio + timedelta(days=30)
                 elif assinatura.ciclo_pagamento == "ANUAL":
-                    # Aproximação: 365 dias = 1 ano
                     proxima_renovacao = assinatura.data_inicio + timedelta(days=365)
 
             assinaturas.append({
@@ -711,10 +769,6 @@ async def get_tenant_details(tenant_id: uuid.UUID, session: AsyncSession = Depen
                     "modulos": plano.modulos_inclusos,
                     "limite_usuarios_maximo": plano.limite_usuarios_maximo
                 },
-                "grupo_fazendas": {
-                    "id": grupo.id,
-                    "nome": grupo.nome
-                } if grupo else None,
                 "status": assinatura.status,
                 "ciclo_pagamento": assinatura.ciclo_pagamento,
                 "data_inicio": assinatura.data_inicio,
@@ -750,9 +804,6 @@ async def get_tenant_details(tenant_id: uuid.UUID, session: AsyncSession = Depen
 
         # Buscar grupos de fazendas com fazendas e usuários
         stmt_grupos = (
-            select(GrupoFazendas)
-            .where(GrupoFazendas.tenant_id == tenant_id, GrupoFazendas.ativo == True)
-            .order_by(GrupoFazendas.nome)
         )
         result_grupos = await session.execute(stmt_grupos)
         grupos_fazendas = result_grupos.scalars().all()
@@ -762,7 +813,7 @@ async def get_tenant_details(tenant_id: uuid.UUID, session: AsyncSession = Depen
             # Buscar fazendas do grupo
             stmt_fazendas = (
                 select(Fazenda)
-                .where(Fazenda.grupo_id == grupo.id)
+                .where(Fazenda.unidade_produtiva_id == grupo.id)
                 .order_by(Fazenda.nome)
             )
             result_fazendas = await session.execute(stmt_fazendas)
@@ -775,7 +826,7 @@ async def get_tenant_details(tenant_id: uuid.UUID, session: AsyncSession = Depen
                     select(Usuario, FazendaUsuario, PerfilAcesso)
                     .join(FazendaUsuario, Usuario.id == FazendaUsuario.usuario_id)
                     .outerjoin(PerfilAcesso, FazendaUsuario.perfil_fazenda_id == PerfilAcesso.id)
-                    .where(FazendaUsuario.fazenda_id == fazenda.id)
+                    .where(FazendaUsuario.unidade_produtiva_id == fazenda.id)
                     .order_by(Usuario.nome_completo)
                 )
                 result_usuarios_fazenda = await session.execute(stmt_usuarios_fazenda)
@@ -811,7 +862,7 @@ async def get_tenant_details(tenant_id: uuid.UUID, session: AsyncSession = Depen
         # Buscar fazendas sem grupo
         stmt_fazendas_sem_grupo = (
             select(Fazenda)
-            .where(Fazenda.tenant_id == tenant_id, Fazenda.grupo_id == None)
+            .where(Fazenda.tenant_id == tenant_id, Fazenda.unidade_produtiva_id == None)
             .order_by(Fazenda.nome)
         )
         result_fazendas_sem_grupo = await session.execute(stmt_fazendas_sem_grupo)
@@ -824,7 +875,7 @@ async def get_tenant_details(tenant_id: uuid.UUID, session: AsyncSession = Depen
                 select(Usuario, FazendaUsuario, PerfilAcesso)
                 .join(FazendaUsuario, Usuario.id == FazendaUsuario.usuario_id)
                 .outerjoin(PerfilAcesso, FazendaUsuario.perfil_fazenda_id == PerfilAcesso.id)
-                .where(FazendaUsuario.fazenda_id == fazenda.id)
+                .where(FazendaUsuario.unidade_produtiva_id == fazenda.id)
                 .order_by(Usuario.nome_completo)
             )
             result_usuarios_fazenda = await session.execute(stmt_usuarios_fazenda)
@@ -856,7 +907,7 @@ async def get_tenant_details(tenant_id: uuid.UUID, session: AsyncSession = Depen
                 "nome": tenant.nome,
                 "documento": tenant.documento,
                 "ativo": tenant.ativo,
-                "modulos_ativos": tenant.modulos_ativos or [],
+                "modulos_ativos": list({m for a in assinaturas for m in (a.get("plano") or {}).get("modulos", [])}),
                 "created_at": tenant.created_at
             },
             "assinaturas": assinaturas,

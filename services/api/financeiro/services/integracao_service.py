@@ -245,7 +245,7 @@ class CarneLeaoService:
     async def exportar_csv(
         self,
         ano: int,
-        fazenda_id: Optional[uuid.UUID] = None,
+        unidade_produtiva_id: Optional[uuid.UUID] = None,
     ) -> str:
         """
         Gera CSV compatível com o layout de Livro Caixa do Produtor Rural (RFB).
@@ -269,8 +269,8 @@ class CarneLeaoService:
             Receita.data_recebimento >= jan1,
             Receita.data_recebimento <= dez31,
         )
-        if fazenda_id:
-            stmt_rec = stmt_rec.where(Receita.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt_rec = stmt_rec.where(Receita.unidade_produtiva_id == unidade_produtiva_id)
         receitas = (await self.session.execute(stmt_rec)).all()
 
         # Despesas pagas
@@ -289,8 +289,8 @@ class CarneLeaoService:
             Despesa.data_pagamento >= jan1,
             Despesa.data_pagamento <= dez31,
         )
-        if fazenda_id:
-            stmt_desp = stmt_desp.where(Despesa.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt_desp = stmt_desp.where(Despesa.unidade_produtiva_id == unidade_produtiva_id)
         despesas = (await self.session.execute(stmt_desp)).all()
 
         # Carrega planos de conta para categoria_rfb
@@ -344,7 +344,7 @@ class ContabilService:
         self,
         data_inicio: date,
         data_fim: date,
-        fazenda_id: Optional[uuid.UUID] = None,
+        unidade_produtiva_id: Optional[uuid.UUID] = None,
     ) -> dict:
         """
         Resumo financeiro estruturado para escritório contábil.
@@ -368,8 +368,8 @@ class ContabilService:
             )
             .group_by(PlanoConta.categoria_rfb, PlanoConta.nome)
         )
-        if fazenda_id:
-            stmt_rec = stmt_rec.where(Receita.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt_rec = stmt_rec.where(Receita.unidade_produtiva_id == unidade_produtiva_id)
 
         # Despesas por categoria
         stmt_desp = (
@@ -389,8 +389,8 @@ class ContabilService:
             )
             .group_by(PlanoConta.categoria_rfb, PlanoConta.nome)
         )
-        if fazenda_id:
-            stmt_desp = stmt_desp.where(Despesa.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt_desp = stmt_desp.where(Despesa.unidade_produtiva_id == unidade_produtiva_id)
 
         receitas_rows = (await self.session.execute(stmt_rec)).all()
         despesas_rows = (await self.session.execute(stmt_desp)).all()

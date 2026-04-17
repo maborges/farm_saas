@@ -7,11 +7,17 @@ from core.database import Base
 
 class RomaneioColheita(Base):
     __tablename__ = "romaneios_colheita"
-    
+
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     safra_id: Mapped[UUID] = mapped_column(ForeignKey("safras.id", ondelete="CASCADE"), nullable=False, index=True)
     talhao_id: Mapped[UUID] = mapped_column(ForeignKey("cadastros_areas_rurais.id", ondelete="CASCADE"), nullable=False, index=True)
+    commodity_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("cadastros_commodities.id", ondelete="SET NULL"),
+        nullable=True, index=True,
+        comment="Commodity colhida (derivada de safra.commodity_id, mas explícito para queries)"
+    )
     
     numero_romaneio: Mapped[str | None] = mapped_column(String(30))
     data_colheita: Mapped[date] = mapped_column(Date, nullable=False)

@@ -33,7 +33,7 @@ class AlertaFinanceiro(BaseModel):
 
 class DashboardFinanceiroResponse(BaseModel):
     data_referencia: date
-    fazenda_id: Optional[uuid.UUID]
+    unidade_produtiva_id: Optional[uuid.UUID]
 
     # Resumo do mês corrente
     total_recebido_mes: float
@@ -89,7 +89,7 @@ class FluxoCaixaTotais(BaseModel):
 class FluxoCaixaResponse(BaseModel):
     data_inicio: date
     data_fim: date
-    fazenda_id: Optional[uuid.UUID]
+    unidade_produtiva_id: Optional[uuid.UUID]
     periodos: List[FluxoCaixaPeriodo]
     totais: FluxoCaixaTotais
 
@@ -118,7 +118,7 @@ class LivroCaixaGrupo(BaseModel):
 class LivroCaixaResponse(BaseModel):
     competencia_inicio: date
     competencia_fim: date
-    fazenda_id: Optional[uuid.UUID]
+    unidade_produtiva_id: Optional[uuid.UUID]
     total_receitas: float
     total_despesas: float
     resultado: float
@@ -130,7 +130,7 @@ class LivroCaixaResponse(BaseModel):
 class DREResponse(BaseModel):
     data_inicio: date
     data_fim: date
-    fazenda_id: Optional[uuid.UUID]
+    unidade_produtiva_id: Optional[uuid.UUID]
     receita_bruta: float
     total_custeio: float
     total_investimento: float
@@ -162,6 +162,6 @@ class CentroCusto(BaseModel):
 class CentroCustoResponse(BaseModel):
     data_inicio: date
     data_fim: date
-    fazenda_id: Optional[uuid.UUID]
+    unidade_produtiva_id: Optional[uuid.UUID]
     total_geral: float
     centros: List[CentroCusto]

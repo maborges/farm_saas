@@ -34,7 +34,7 @@ class ExploracaoRuralService:
 
     async def _validar_sobreposicao(
         self,
-        fazenda_id: uuid.UUID,
+        unidade_produtiva_id: uuid.UUID,
         propriedade_id: uuid.UUID,
         data_inicio: date,
         data_fim: date | None,
@@ -52,7 +52,7 @@ class ExploracaoRuralService:
         stmt = select(ExploracaoRural).where(
             and_(
                 ExploracaoRural.tenant_id == self.tenant_id,
-                ExploracaoRural.fazenda_id == fazenda_id,
+                ExploracaoRural.unidade_produtiva_id == unidade_produtiva_id,
                 ExploracaoRural.propriedade_id == propriedade_id,
                 ExploracaoRural.ativo == True,
             )
@@ -83,7 +83,7 @@ class ExploracaoRuralService:
 
     async def _validar_area_explorada(
         self,
-        fazenda_id: uuid.UUID,
+        unidade_produtiva_id: uuid.UUID,
         area_explorada_ha: float | None,
     ) -> None:
         """
@@ -98,7 +98,7 @@ class ExploracaoRuralService:
         
         stmt = select(Fazenda).where(
             and_(
-                Fazenda.id == fazenda_id,
+                Fazenda.id == unidade_produtiva_id,
                 Fazenda.tenant_id == self.tenant_id,
             )
         )
@@ -132,19 +132,19 @@ class ExploracaoRuralService:
         # Validações
         await self._validar_data_fim(data.data_inicio, data.data_fim)
         await self._validar_sobreposicao(
-            fazenda_id=data.fazenda_id,
+            unidade_produtiva_id=data.unidade_produtiva_id,
             propriedade_id=propriedade_id,
             data_inicio=data.data_inicio,
             data_fim=data.data_fim,
         )
         if data.area_explorada_ha:
-            await self._validar_area_explorada(data.fazenda_id, data.area_explorada_ha)
+            await self._validar_area_explorada(data.unidade_produtiva_id, data.area_explorada_ha)
         
         # Criar
         exploracao = ExploracaoRural(
             tenant_id=self.tenant_id,
             propriedade_id=propriedade_id,
-            fazenda_id=data.fazenda_id,
+            unidade_produtiva_id=data.unidade_produtiva_id,
             natureza=data.natureza,
             data_inicio=data.data_inicio,
             data_fim=data.data_fim,
@@ -181,14 +181,14 @@ class ExploracaoRuralService:
         # Preparar dados para validação
         data_inicio = data.data_inicio or exploracao.data_inicio
         data_fim = data.data_fim if data.data_fim is not None else exploracao.data_fim
-        fazenda_id = exploracao.fazenda_id
+        unidade_produtiva_id = exploracao.unidade_produtiva_id
         propriedade_id = exploracao.propriedade_id
         
         # Validações
         if data.data_inicio is not None or data.data_fim is not None:
             await self._validar_data_fim(data_inicio, data_fim)
             await self._validar_sobreposicao(
-                fazenda_id=fazenda_id,
+                unidade_produtiva_id=unidade_produtiva_id,
                 propriedade_id=propriedade_id,
                 data_inicio=data_inicio,
                 data_fim=data_fim,
@@ -196,7 +196,7 @@ class ExploracaoRuralService:
             )
         
         if data.area_explorada_ha is not None:
-            await self._validar_area_explorada(fazenda_id, data.area_explorada_ha)
+            await self._validar_area_explorada(unidade_produtiva_id, data.area_explorada_ha)
         
         # Atualizar campos
         update_data = data.model_dump(exclude_none=True)
@@ -219,7 +219,7 @@ class ExploracaoRuralService:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def listar_vigentes_por_fazenda(self, fazenda_id: uuid.UUID) -> list[ExploracaoRural]:
+    async def listar_vigentes_por_fazenda(self, unidade_produtiva_id: uuid.UUID) -> list[ExploracaoRural]:
         """
         Retorna explorações ativas agora (data_fim NULL ou >= hoje).
         """
@@ -227,7 +227,7 @@ class ExploracaoRuralService:
         
         stmt = select(ExploracaoRural).where(
             and_(
-                ExploracaoRural.fazenda_id == fazenda_id,
+                ExploracaoRural.unidade_produtiva_id == unidade_produtiva_id,
                 ExploracaoRural.tenant_id == self.tenant_id,
                 ExploracaoRural.ativo == True,
                 or_(

@@ -46,7 +46,10 @@ async def criar_template(
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = ChecklistTemplateService(session, tenant_id)
-    return await svc.criar(dados)
+    template = await svc.criar(dados)
+    await session.commit()
+    await session.refresh(template)
+    return template
 
 
 @router.patch(

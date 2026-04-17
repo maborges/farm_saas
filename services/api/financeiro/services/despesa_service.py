@@ -92,7 +92,7 @@ class DespesaService(BaseService[Despesa]):
 
     async def listar_com_filtros(
         self,
-        fazenda_id: Optional[uuid.UUID] = None,
+        unidade_produtiva_id: Optional[uuid.UUID] = None,
         status: Optional[str] = None,
         vencimento_de: Optional[date] = None,
         vencimento_ate: Optional[date] = None,
@@ -106,8 +106,8 @@ class DespesaService(BaseService[Despesa]):
             .offset(skip)
             .limit(limit)
         )
-        if fazenda_id:
-            stmt = stmt.where(Despesa.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt = stmt.where(Despesa.unidade_produtiva_id == unidade_produtiva_id)
         if status:
             stmt = stmt.where(Despesa.status == status)
         if vencimento_de:
@@ -120,7 +120,7 @@ class DespesaService(BaseService[Despesa]):
     async def listar_vencendo(
         self,
         dias: int = 7,
-        fazenda_id: Optional[uuid.UUID] = None,
+        unidade_produtiva_id: Optional[uuid.UUID] = None,
     ) -> List[Despesa]:
         """Retorna despesas a vencer nos próximos N dias (inclui vencidas)."""
         hoje = date.today()
@@ -135,8 +135,8 @@ class DespesaService(BaseService[Despesa]):
             )
             .order_by(Despesa.data_vencimento)
         )
-        if fazenda_id:
-            stmt = stmt.where(Despesa.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt = stmt.where(Despesa.unidade_produtiva_id == unidade_produtiva_id)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

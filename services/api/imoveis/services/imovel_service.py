@@ -19,7 +19,7 @@ from imoveis.models.imovel import (
     ImovelRural, Cartorio, MatriculaImovelRural, Benfeitoria,
     TipoImovel, SituacaoImovel, TipoDocumento, StatusDocumento
 )
-from core.models.fazenda import Fazenda
+from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
 from core.models.auth import Usuario
 
 
@@ -184,7 +184,7 @@ class ImovelService:
     
     async def get_imoveis_by_fazenda(
         self,
-        fazenda_id: uuid.UUID,
+        unidade_produtiva_id: uuid.UUID,
         tenant_id: uuid.UUID
     ) -> list[ImovelRural]:
         """Busca todos imóveis de uma fazenda."""
@@ -192,7 +192,7 @@ class ImovelService:
             select(ImovelRural)
             .where(
                 and_(
-                    ImovelRural.fazenda_id == fazenda_id,
+                    ImovelRural.unidade_produtiva_id == unidade_produtiva_id,
                     ImovelRural.tenant_id == tenant_id,
                     ImovelRural.deleted_at.is_(None)
                 )
@@ -244,7 +244,7 @@ class ImovelService:
     async def validar_area_consistente(
         self,
         area_imovel: Decimal,
-        fazenda_id: uuid.UUID,
+        unidade_produtiva_id: uuid.UUID,
         imovel_id: Optional[uuid.UUID] = None
     ) -> tuple[bool, str, Optional[Decimal]]:
         """
@@ -252,14 +252,14 @@ class ImovelService:
         
         Args:
             area_imovel: Área do imóvel em hectares
-            fazenda_id: ID da fazenda
+            unidade_produtiva_id: ID da fazenda
             imovel_id: ID do imóvel (para exclusão de si mesmo)
         
         Returns:
             tuple[bool, str, Decimal]: (valido, mensagem, area_fazenda)
         """
         # Busca área da fazenda
-        fazenda = await self.session.get(Fazenda, fazenda_id)
+        fazenda = await self.session.get(Fazenda, unidade_produtiva_id)
         if not fazenda:
             return False, "Fazenda não encontrada", None
         
@@ -268,7 +268,7 @@ class ImovelService:
         # Soma áreas de outros imóveis da fazenda
         stmt = select(func.sum(ImovelRural.area_total_ha)).where(
             and_(
-                ImovelRural.fazenda_id == fazenda_id,
+                ImovelRural.unidade_produtiva_id == unidade_produtiva_id,
                 ImovelRural.id != imovel_id,
                 ImovelRural.deleted_at.is_(None)
             )
@@ -346,7 +346,7 @@ class ImovelService:
     async def criar_imovel(
         self,
         tenant_id: uuid.UUID,
-        fazenda_id: uuid.UUID,
+        unidade_produtiva_id: uuid.UUID,
         nome: str,
         municipio: str,
         uf: str,
@@ -382,7 +382,7 @@ class ImovelService:
         
         # Valida área
         valido, msg, area_fazenda = await self.validar_area_consistente(
-            area_total_ha, fazenda_id
+            area_total_ha, unidade_produtiva_id
         )
         if not valido:
             raise ValueError(msg)
@@ -397,7 +397,7 @@ class ImovelService:
         # Cria imóvel
         imovel = ImovelRural(
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             nome=nome,
             municipio=municipio,
             uf=uf,
@@ -452,7 +452,7 @@ class ImovelService:
                 raise ValueError("Alteração de área exige justificativa no campo 'motivo_alteracao_area'")
             
             valido, msg, area_fazenda = await self.validar_area_consistente(
-                dados['area_total_ha'], imovel.fazenda_id, imovel.id
+                dados['area_total_ha'], imovel.unidade_produtiva_id, imovel.id
             )
             if not valido:
                 raise ValueError(msg)

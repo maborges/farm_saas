@@ -80,9 +80,9 @@ class TestExploracaoCreate:
 
     def test_exploracao_create_natureza_valida(self):
         """ExploracaoCreate(natureza="propria", ...) deve validar."""
-        fazenda_id = uuid.uuid4()
+        unidade_produtiva_id = uuid.uuid4()
         e = ExploracaoCreate(
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             natureza="propria",
             data_inicio=date(2024, 1, 1),
         )
@@ -90,10 +90,10 @@ class TestExploracaoCreate:
 
     def test_exploracao_create_natureza_invalida_falha(self):
         """ExploracaoCreate(natureza="invalida", ...) deve falhar com ValueError."""
-        fazenda_id = uuid.uuid4()
+        unidade_produtiva_id = uuid.uuid4()
         with pytest.raises(ValidationError) as exc_info:
             ExploracaoCreate(
-                fazenda_id=fazenda_id,
+                unidade_produtiva_id=unidade_produtiva_id,
                 natureza="invalida",
                 data_inicio=date(2024, 1, 1),
             )
@@ -102,10 +102,10 @@ class TestExploracaoCreate:
     def test_exploracao_create_todas_naturezas_validas(self):
         """Todas as naturezas do enum devem ser aceitas."""
         from core.cadastros.propriedades.propriedade_models import NaturezaVinculo
-        fazenda_id = uuid.uuid4()
+        unidade_produtiva_id = uuid.uuid4()
         for natureza in NaturezaVinculo:
             e = ExploracaoCreate(
-                fazenda_id=fazenda_id,
+                unidade_produtiva_id=unidade_produtiva_id,
                 natureza=natureza.value,
                 data_inicio=date(2024, 1, 1),
             )
@@ -113,9 +113,9 @@ class TestExploracaoCreate:
 
     def test_exploracao_create_valor_anual_positivo(self):
         """Deve aceitar valor_anual > 0."""
-        fazenda_id = uuid.uuid4()
+        unidade_produtiva_id = uuid.uuid4()
         e = ExploracaoCreate(
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             natureza="propria",
             data_inicio=date(2024, 1, 1),
             valor_anual=10000.0,
@@ -124,10 +124,10 @@ class TestExploracaoCreate:
 
     def test_exploracao_create_valor_anual_negativo_falha(self):
         """valor_anual deve ser > 0."""
-        fazenda_id = uuid.uuid4()
+        unidade_produtiva_id = uuid.uuid4()
         with pytest.raises(ValidationError):
             ExploracaoCreate(
-                fazenda_id=fazenda_id,
+                unidade_produtiva_id=unidade_produtiva_id,
                 natureza="propria",
                 data_inicio=date(2024, 1, 1),
                 valor_anual=-100.0,
@@ -135,9 +135,9 @@ class TestExploracaoCreate:
 
     def test_exploracao_create_percentual_producao_valido(self):
         """percentual_producao deve ser > 0 e <= 100."""
-        fazenda_id = uuid.uuid4()
+        unidade_produtiva_id = uuid.uuid4()
         e = ExploracaoCreate(
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             natureza="propria",
             data_inicio=date(2024, 1, 1),
             percentual_producao=75.5,
@@ -146,10 +146,10 @@ class TestExploracaoCreate:
 
     def test_exploracao_create_percentual_producao_acima_100_falha(self):
         """percentual_producao > 100 deve falhar."""
-        fazenda_id = uuid.uuid4()
+        unidade_produtiva_id = uuid.uuid4()
         with pytest.raises(ValidationError):
             ExploracaoCreate(
-                fazenda_id=fazenda_id,
+                unidade_produtiva_id=unidade_produtiva_id,
                 natureza="propria",
                 data_inicio=date(2024, 1, 1),
                 percentual_producao=150.0,
@@ -264,7 +264,7 @@ class TestResponseSchemas:
             id=uuid.uuid4(),
             tenant_id=uuid.uuid4(),
             propriedade_id=uuid.uuid4(),
-            fazenda_id=uuid.uuid4(),
+            unidade_produtiva_id=uuid.uuid4(),
             natureza="propria",
             data_inicio=date(2024, 1, 1),
             data_fim=None,

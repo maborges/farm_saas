@@ -15,7 +15,7 @@ class RateioCreate(BaseModel):
 
 
 class DespesaCreate(BaseModel):
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     plano_conta_id: uuid.UUID
     descricao: str = Field(..., min_length=3, max_length=255)
     valor_total: float = Field(..., gt=0)
@@ -79,7 +79,7 @@ class DespesaUpdate(BaseModel):
 class DespesaResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     plano_conta_id: uuid.UUID
     pessoa_id: Optional[uuid.UUID]
     descricao: str
@@ -110,7 +110,7 @@ class DespesaResponse(BaseModel):
 class DespesaListItem(BaseModel):
     """Versão resumida para listagens."""
     id: uuid.UUID
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     pessoa_id: Optional[uuid.UUID]
     fornecedor: Optional[str]
     descricao: str

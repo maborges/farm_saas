@@ -11,20 +11,20 @@ from agricola.climatico.service import ClimaService
 
 router = APIRouter(prefix="/climatico", tags=["Clima e Pluviometria"])
 
-@router.post("/sincronizar/{fazenda_id}", status_code=status.HTTP_202_ACCEPTED)
+@router.post("/sincronizar/{unidade_produtiva_id}", status_code=status.HTTP_202_ACCEPTED)
 async def sincronizar_api_clima(
-    fazenda_id: UUID,
+    unidade_produtiva_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = ClimaService(session, tenant_id)
-    msg = await svc.sync_open_meteo(fazenda_id)
+    msg = await svc.sync_open_meteo(unidade_produtiva_id)
     return {"message": msg}
 
-@router.get("/historico/{fazenda_id}", response_model=List[ClimaResponse])
+@router.get("/historico/{unidade_produtiva_id}", response_model=List[ClimaResponse])
 async def historico_clima(
-    fazenda_id: UUID,
+    unidade_produtiva_id: UUID,
     dias: int = 30,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
@@ -33,17 +33,17 @@ async def historico_clima(
     svc = ClimaService(session, tenant_id)
     hoje = date.today()
     inicio = hoje - timedelta(days=dias)
-    registros = await svc.get_clima_periodo(fazenda_id, inicio, hoje)
+    registros = await svc.get_clima_periodo(unidade_produtiva_id, inicio, hoje)
     return [ClimaResponse.model_validate(r) for r in registros]
 
-@router.get("/chuva-acumulada/{fazenda_id}")
+@router.get("/chuva-acumulada/{unidade_produtiva_id}")
 async def acumulado_chuva(
-    fazenda_id: UUID,
+    unidade_produtiva_id: UUID,
     dias: int = 30,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = ClimaService(session, tenant_id)
-    acumulado = await svc.get_chuva_acumulada(fazenda_id, dias)
-    return {"fazenda_id": fazenda_id, "dias": dias, "chuva_acumulada_mm": acumulado}
+    acumulado = await svc.get_chuva_acumulada(unidade_produtiva_id, dias)
+    return {"unidade_produtiva_id": unidade_produtiva_id, "dias": dias, "chuva_acumulada_mm": acumulado}

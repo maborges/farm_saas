@@ -64,18 +64,18 @@ class TenantUsuario(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
-class FazendaUsuario(Base):
+class UnidadeProdutivaUsuario(Base):
     """
-    Vínculo de usuário a fazendas específicas para segmentação de propriedades.
+    Vínculo de usuário a unidades produtivas específicas para segmentação de propriedades.
 
-    Permite que um usuário tenha perfis diferentes por fazenda.
-    Exemplo: João pode ser "financeiro" na Fazenda A e "agrônomo" na Fazenda B.
+    Permite que um usuário tenha perfis diferentes por unidade produtiva.
+    Exemplo: João pode ser "financeiro" na Unidade A e "agrônomo" na Unidade B.
     """
-    __tablename__ = "fazenda_usuarios"
+    __tablename__ = "unidade_produtiva_usuarios"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
-    fazenda_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="CASCADE"), nullable=False, index=True)
+    unidade_produtiva_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="CASCADE"), nullable=False, index=True)
     usuario_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Perfil específico para esta fazenda (sobrescreve o perfil do TenantUsuario)
@@ -103,8 +103,8 @@ class ConviteAcesso(Base):
     email_convidado: Mapped[str] = mapped_column(String(255), nullable=False)
     perfil_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("perfis_acesso.id"), nullable=False)
 
-    # JSON array de strings (uuid das fazendas)
-    fazendas_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # JSON array de strings (uuid das unidades produtivas)
+    unidades_produtivas_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
 
     token_convite: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     status: Mapped[str] = mapped_column(String(20), default="PENDENTE") # PENDENTE, ACEITO, CANCElADO, EXPIRADO
@@ -175,3 +175,7 @@ class TentativaLogin(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc)
     )
+
+
+# Backward compatibility alias
+FazendaUsuario = UnidadeProdutivaUsuario

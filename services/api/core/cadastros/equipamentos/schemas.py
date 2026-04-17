@@ -21,7 +21,7 @@ class EquipamentoCreate(BaseModel):
     status: str = "ATIVO"
     horimetro_atual: float = 0.0
     km_atual: float = 0.0
-    fazenda_id: Optional[uuid.UUID] = None
+    unidade_produtiva_id: Optional[uuid.UUID] = None
     valor_aquisicao: Optional[float] = None
     data_aquisicao: Optional[date] = None
     observacoes: Optional[str] = None
@@ -45,7 +45,7 @@ class EquipamentoUpdate(BaseModel):
     status: Optional[str] = None
     horimetro_atual: Optional[float] = None
     km_atual: Optional[float] = None
-    fazenda_id: Optional[uuid.UUID] = None
+    unidade_produtiva_id: Optional[uuid.UUID] = None
     valor_aquisicao: Optional[float] = None
     data_aquisicao: Optional[date] = None
     observacoes: Optional[str] = None
@@ -55,7 +55,7 @@ class EquipamentoUpdate(BaseModel):
 class EquipamentoResponse(BaseModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
-    fazenda_id: Optional[uuid.UUID]
+    unidade_produtiva_id: Optional[uuid.UUID]
     nome: str
     tipo: str
     marca: Optional[str]

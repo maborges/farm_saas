@@ -307,7 +307,7 @@ class ProdutoAgricola(Base):
     registro_mapa: Mapped[str | None] = mapped_column(String(50), nullable=True)
     classe_agronomica: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="HERBICIDA | FUNGICIDA | INSETICIDA | ACARICIDA | NEMATICIDA")
     classe_toxicologica: Mapped[str | None] = mapped_column(String(5), nullable=True, comment="I | II | III | IV")
-    principio_ativo: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    principio_ativo: Mapped[str | None] = mapped_column(String(30), nullable=True)
     formulacao: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="CE | SC | WG | EC | SL")
     periodo_carencia_dias: Mapped[int | None] = mapped_column(Integer, nullable=True)
     intervalo_reentrada_horas: Mapped[int | None] = mapped_column(Integer, nullable=True)

@@ -26,7 +26,7 @@ class SafraTalhaoGrupoService(BaseService[SafraTalhaoGrupo]):
         # Carrega itens de cada grupo
         for grupo in grupos:
             stmt_itens = select(SafraTalhaoGrupoItem).where(
-                SafraTalhaoGrupoItem.grupo_id == grupo.id
+                SafraTalhaoGrupoItem.tenant_id == grupo.id
             )
             itens = (await self.session.execute(stmt_itens)).scalars().all()
             grupo.itens = list(itens)
@@ -67,7 +67,7 @@ class SafraTalhaoGrupoService(BaseService[SafraTalhaoGrupo]):
         grupo = await self.get_or_fail(grupo_id)
 
         # Remove itens atuais
-        stmt_del = select(SafraTalhaoGrupoItem).where(SafraTalhaoGrupoItem.grupo_id == grupo_id)
+        stmt_del = select(SafraTalhaoGrupoItem).where(SafraTalhaoGrupoItem.tenant_id == grupo_id)
         itens_atuais = (await self.session.execute(stmt_del)).scalars().all()
         for item in itens_atuais:
             await self.session.delete(item)

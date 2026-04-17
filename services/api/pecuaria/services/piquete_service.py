@@ -19,14 +19,14 @@ class PiqueteService(BaseService[Piquete]):
         super().__init__(Piquete, None, tenant_id)
 
     async def listar_por_fazenda(
-        self, db: AsyncSession, *, fazenda_id: uuid.UUID
+        self, db: AsyncSession, *, unidade_produtiva_id: uuid.UUID
     ) -> list[Piquete]:
         """Lista piquetes ativos de uma fazenda específica."""
         stmt = (
             select(self.model)
             .where(
                 self.model.tenant_id == self.tenant_id,
-                self.model.fazenda_id == fazenda_id,
+                self.model.unidade_produtiva_id == unidade_produtiva_id,
                 self.model.ativo == True,
             )
             .order_by(self.model.nome)

@@ -10,12 +10,15 @@ class Fornecedor(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), index=True)
-    
+
     nome_fantasia: Mapped[str] = mapped_column(String(150), nullable=False)
     razao_social: Mapped[str | None] = mapped_column(String(150))
     cnpj_cpf: Mapped[str | None] = mapped_column(String(20), index=True)
     email: Mapped[str | None] = mapped_column(String(100))
     telefone: Mapped[str | None] = mapped_column(String(20))
+    condicoes_pagamento: Mapped[str | None] = mapped_column(String(100))
+    prazo_entrega_dias: Mapped[int | None] = mapped_column(Integer)
+    avaliacao: Mapped[float | None] = mapped_column(Float)
 
 class PedidoCompra(Base):
     """Solicitação de compra interna ou cotação."""

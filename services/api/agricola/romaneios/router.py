@@ -25,6 +25,8 @@ async def criar_romaneio(
 ):
     svc = RomaneioService(session, tenant_id)
     romaneio = await svc.criar(dados)
+    await session.commit()
+    await session.refresh(romaneio)
     return RomaneioColheitaResponse.model_validate(romaneio)
 
 @router.get("/kpis", response_model=RomaneioKPIs)

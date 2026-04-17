@@ -29,7 +29,7 @@ class TestRomaneioReceitaWebhook:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Romaneio com receita_total > 0 deve criar Receita automaticamente."""
@@ -93,7 +93,7 @@ class TestRomaneioReceitaWebhook:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Romaneio sem preco_saca não deve criar Receita."""
@@ -139,7 +139,7 @@ class TestRomaneioReceitaWebhook:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Receita deve ter origem_id linkado ao romaneio para rastreabilidade."""
@@ -241,7 +241,7 @@ class TestRomaneioReceitaWebhook:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Receita deve usar o valor_total calculado do romaneio (sacas × preço)."""
@@ -305,7 +305,7 @@ class TestRomaneioReceitaWebhook:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """

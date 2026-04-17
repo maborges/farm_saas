@@ -12,7 +12,7 @@ Endpoints:
 - PATCH  /grupos-fazendas/{id}     - Atualizar grupo
 - DELETE /grupos-fazendas/{id}     - Excluir grupo
 - POST   /grupos-fazendas/{id}/fazendas - Adicionar fazendas ao grupo
-- DELETE /grupos-fazendas/{id}/fazendas/{fazenda_id} - Remover fazenda do grupo
+- DELETE /grupos-fazendas/{id}/fazendas/{unidade_produtiva_id} - Remover fazenda do grupo
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -27,8 +27,8 @@ from core.dependencies import (
     get_tenant_id,
     require_tenant_permission
 )
-from core.models.grupo_fazendas import GrupoFazendas, GrupoUsuario
-from core.models.fazenda import Fazenda
+# grupos_fazendas removed
+from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
 from core.models.billing import AssinaturaTenant, PlanoAssinatura
 from core.models.auth import Usuario
 from pydantic import BaseModel, Field
@@ -126,7 +126,7 @@ async def list_grupos(
         stmt_fazendas = select(
             func.count(Fazenda.id),
             func.sum(Fazenda.area_total_ha)
-        ).where(Fazenda.grupo_id == grupo.id)
+        ).where(Fazenda.unidade_produtiva_id == grupo.id)
 
         result_faz = await session.execute(stmt_fazendas)
         total_faz, area_total = result_faz.first()
@@ -186,7 +186,7 @@ async def get_grupo_detalhado(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo não encontrado")
 
     # Buscar fazendas do grupo
-    stmt_fazendas = select(Fazenda).where(Fazenda.grupo_id == grupo_uuid)
+    stmt_fazendas = select(Fazenda).where(Fazenda.unidade_produtiva_id == grupo_uuid)
     result_faz = await session.execute(stmt_fazendas)
     fazendas = result_faz.scalars().all()
 
@@ -308,7 +308,7 @@ async def update_grupo(
     stmt_fazendas = select(
         func.count(Fazenda.id),
         func.sum(Fazenda.area_total_ha)
-    ).where(Fazenda.grupo_id == grupo.id)
+    ).where(Fazenda.unidade_produtiva_id == grupo.id)
     result_faz = await session.execute(stmt_fazendas)
     total_faz, area_total = result_faz.first()
 
@@ -363,7 +363,7 @@ async def delete_grupo(
     grupo.updated_at = datetime.now(timezone.utc)
 
     # Remover grupo_id das fazendas
-    stmt_fazendas = select(Fazenda).where(Fazenda.grupo_id == grupo_uuid)
+    stmt_fazendas = select(Fazenda).where(Fazenda.unidade_produtiva_id == grupo_uuid)
     result = await session.execute(stmt_fazendas)
     fazendas = result.scalars().all()
 
@@ -392,7 +392,7 @@ async def add_fazendas_to_grupo(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Grupo não encontrado")
 
     added_count = 0
-    for fazenda_id_str in data.fazendas_ids:
+    for fazenda_id_str in data.unidades_produtivas_ids:
         try:
             fazenda_uuid = uuid.UUID(fazenda_id_str)
             fazenda = await session.get(Fazenda, fazenda_uuid)
@@ -409,10 +409,10 @@ async def add_fazendas_to_grupo(
     return {"message": f"{added_count} fazendas adicionadas ao grupo"}
 
 
-@router.delete("/{grupo_id}/fazendas/{fazenda_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_tenant_permission("tenant:grupos:update"))])
+@router.delete("/{grupo_id}/fazendas/{unidade_produtiva_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_tenant_permission("tenant:grupos:update"))])
 async def remove_fazenda_from_grupo(
     grupo_id: str,
-    fazenda_id: str,
+    unidade_produtiva_id: str,
     tenant_id: uuid.UUID = Depends(get_tenant_id),
     session: AsyncSession = Depends(get_session)
 ):
@@ -420,7 +420,7 @@ async def remove_fazenda_from_grupo(
 
     try:
         grupo_uuid = uuid.UUID(grupo_id)
-        fazenda_uuid = uuid.UUID(fazenda_id)
+        fazenda_uuid = uuid.UUID(unidade_produtiva_id)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="ID inválido")
 
@@ -465,7 +465,7 @@ async def list_membros(
     stmt = (
         select(GrupoUsuario, Usuario)
         .join(Usuario, GrupoUsuario.user_id == Usuario.id)
-        .where(GrupoUsuario.grupo_id == grupo_uuid)
+        .where(GrupoUsuario.tenant_id == grupo_uuid)
         .order_by(Usuario.nome)
     )
     result = await session.execute(stmt)
@@ -511,7 +511,7 @@ async def add_membro(
     # Check duplicate
     existing = await session.scalar(
         select(GrupoUsuario).where(
-            and_(GrupoUsuario.grupo_id == grupo_uuid, GrupoUsuario.user_id == user_uuid)
+            and_(GrupoUsuario.tenant_id == grupo_uuid, GrupoUsuario.user_id == user_uuid)
         )
     )
     if existing:
@@ -556,7 +556,7 @@ async def remove_membro(
 
     membro = await session.scalar(
         select(GrupoUsuario).where(
-            and_(GrupoUsuario.grupo_id == grupo_uuid, GrupoUsuario.user_id == user_uuid)
+            and_(GrupoUsuario.tenant_id == grupo_uuid, GrupoUsuario.user_id == user_uuid)
         )
     )
     if not membro:
@@ -564,7 +564,7 @@ async def remove_membro(
 
     # Guard: cannot remove if last member
     total_membros = await session.scalar(
-        select(func.count(GrupoUsuario.id)).where(GrupoUsuario.grupo_id == grupo_uuid)
+        select(func.count(GrupoUsuario.id)).where(GrupoUsuario.tenant_id == grupo_uuid)
     )
     if total_membros <= 1:
         raise HTTPException(
@@ -597,7 +597,7 @@ async def update_membro(
 
     membro = await session.scalar(
         select(GrupoUsuario).where(
-            and_(GrupoUsuario.grupo_id == grupo_uuid, GrupoUsuario.user_id == user_uuid)
+            and_(GrupoUsuario.tenant_id == grupo_uuid, GrupoUsuario.user_id == user_uuid)
         )
     )
     if not membro:

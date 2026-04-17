@@ -16,7 +16,7 @@ class PrescricaoVRA(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(String(50), nullable=False, index=True)
-    fazenda_id = Column(PGUUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="CASCADE"), nullable=False)
+    unidade_produtiva_id = Column(PGUUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="CASCADE"), nullable=False)
     talhao_id = Column(PGUUID(as_uuid=True), ForeignKey("cadastros_areas_rurais.id", ondelete="SET NULL"), nullable=True)
     safra_id = Column(PGUUID(as_uuid=True), ForeignKey("safras.id", ondelete="SET NULL"), nullable=True)
 
@@ -53,5 +53,5 @@ class PrescricaoVRA(Base):
     atualizada_em = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relacionamentos
-    fazenda = relationship("Fazenda", backref="prescricoes_vra")
+    fazenda = relationship("UnidadeProdutiva", backref="prescricoes_vra")
     talhao = relationship("AreaRural", foreign_keys=[talhao_id])

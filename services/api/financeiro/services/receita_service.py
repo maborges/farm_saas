@@ -81,7 +81,7 @@ class ReceitaService(BaseService[Receita]):
 
     async def listar_com_filtros(
         self,
-        fazenda_id: Optional[uuid.UUID] = None,
+        unidade_produtiva_id: Optional[uuid.UUID] = None,
         status: Optional[str] = None,
         vencimento_de: Optional[date] = None,
         vencimento_ate: Optional[date] = None,
@@ -95,8 +95,8 @@ class ReceitaService(BaseService[Receita]):
             .offset(skip)
             .limit(limit)
         )
-        if fazenda_id:
-            stmt = stmt.where(Receita.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt = stmt.where(Receita.unidade_produtiva_id == unidade_produtiva_id)
         if status:
             stmt = stmt.where(Receita.status == status)
         if vencimento_de:
@@ -109,7 +109,7 @@ class ReceitaService(BaseService[Receita]):
     async def listar_vencendo(
         self,
         dias: int = 7,
-        fazenda_id: Optional[uuid.UUID] = None,
+        unidade_produtiva_id: Optional[uuid.UUID] = None,
     ) -> List[Receita]:
         """Retorna receitas a vencer nos próximos N dias."""
         hoje = date.today()
@@ -124,8 +124,8 @@ class ReceitaService(BaseService[Receita]):
             )
             .order_by(Receita.data_vencimento)
         )
-        if fazenda_id:
-            stmt = stmt.where(Receita.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt = stmt.where(Receita.unidade_produtiva_id == unidade_produtiva_id)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

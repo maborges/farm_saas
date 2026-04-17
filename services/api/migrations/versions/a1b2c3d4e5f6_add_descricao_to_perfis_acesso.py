@@ -1,6 +1,6 @@
 """add_descricao_to_perfis_acesso
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: a1b2c3_perfis_acesso
 Revises: eacd7ecdb359
 Create Date: 2026-03-17 00:00:00.000000
 
@@ -13,7 +13,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = 'a1b2c3d4e5f6'
+revision: str = 'a1b2c3_perfis_acesso'
 down_revision: Union[str, Sequence[str], None] = 'eacd7ecdb359'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

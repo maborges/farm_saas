@@ -4,7 +4,7 @@ from datetime import date, datetime
 
 class ClimaResponse(BaseModel):
     id: UUID
-    fazenda_id: UUID
+    unidade_produtiva_id: UUID
     data_registro: date
     precipitacao_mm: float | None
     temp_max_c: float | None

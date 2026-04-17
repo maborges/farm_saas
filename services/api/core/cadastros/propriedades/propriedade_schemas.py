@@ -59,7 +59,7 @@ class PropriedadeResponse(BaseModel):
 
 
 class ExploracaoCreate(BaseModel):
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     natureza: str
     data_inicio: date
     data_fim: Optional[date] = None
@@ -103,7 +103,7 @@ class ExploracaoUpdate(BaseModel):
 class ExploracaoResponse(BaseModel):
     id: uuid.UUID
     propriedade_id: uuid.UUID
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     natureza: str
     data_inicio: date
     data_fim: Optional[date]

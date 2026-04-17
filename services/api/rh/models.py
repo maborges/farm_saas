@@ -39,8 +39,8 @@ class ColaboradorRH(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    fazenda_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="SET NULL"), nullable=True, index=True
+    unidade_produtiva_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="SET NULL"), nullable=True, index=True
     )
     pessoa_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("cadastros_pessoas.id", ondelete="CASCADE"), nullable=True, index=True
@@ -113,8 +113,8 @@ class LancamentoDiaria(Base):
     colaborador_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("rh_colaboradores.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    fazenda_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="SET NULL"), nullable=True
+    unidade_produtiva_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="SET NULL"), nullable=True
     )
     safra_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
@@ -146,8 +146,8 @@ class Empreitada(Base):
     colaborador_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("rh_colaboradores.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    fazenda_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="SET NULL"), nullable=True
+    unidade_produtiva_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="SET NULL"), nullable=True
     )
     safra_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),

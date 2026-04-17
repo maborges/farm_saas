@@ -29,13 +29,21 @@ router = APIRouter(prefix="/compras", tags=["Operacional — Compras"], dependen
 class FornecedorCreate(BaseModel):
     nome_fantasia: str
     cnpj_cpf: Optional[str] = None
+    email: Optional[str] = None
+    telefone: Optional[str] = None
     condicoes_pagamento: Optional[str] = None
+    prazo_entrega_dias: Optional[int] = None
+    avaliacao: Optional[float] = None
 
 class FornecedorResponse(BaseModel):
     id: uuid.UUID
     nome_fantasia: str
     cnpj_cpf: Optional[str]
-    condicoes_pagamento: Optional[str] = None
+    email: Optional[str]
+    telefone: Optional[str]
+    condicoes_pagamento: Optional[str]
+    prazo_entrega_dias: Optional[int]
+    avaliacao: Optional[float]
     class Config: from_attributes = True
 
 class PedidoCreate(BaseModel):
@@ -98,6 +106,40 @@ async def create_fornecedor(
     session: AsyncSession = Depends(get_session)
 ):
     forn = Fornecedor(tenant_id=tenant.id, **data.model_dump())
+    session.add(forn)
+    await session.commit()
+    await session.refresh(forn)
+    return forn
+
+
+@router.get("/fornecedores/{fornecedor_id}", response_model=FornecedorResponse)
+async def get_fornecedor(
+    fornecedor_id: uuid.UUID,
+    tenant: Tenant = Depends(get_current_tenant),
+    session: AsyncSession = Depends(get_session)
+):
+    stmt = select(Fornecedor).where(Fornecedor.id == fornecedor_id, Fornecedor.tenant_id == tenant.id)
+    forn = (await session.execute(stmt)).scalar_one_or_none()
+    if not forn:
+        raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
+    return forn
+
+
+@router.put("/fornecedores/{fornecedor_id}", response_model=FornecedorResponse)
+async def update_fornecedor(
+    fornecedor_id: uuid.UUID,
+    data: FornecedorCreate,
+    tenant: Tenant = Depends(get_current_tenant),
+    session: AsyncSession = Depends(get_session)
+):
+    stmt = select(Fornecedor).where(Fornecedor.id == fornecedor_id, Fornecedor.tenant_id == tenant.id)
+    forn = (await session.execute(stmt)).scalar_one_or_none()
+    if not forn:
+        raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
+
+    for key, value in data.model_dump(exclude_unset=True).items():
+        setattr(forn, key, value)
+
     session.add(forn)
     await session.commit()
     await session.refresh(forn)
@@ -347,14 +389,14 @@ async def receber_pedido(
     from operacional.models.estoque import Deposito
 
     deposito_obj = await session.get(Deposito, data.deposito_id)
-    fazenda_id_compra = deposito_obj.fazenda_id if deposito_obj else None
+    unidade_produtiva_id_compra = deposito_obj.unidade_produtiva_id if deposito_obj else None
     valor_total_compra = sum(
         (item.preco_real_unitario or item.preco_estimado_unitario or 0.0)
         * (item.quantidade_recebida or item.quantidade_solicitada)
         for item in itens
     )
 
-    if fazenda_id_compra and valor_total_compra > 0:
+    if unidade_produtiva_id_compra and valor_total_compra > 0:
         stmt_pc = (
             select(PlanoConta.id)
             .where(
@@ -370,7 +412,7 @@ async def receber_pedido(
             session.add(Despesa(
                 id=uuid.uuid4(),
                 tenant_id=tenant.id,
-                fazenda_id=fazenda_id_compra,
+                unidade_produtiva_id=unidade_produtiva_id_compra,
                 plano_conta_id=plano_id_compra,
                 descricao=f"Compra — Pedido {pedido_id}",
                 valor_total=round(valor_total_compra, 2),

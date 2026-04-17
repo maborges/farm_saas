@@ -20,8 +20,8 @@ LOTE_ID = uuid.UUID("ee000001-0000-0000-0000-000000000001")
 
 async def _garantir_suporte(session):
     await session.execute(text("""
-        INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
-        VALUES (:id, 'Tenant Pecuária', '44455566677', true, '["CORE","P1"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+        INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+        VALUES (:id, 'Tenant Pecuária', '44455566677', true,  0, 10240, 'pt-BR', NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(TENANT_ID)})
 
@@ -58,7 +58,7 @@ def headers_pecuaria(token_pecuaria):
 
 def _payload_lote(**overrides) -> dict:
     base = {
-        "fazenda_id": str(FAZENDA_ID),
+        "unidade_produtiva_id": str(FAZENDA_ID),
         "identificacao": f"Lote-{uuid.uuid4().hex[:4].upper()}",
         "categoria": "Novilhas",
         "raca": "Nelore",

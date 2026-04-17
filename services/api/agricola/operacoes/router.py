@@ -75,6 +75,7 @@ async def criar_operacao(
 ):
     svc = OperacaoService(session, tenant_id)
     operacao = await svc.criar(dados)
+    await session.commit()
     background_tasks.add_task(
         verificar_alertas_pos_operacao,
         operacao_id=operacao.id,

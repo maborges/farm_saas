@@ -384,21 +384,21 @@ class ConfiguracoesService:
     # OVERRIDE POR FAZENDA
     # --------------------------------------------------------------------------
 
-    async def get_configuracao_fazenda(self, fazenda_id: UUID) -> Optional[ConfiguracaoFazenda]:
+    async def get_configuracao_fazenda(self, unidade_produtiva_id: UUID) -> Optional[ConfiguracaoFazenda]:
         stmt = select(ConfiguracaoFazenda).where(
             and_(
-                ConfiguracaoFazenda.fazenda_id == fazenda_id,
+                ConfiguracaoFazenda.unidade_produtiva_id == unidade_produtiva_id,
                 ConfiguracaoFazenda.tenant_id == self.tenant_id,
             )
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def set_override_fazenda(self, fazenda_id: UUID, overrides: dict) -> ConfiguracaoFazenda:
-        cfg = await self.get_configuracao_fazenda(fazenda_id)
+    async def set_override_fazenda(self, unidade_produtiva_id: UUID, overrides: dict) -> ConfiguracaoFazenda:
+        cfg = await self.get_configuracao_fazenda(unidade_produtiva_id)
         if not cfg:
             cfg = ConfiguracaoFazenda(
-                fazenda_id=fazenda_id,
+                unidade_produtiva_id=unidade_produtiva_id,
                 tenant_id=self.tenant_id,
                 overrides=overrides,
             )

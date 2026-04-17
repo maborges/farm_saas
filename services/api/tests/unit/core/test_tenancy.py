@@ -35,7 +35,7 @@ TENANT_B = uuid.uuid4()
 async def test_base_service_filtra_por_tenant():
     """CORE-TEN-01: BaseService injeta tenant_id em todas as queries"""
     from core.base_service import BaseService
-    from core.models.fazenda import Fazenda
+    from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
 
     session = AsyncMock()
     result_mock = MagicMock()
@@ -62,7 +62,7 @@ async def test_base_service_filtra_por_tenant():
 async def test_tenant_isolamento_get_or_fail():
     """CORE-TEN-02: get_or_fail com ID de outro tenant lança erro de não encontrado"""
     from core.base_service import BaseService
-    from core.models.fazenda import Fazenda
+    from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
 
     session = AsyncMock()
     result_mock = MagicMock()
@@ -107,8 +107,8 @@ def test_claims_superuser_sem_tenant():
 # CORE-TEN-05: Criação de tenant com plano (estrutura de claims)
 # ---------------------------------------------------------------------------
 
-def test_tenant_modulos_ativos_no_token():
-    """CORE-TEN-05: Token contém módulos ativos do plano do tenant"""
+def test_tenant_modulos_no_token():
+    """CORE-TEN-05: Token contém módulos do plano do tenant via AssinaturaTenant"""
     modulos = ["CORE", "A1_PLANEJAMENTO", "F1_FINANCEIRO"]
     claims = make_claims(tenant_id=TENANT_A, modules=modulos)
     assert "A1_PLANEJAMENTO" in claims["modules"]

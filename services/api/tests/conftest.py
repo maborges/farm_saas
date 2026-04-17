@@ -12,7 +12,7 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy import text
 from core.database import Base
 from core.models import Tenant, Fazenda
-from core.models.grupo_fazendas import GrupoFazendas
+# grupos_fazendas removed
 from core.models.billing import AssinaturaTenant, PlanoAssinatura
 from core.config import settings
 
@@ -132,7 +132,7 @@ async def session_b():
     await engine.dispose()
 
 @pytest.fixture
-async def fazenda_id(session, tenant_id: uuid.UUID) -> uuid.UUID:
+async def unidade_produtiva_id(session, tenant_id: uuid.UUID) -> uuid.UUID:
     # Cria tenant
     await session.execute(
         text(
@@ -157,21 +157,19 @@ async def fazenda_id(session, tenant_id: uuid.UUID) -> uuid.UUID:
         {"id": str(plano_id)},
     )
 
-    # Cria grupo de fazendas
-    grupo = GrupoFazendas(
-        id=uuid.uuid4(),
-        tenant_id=tenant_id,
-        nome="Grupo Teste",
-    )
-    session.add(grupo)
-    await session.flush()
+    # Cria grupo de fazendas via SQL (modelo removido)
+    await session.execute(text(
+        "INSERT INTO grupos_fazendas (id, tenant_id, nome, ativo, created_at) "
+        "VALUES (:id, :tenant_id, 'Grupo Teste', true, now()) "
+        "ON CONFLICT DO NOTHING"
+    ), {"id": str(uuid.uuid4()), "tenant_id": str(tenant_id)})
+    await session.commit()
 
     # Cria assinatura vinculada ao grupo
     assinatura = AssinaturaTenant(
         tenant_id=tenant_id,
         plano_id=plano_id,
-        grupo_fazendas_id=grupo.id,
-        tipo_assinatura="GRUPO",
+        tipo_assinatura="TENANT",
         status="ATIVA",
     )
     session.add(assinatura)
@@ -189,7 +187,7 @@ async def fazenda_id(session, tenant_id: uuid.UUID) -> uuid.UUID:
     return fazenda.id
 
 @pytest.fixture
-async def talhao_id(session, tenant_id: uuid.UUID, fazenda_id: uuid.UUID) -> uuid.UUID:
+async def talhao_id(session, tenant_id: uuid.UUID, unidade_produtiva_id: uuid.UUID) -> uuid.UUID:
     """
     Cria registros em cadastros_areas_rurais E talhoes.
     - Safra usa ForeignKey para cadastros_areas_rurais
@@ -201,12 +199,12 @@ async def talhao_id(session, tenant_id: uuid.UUID, fazenda_id: uuid.UUID) -> uui
     
     # Cria em cadastros_areas_rurais (para Safra)
     await session.execute(text("""
-        INSERT INTO cadastros_areas_rurais (id, tenant_id, fazenda_id, tipo, nome, area_hectares, ativo, created_at, updated_at)
-        VALUES (:id, :tenant_id, :fazenda_id, :tipo, :nome, :area_hectares, :ativo, NOW(), NOW())
+        INSERT INTO cadastros_areas_rurais (id, tenant_id, unidade_produtiva_id, tipo, nome, area_hectares, ativo, created_at, updated_at)
+        VALUES (:id, :tenant_id, :unidade_produtiva_id, :tipo, :nome, :area_hectares, :ativo, NOW(), NOW())
     """), {
         "id": str(area_id),
         "tenant_id": str(tenant_id),
-        "fazenda_id": str(fazenda_id),
+        "unidade_produtiva_id": str(unidade_produtiva_id),
         "tipo": "TALHAO",
         "nome": "Talhão Teste",
         "area_hectares": 100.0,
@@ -215,12 +213,12 @@ async def talhao_id(session, tenant_id: uuid.UUID, fazenda_id: uuid.UUID) -> uui
     
     # Cria em talhoes (para OperacaoService)
     await session.execute(text("""
-        INSERT INTO talhoes (id, tenant_id, fazenda_id, nome, area_ha, ativo, irrigado, historico_culturas, created_at, updated_at)
-        VALUES (:id, :tenant_id, :fazenda_id, :nome, :area_ha, :ativo, :irrigado, '[]'::json, NOW(), NOW())
+        INSERT INTO talhoes (id, tenant_id, unidade_produtiva_id, nome, area_ha, ativo, irrigado, historico_culturas, created_at, updated_at)
+        VALUES (:id, :tenant_id, :unidade_produtiva_id, :nome, :area_ha, :ativo, :irrigado, '[]'::json, NOW(), NOW())
     """), {
         "id": str(area_id),  # Mesmo ID para ambas tabelas
         "tenant_id": str(tenant_id),
-        "fazenda_id": str(fazenda_id),
+        "unidade_produtiva_id": str(unidade_produtiva_id),
         "nome": "Talhão Teste",
         "area_ha": 100.0,
         "ativo": True,

@@ -16,7 +16,7 @@ class ConfiguracaoFazenda(Base):
     __tablename__ = "configuracao_fazenda"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    fazenda_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="CASCADE"), unique=True, index=True, nullable=False)
+    unidade_produtiva_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="CASCADE"), unique=True, index=True, nullable=False)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), index=True, nullable=False)
     # JSONB no PostgreSQL, JSON no SQLite (fallback)
     overrides: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)

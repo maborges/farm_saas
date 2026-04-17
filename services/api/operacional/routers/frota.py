@@ -30,14 +30,14 @@ async def criar_maquinario(
 
 @router.get("/", response_model=List[MaquinarioResponse])
 async def listar_maquinarios(
-    fazenda_id: UUID | None = None,
+    unidade_produtiva_id: UUID | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("O1_FROTA"))
 ):
     svc = FrotaService(session, tenant_id)
     filters = {}
-    if fazenda_id: filters["fazenda_id"] = fazenda_id
+    if unidade_produtiva_id: filters["unidade_produtiva_id"] = unidade_produtiva_id
     return await svc.list_all(**filters)
 
 @router.get("/{id}", response_model=MaquinarioResponse)

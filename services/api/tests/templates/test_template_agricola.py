@@ -34,7 +34,7 @@ class TestOperacoesAgricolasIntegration:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """
@@ -176,7 +176,7 @@ class TestOperacoesAgricolasIntegration:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """

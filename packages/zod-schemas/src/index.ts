@@ -14,3 +14,6 @@ export * from "./propriedade-schemas";
 
 // Domínios de negócio
 export * from "./agricola/index";
+
+// Cadastros
+export * from "./commodity-schemas";

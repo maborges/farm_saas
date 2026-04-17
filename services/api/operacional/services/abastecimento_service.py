@@ -47,7 +47,7 @@ class AbastecimentoService(BaseService[Abastecimento]):
             await estoque_svc.registrar_saida_insumo_por_nome(
                 nome_insumo=dados.tipo_combustivel,
                 quantidade=dados.litros,
-                fazenda_id=maquina.fazenda_id,
+                unidade_produtiva_id=maquina.unidade_produtiva_id,
                 origem_id=ab.id,
                 origem_tipo="ABASTECIMENTO",
                 motivo=f"Abastecimento maquina {maquina.nome}"
@@ -76,7 +76,7 @@ class AbastecimentoService(BaseService[Abastecimento]):
                 despesa = Despesa(
                     id=uuid.uuid4(),
                     tenant_id=self.tenant_id,
-                    fazenda_id=maquina.fazenda_id,
+                    unidade_produtiva_id=maquina.unidade_produtiva_id,
                     plano_conta_id=plano_id,
                     descricao=f"Abastecimento Externo — {maquina.nome} ({dados.litros}L)",
                     valor_total=custo_total,

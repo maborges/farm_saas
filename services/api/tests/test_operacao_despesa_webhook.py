@@ -30,7 +30,7 @@ class TestOperacaoDespesaWebhook:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Operação com custo_total > 0 deve criar Despesa automaticamente."""
@@ -93,7 +93,7 @@ class TestOperacaoDespesaWebhook:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Operação com custo_total = 0 não deve criar Despesa."""
@@ -139,7 +139,7 @@ class TestOperacaoDespesaWebhook:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Despesa deve ter origem_id linkado à operação para rastreabilidade."""
@@ -241,7 +241,7 @@ class TestOperacaoDespesaWebhook:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Despesa deve ter descricção com tipo de operação e safra."""
@@ -301,7 +301,7 @@ class TestOperacaoDespesaWebhook:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Despesa deve usar data_realizada da operação como data de emissão/vencimento."""
@@ -363,7 +363,7 @@ class TestOperacaoDespesaWebhook:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """

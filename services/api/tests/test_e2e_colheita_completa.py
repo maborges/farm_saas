@@ -27,7 +27,7 @@ class TestE2EFIFOInventoryFlow:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """
         Fluxo completo de deductão FIFO:
@@ -38,14 +38,14 @@ class TestE2EFIFOInventoryFlow:
         5. Validar rastreabilidade via MovimentacaoEstoque
         """
         tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(fazenda_id)
+        fazenda_uuid = UUID(unidade_produtiva_id)
         operacao_id = uuid4()
 
         # 1. Criar depósito
         deposito = Deposito(
             id=uuid4(),
             tenant_id=tenant_uuid,
-            fazenda_id=fazenda_uuid,
+            unidade_produtiva_id=fazenda_uuid,
             nome="Galpão de Insumos",
             tipo="GERAL",
             ativo=True,
@@ -127,19 +127,19 @@ class TestE2EFIFOInventoryFlow:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """
         Validar que FIFO falha graciosamente com estoque insuficiente.
         """
         tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(fazenda_id)
+        fazenda_uuid = UUID(unidade_produtiva_id)
 
         # Setup: criar depósito, produto, lote pequeno
         deposito = Deposito(
             id=uuid4(),
             tenant_id=tenant_uuid,
-            fazenda_id=fazenda_uuid,
+            unidade_produtiva_id=fazenda_uuid,
             nome="Galpão A",
             ativo=True,
         )
@@ -189,20 +189,20 @@ class TestE2EFIFOInventoryFlow:
         session: AsyncSession,
         tenant_id: str,
         outro_tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """
         Validar isolamento de tenant: Tenant A estoque não afeta Tenant B.
         """
         tenant_a = UUID(tenant_id)
         tenant_b = UUID(outro_tenant_id)
-        fazenda_uuid = UUID(fazenda_id)
+        fazenda_uuid = UUID(unidade_produtiva_id)
 
         # Tenant A cria estoque
         dep_a = Deposito(
             id=uuid4(),
             tenant_id=tenant_a,
-            fazenda_id=fazenda_uuid,
+            unidade_produtiva_id=fazenda_uuid,
             nome="Galpão A",
             ativo=True,
         )

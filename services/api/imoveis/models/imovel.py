@@ -162,8 +162,8 @@ class ImovelRural(Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), index=True
     )
-    fazenda_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="RESTRICT"), index=True, nullable=False
+    unidade_produtiva_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="RESTRICT"), index=True, nullable=False
     )
     
     nome: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -221,7 +221,7 @@ class ImovelRural(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     
     # Relacionamentos
-    fazenda = relationship("Fazenda")
+    fazenda = relationship("UnidadeProdutiva")
     cartorio = relationship("Cartorio")
     documentos = relationship("DocumentoLegal", back_populates="imovel", cascade="all, delete-orphan")
     contratos_arrendamento = relationship("ContratoArrendamento", back_populates="imovel", cascade="all, delete-orphan")
@@ -426,8 +426,8 @@ class ContratoArrendamento(Base):
     imovel_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("imoveis_rurais.id", ondelete="RESTRICT"), index=True
     )
-    fazenda_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="RESTRICT"), index=True
+    unidade_produtiva_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="RESTRICT"), index=True
     )
     
     # Tipo de contrato
@@ -443,7 +443,7 @@ class ContratoArrendamento(Base):
         UUID(as_uuid=True), ForeignKey("cadastros_pessoas.id", ondelete="SET NULL")
     )
     arrendatario_fazenda_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fazendas.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("unidades_produtivas.id", ondelete="SET NULL")
     )
     
     # Área e valor

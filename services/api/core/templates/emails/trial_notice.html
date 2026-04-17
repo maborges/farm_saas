@@ -1,0 +1,37 @@
+{% extends "emails/base.html" %}
+{% block content %}
+<h2>Período de Trial Iniciado 🎉</h2>
+<p>Olá, <strong>{{ nome_usuario }}</strong>,</p>
+<p>Sua nova conta no AgroSaaS foi criada com sucesso!</p>
+
+<div class="card">
+    <strong>Produtor/Empresa:</strong> {{ nome_produtor }}<br>
+    <strong>Plano Contratado:</strong> {{ nome_plano }}<br>
+    <strong>Período de Teste:</strong> {{ dias_trial }} dias gratuitos<br>
+    <strong>Cobrança a partir de:</strong> <span style="color: #ef4444; font-weight: bold;">{{ data_vencimento }}</span>
+</div>
+
+<p style="margin-top: 20px; color: #333;">
+    Você tem <strong>{{ dias_trial }} dias</strong> para explorar todos os recursos do seu plano sem custos.
+    Após este período, sua assinatura será automaticamente renovada e você será cobrado conforme o ciclo escolhido.
+</p>
+
+<h3>O que você pode fazer agora:</h3>
+<ul style="color: #555; line-height: 1.8;">
+    <li>Cadastrar suas unidades produtivas (fazendas, sítios, arrendamentos)</li>
+    <li>Convidar sua equipe e definir permissões</li>
+    <li>Explorar os módulos inclusos no plano</li>
+    <li>Registrar suas primeira operações</li>
+</ul>
+
+<p style="margin-top: 20px; color: #666; font-size: 13px;">
+    <strong>Importante:</strong> Certifique-se de que seus dados de pagamento estão atualizados.
+    Caso deseje cancelar sua assinatura, entre em contato conosco antes da data de cobrança.
+</p>
+
+<a href="{{ dashboard_url }}" class="button">Acessar Meu Dashboard</a>
+
+<p style="margin-top: 30px; color: #999; font-size: 12px;">
+    Caso tenha dúvidas, entre em contato com nosso suporte: support@agrosass.com.br
+</p>
+{% endblock %}

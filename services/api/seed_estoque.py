@@ -2,7 +2,7 @@ import asyncio
 import uuid
 from core.database import async_session_maker
 from core.models.tenant import Tenant
-from core.models.fazenda import Fazenda
+from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
 from operacional.models.estoque import Deposito, SaldoEstoque
 from core.cadastros.models import ProdutoCatalogo
 from sqlalchemy.future import select
@@ -11,7 +11,7 @@ async def seed():
     async with async_session_maker() as session:
         # IDs obtidos da base anteriormente
         tenant_id = uuid.UUID("f47ac10b-58cc-4372-a567-0e02b2c3d479")
-        fazenda_id = uuid.UUID("e10b4290-7d71-4828-b80c-7b243ebd9e2f")
+        unidade_produtiva_id = uuid.UUID("e10b4290-7d71-4828-b80c-7b243ebd9e2f")
 
         print("Verificando se já existem dados de estoque...")
         stmt = select(Deposito).where(Deposito.tenant_id == tenant_id)
@@ -31,7 +31,7 @@ async def seed():
         dep = Deposito(
             id=uuid.uuid4(),
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             nome="Galpão de Defensivos Central",
             tipo="DEFENSIVOS"
         )

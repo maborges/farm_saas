@@ -30,7 +30,7 @@ EXPECTED_FK_PATTERNS = {
         'produto_id': 'cadastros_produtos',
         'commodity_id': 'cadastros_commodities',
         'propriedade_id': 'cadastros_propriedades',
-        'fazenda_id': 'fazendas',
+        'unidade_produtiva_id': 'fazendas',
         'talhao_id': 'talhoes',
         'safra_id': 'safras',
         'cultura_id': 'culturas',

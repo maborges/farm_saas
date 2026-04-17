@@ -23,7 +23,7 @@ router = APIRouter(
 
 @router.get("/", response_model=List[ReceitaListItem])
 async def listar_receitas(
-    fazenda_id: Optional[uuid.UUID] = Query(None),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None),
     status_filtro: Optional[str] = Query(None, alias="status"),
     vencimento_de: Optional[date] = Query(None, description="Filtrar vencimento a partir desta data"),
     vencimento_ate: Optional[date] = Query(None, description="Filtrar vencimento até esta data"),
@@ -33,7 +33,7 @@ async def listar_receitas(
     """Lista contas a receber do tenant com filtros opcionais."""
     svc = ReceitaService(db, tenant_id)
     return await svc.listar_com_filtros(
-        fazenda_id=fazenda_id,
+        unidade_produtiva_id=unidade_produtiva_id,
         status=status_filtro,
         vencimento_de=vencimento_de,
         vencimento_ate=vencimento_ate,
@@ -43,7 +43,7 @@ async def listar_receitas(
 @router.get("/vencendo", response_model=List[ReceitaListItem])
 async def receitas_vencendo(
     dias: int = Query(7, ge=0, le=90, description="Janela de dias a partir de hoje"),
-    fazenda_id: Optional[uuid.UUID] = Query(None),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_session),
 ):
@@ -52,7 +52,7 @@ async def receitas_vencendo(
     Usado pelo dashboard de alertas financeiros.
     """
     svc = ReceitaService(db, tenant_id)
-    return await svc.listar_vencendo(dias=dias, fazenda_id=fazenda_id)
+    return await svc.listar_vencendo(dias=dias, unidade_produtiva_id=unidade_produtiva_id)
 
 
 @router.post("/", response_model=List[ReceitaResponse], status_code=status.HTTP_201_CREATED)

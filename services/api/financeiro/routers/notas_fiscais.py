@@ -35,7 +35,7 @@ class NotaFiscalCreate(BaseModel):
     quantidade: Optional[float] = None
     unidade: Optional[str] = None
     chave_acesso: Optional[str] = None
-    fazenda_id: Optional[UUID] = None
+    unidade_produtiva_id: Optional[UUID] = None
     data_emissao: Optional[datetime] = None
 
 
@@ -52,7 +52,7 @@ class NotaFiscalUpdate(BaseModel):
 class NotaFiscalResponse(BaseModel):
     id: UUID
     tenant_id: UUID
-    fazenda_id: Optional[UUID]
+    unidade_produtiva_id: Optional[UUID]
     tipo: str
     numero: Optional[int]
     serie: str
@@ -112,7 +112,7 @@ async def dashboard_nfe(
 async def listar_notas(
     tipo: Optional[str] = Query(None),
     status_sefaz: Optional[str] = Query(None),
-    fazenda_id: Optional[UUID] = Query(None),
+    unidade_produtiva_id: Optional[UUID] = Query(None),
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module(MODULE)),
@@ -126,8 +126,8 @@ async def listar_notas(
         stmt = stmt.where(NotaFiscal.tipo == tipo)
     if status_sefaz:
         stmt = stmt.where(NotaFiscal.status_sefaz == status_sefaz)
-    if fazenda_id:
-        stmt = stmt.where(NotaFiscal.fazenda_id == fazenda_id)
+    if unidade_produtiva_id:
+        stmt = stmt.where(NotaFiscal.unidade_produtiva_id == unidade_produtiva_id)
     return list((await session.execute(stmt)).scalars().all())
 
 

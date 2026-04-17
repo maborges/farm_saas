@@ -39,14 +39,6 @@ class SessaoAtiva(Base):
         index=True
     )
 
-    grupo_fazendas_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("grupos_fazendas.id", ondelete="CASCADE"),
-        nullable=True,
-        index=True,
-        comment="Grupo ao qual a sessão pertence (para limite compartilhado)"
-    )
-
     usuario_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("usuarios.id", ondelete="CASCADE"),
@@ -54,9 +46,9 @@ class SessaoAtiva(Base):
         index=True
     )
 
-    fazenda_id: Mapped[uuid.UUID | None] = mapped_column(
+    unidade_produtiva_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("fazendas.id", ondelete="SET NULL"),
+        ForeignKey("unidades_produtivas.id", ondelete="SET NULL"),
         nullable=True,
         comment="Fazenda ativa na sessão (pode mudar sem encerrar a sessão)"
     )
@@ -113,9 +105,8 @@ class SessaoAtiva(Base):
     # Índice composto para queries de limite de usuários
     __table_args__ = (
         Index(
-            'idx_sessoes_limite_grupo',
+            'idx_sessoes_limite_tenant',
             'tenant_id',
-            'grupo_fazendas_id',
             'status',
             'expira_em'
         ),

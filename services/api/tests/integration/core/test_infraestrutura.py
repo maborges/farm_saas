@@ -26,13 +26,13 @@ GRUPO_A_ID   = uuid.UUID("aaaaaaaa-1111-0000-0000-000000000020")
 GRUPO_B_ID   = uuid.UUID("bbbbbbbb-2222-0000-0000-000000000020")
 
 
-def _token(tenant_id: uuid.UUID, fazenda_id: uuid.UUID) -> str:
+def _token(tenant_id: uuid.UUID, unidade_produtiva_id: uuid.UUID) -> str:
     svc = AuthService(MagicMock())
     return svc.create_access_token({
         "sub": str(uuid.uuid4()),
         "tenant_id": str(tenant_id),
         "modules": ["CORE"],
-        "fazendas_auth": [{"id": str(fazenda_id), "role": "admin"}],
+        "fazendas_auth": [{"id": str(unidade_produtiva_id), "role": "admin"}],
         "is_superuser": False,
         "plan_tier": "ESSENCIAL",
     }, expires_delta=timedelta(hours=1))
@@ -63,13 +63,12 @@ async def client():
         yield c
 
 
-async def _setup_tenant(session, tenant_id, fazenda_id, grupo_id, doc):
+async def _setup_tenant(session, tenant_id, unidade_produtiva_id, grupo_id, doc):
     """Garante tenant, grupo e fazenda no banco."""
     await session.execute(text("""
-        INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos,
-            max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb,
+        INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb,
             idioma_padrao, created_at, updated_at)
-        VALUES (:id, :nome, :doc, true, '["CORE"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+        VALUES (:id, :nome, :doc, true,  0, 10240, 'pt-BR', NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(tenant_id), "nome": f"Tenant {doc}", "doc": doc})
 
@@ -83,18 +82,18 @@ async def _setup_tenant(session, tenant_id, fazenda_id, grupo_id, doc):
         INSERT INTO fazendas (id, tenant_id, grupo_id, nome, ativo, created_at, updated_at)
         VALUES (:id, :tenant_id, :grupo_id, :nome, true, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
-    """), {"id": str(fazenda_id), "tenant_id": str(tenant_id),
+    """), {"id": str(unidade_produtiva_id), "tenant_id": str(tenant_id),
            "grupo_id": str(grupo_id), "nome": "Fazenda"})
 
 
-async def _create_area_rural(session, tenant_id, fazenda_id) -> uuid.UUID:
+async def _create_area_rural(session, tenant_id, unidade_produtiva_id) -> uuid.UUID:
     area_id = uuid.uuid4()
     await session.execute(text("""
         INSERT INTO cadastros_areas_rurais
-            (id, tenant_id, fazenda_id, tipo, nome, ativo, created_at, updated_at)
-        VALUES (:id, :tenant_id, :fazenda_id, 'PROPRIEDADE', 'Fazenda Teste', true, NOW(), NOW())
+            (id, tenant_id, unidade_produtiva_id, tipo, nome, ativo, created_at, updated_at)
+        VALUES (:id, :tenant_id, :unidade_produtiva_id, 'PROPRIEDADE', 'Fazenda Teste', true, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
-    """), {"id": str(area_id), "tenant_id": str(tenant_id), "fazenda_id": str(fazenda_id)})
+    """), {"id": str(area_id), "tenant_id": str(tenant_id), "unidade_produtiva_id": str(unidade_produtiva_id)})
     return area_id
 
 

@@ -1,9 +1,8 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Boolean, DateTime, JSON, Text, Integer
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import Uuid as UUID, JSON
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import String, Boolean, DateTime, JSON, Integer
+from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Uuid as UUID
 from core.database import Base
 
 class Tenant(Base):
@@ -17,17 +16,6 @@ class Tenant(Base):
         String(20), unique=True, nullable=False, index=True
     )  # CPF/CNPJ
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
-
-    # DEPRECATED: módulos e limites agora vivem em AssinaturaTenant por GrupoFazendas.
-    # Mantidos nullable para migration não-destrutiva — remover após todas as leituras migrarem.
-    modulos_ativos: Mapped[list[str] | None] = mapped_column(
-        JSON, nullable=True, default=None,
-        comment="DEPRECATED: use AssinaturaTenant.modulos_inclusos via grupo"
-    )
-    max_usuarios_simultaneos: Mapped[int | None] = mapped_column(
-        nullable=True, default=None,
-        comment="DEPRECATED: use AssinaturaTenant.usuarios_contratados via grupo"
-    )
 
     # Storage
     storage_usado_mb: Mapped[int] = mapped_column(Integer, default=0)
@@ -70,4 +58,4 @@ class Tenant(Base):
     )
 
     # Relacionamentos (Evitar load automático para não inflar queries)
-    # fazendas: Mapped[list["Fazenda"]] = relationship("Fazenda", back_populates="tenant")
+    # fazendas: Mapped[list["Fazenda"]] = relationship("UnidadeProdutiva", back_populates="tenant")

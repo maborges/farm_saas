@@ -10,7 +10,7 @@ class RegistroClima(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
-    fazenda_id: Mapped[UUID] = mapped_column(ForeignKey("fazendas.id", ondelete="CASCADE"), nullable=False, index=True)
+    unidade_produtiva_id: Mapped[UUID] = mapped_column(ForeignKey("unidades_produtivas.id", ondelete="CASCADE"), nullable=False, index=True)
 
     data_registro: Mapped[date] = mapped_column(Date, nullable=False)
     

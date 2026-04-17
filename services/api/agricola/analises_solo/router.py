@@ -20,6 +20,8 @@ async def registrar_analise(
 ):
     svc = AnaliseSoloService(session, tenant_id)
     analise = await svc.criar(dados)
+    await session.commit()
+    await session.refresh(analise)
     return AnaliseSoloResponse.model_validate(analise)
 
 @router.get("/", response_model=List[AnaliseSoloResponse])

@@ -292,8 +292,8 @@ class PessoaRelacionamento(Base):
     tipo_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("cadastros_tipos_relacionamento.id"), nullable=False, index=True
     )
-    fazenda_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fazendas.id"), nullable=True, index=True
+    unidade_produtiva_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("unidades_produtivas.id"), nullable=True, index=True
     )
 
     ativo_desde: Mapped[date | None] = mapped_column(Date, nullable=True)

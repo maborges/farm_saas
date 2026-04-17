@@ -53,11 +53,9 @@ async def client():
 async def _setup_banco(session):
     """Cria todos os registros de suporte para o E2E."""
     await session.execute(text("""
-        INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos,
-                             max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+        INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
         VALUES (:id, 'Tenant E2E Safra', '10203040506', true,
-                '["CORE","A1","A1_PLANEJAMENTO","F1","O1","O2"]',
-                10, 0, 10240, 'pt-BR', NOW(), NOW())
+                 0, 10240, 'pt-BR', NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(TENANT_E2E)})
 
@@ -72,18 +70,18 @@ async def _setup_banco(session):
     ]:
         await session.execute(text("""
             INSERT INTO cadastros_areas_rurais
-                (id, tenant_id, fazenda_id, tipo, nome, area_hectares, ativo, created_at, updated_at)
-            VALUES (:id, :tenant_id, :fazenda_id, 'TALHAO', :nome, 100.0, true, NOW(), NOW())
+                (id, tenant_id, unidade_produtiva_id, tipo, nome, area_hectares, ativo, created_at, updated_at)
+            VALUES (:id, :tenant_id, :unidade_produtiva_id, 'TALHAO', :nome, 100.0, true, NOW(), NOW())
             ON CONFLICT (id) DO NOTHING
         """), {"id": str(t_id), "tenant_id": str(TENANT_E2E),
-               "fazenda_id": str(FAZENDA_E2E), "nome": nome})
+               "unidade_produtiva_id": str(FAZENDA_E2E), "nome": nome})
 
     await session.execute(text("""
         INSERT INTO talhoes
-            (id, tenant_id, fazenda_id, nome, area_ha, ativo, irrigado, historico_culturas, created_at, updated_at)
-        VALUES (:id, :tenant_id, :fazenda_id, 'Talhão E2E', 100.0, true, false, '[]'::json, NOW(), NOW())
+            (id, tenant_id, unidade_produtiva_id, nome, area_ha, ativo, irrigado, historico_culturas, created_at, updated_at)
+        VALUES (:id, :tenant_id, :unidade_produtiva_id, 'Talhão E2E', 100.0, true, false, '[]'::json, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
-    """), {"id": str(TALHAO_E2E), "tenant_id": str(TENANT_E2E), "fazenda_id": str(FAZENDA_E2E)})
+    """), {"id": str(TALHAO_E2E), "tenant_id": str(TENANT_E2E), "unidade_produtiva_id": str(FAZENDA_E2E)})
 
     for (plano_id, codigo, nome, tipo) in [
         (PLANO_REC_ID, "4.1.01", "Venda de Grãos E2E", "RECEITA"),
@@ -107,10 +105,10 @@ async def _setup_banco(session):
     """), {"id": str(PRODUTO_E2E), "tenant_id": str(TENANT_E2E)})
 
     await session.execute(text("""
-        INSERT INTO estoque_depositos (id, tenant_id, fazenda_id, nome, ativo)
-        VALUES (:id, :tenant_id, :fazenda_id, 'Depósito E2E', true)
+        INSERT INTO estoque_depositos (id, tenant_id, unidade_produtiva_id, nome, ativo)
+        VALUES (:id, :tenant_id, :unidade_produtiva_id, 'Depósito E2E', true)
         ON CONFLICT (id) DO NOTHING
-    """), {"id": str(DEPOSITO_E2E), "tenant_id": str(TENANT_E2E), "fazenda_id": str(FAZENDA_E2E)})
+    """), {"id": str(DEPOSITO_E2E), "tenant_id": str(TENANT_E2E), "unidade_produtiva_id": str(FAZENDA_E2E)})
 
     # Estoque inicial de sementes
     await session.execute(text("""
@@ -222,7 +220,7 @@ async def test_e2e_safra_soja_completa(client, session, headers_e2e):
         "destino": "VENDA_DIRETA",
         "preco_por_saca": 130.0,
         "plano_conta_id": str(PLANO_REC_ID),
-        "fazenda_id": str(FAZENDA_E2E),
+        "unidade_produtiva_id": str(FAZENDA_E2E),
     }, headers=headers_e2e)
     assert r6.status_code in (200, 201), f"Passo 6 falhou: {r6.text}"
 

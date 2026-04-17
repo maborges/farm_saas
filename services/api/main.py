@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from loguru import logger
 import sys
 
@@ -11,7 +13,7 @@ from core.exceptions import (
     ModuleNotContractedError,
     BusinessRuleError
 )
-from core.routers import fazendas
+from core.routers import unidades_produtivas
 from core.routers import auth
 from core.routers import onboarding
 from core.routers import backoffice
@@ -19,7 +21,6 @@ from core.routers import billing
 from core.routers import backoffice_admins
 from core.routers import backoffice_tenants
 from core.routers import team
-from core.routers import grupos_fazendas
 from core.routers import plan_changes
 from core.routers import backoffice_plan_changes
 from core.routers import backoffice_profiles
@@ -53,7 +54,12 @@ from core.cadastros.propriedades.propriedade_router import router as router_prop
 from core.cadastros.pessoas.router import router as router_pessoas, router_tipos as router_tipos_relacionamento
 from core.cadastros.equipamentos.router import router as router_equipamentos
 from core.cadastros.propriedades.router import router as router_areas_rurais
-from core.cadastros.commodities.router import router as router_commodities
+from core.cadastros.commodities.router import (
+    router as router_commodities,
+    classif_router as router_commodity_classificacoes,
+    cotacao_router as router_commodity_cotacoes,
+    conversao_router as router_commodity_conversoes,
+)
 from core.cadastros.produtos.router import router as router_produtos
 
 # Imóveis Rurais
@@ -72,6 +78,16 @@ app = FastAPI(
     description="Motor principal do AgroSaaS - The Modular Monolith",
     version="0.1.0",
 )
+
+# Monta diretório de avatares como static files
+AVATAR_DIR = Path("/tmp/agrosaas_avatars")
+AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static/avatars", StaticFiles(directory=str(AVATAR_DIR)), name="avatars")
+
+# Monta diretório de logos de propriedades como static files
+LOGOS_DIR = Path("/tmp/agrosaas_logos")
+LOGOS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static/logos", StaticFiles(directory=str(LOGOS_DIR)), name="logos")
 
 # IMPORTANTE: CORS deve ser o PRIMEIRO middleware para garantir que headers
 # sejam adicionados mesmo em caso de erro de autenticação
@@ -155,7 +171,6 @@ app.include_router(backoffice.router, prefix="/api/v1")
 app.include_router(backoffice_admins.router, prefix="/api/v1")
 app.include_router(backoffice_tenants.router, prefix="/api/v1")
 app.include_router(team.router, prefix="/api/v1")
-app.include_router(grupos_fazendas.router, prefix="/api/v1")
 app.include_router(cupons.router, prefix="/api/v1")
 app.include_router(backoffice_audit.router, prefix="/api/v1")
 app.include_router(tenant_audit.router, prefix="/api/v1")
@@ -192,9 +207,12 @@ app.include_router(router_tipos_relacionamento, prefix="/api/v1")
 app.include_router(router_equipamentos, prefix="/api/v1")
 app.include_router(router_areas_rurais, prefix="/api/v1")
 app.include_router(router_commodities, prefix="/api/v1")
+app.include_router(router_commodity_classificacoes, prefix="/api/v1")
+app.include_router(router_commodity_cotacoes, prefix="/api/v1")
+app.include_router(router_commodity_conversoes, prefix="/api/v1")
 app.include_router(router_produtos, prefix="/api/v1")
 app.include_router(router_imoveis, prefix="/api/v1")
-app.include_router(fazendas.router, prefix="/api/v1")
+app.include_router(unidades_produtivas.router, prefix="/api/v1")
 from agricola.safras.router import router as router_safras
 from agricola.checklist.router import router as router_checklist_agricola
 from agricola.fenologia.router import router as router_fenologia
@@ -215,6 +233,7 @@ from agricola.rastreabilidade.public_router import router as router_rastreabilid
 from agricola.prescricoes.router import router as router_prescricoes
 from agricola.a1_planejamento.router import router as router_a1_planejamento
 from agricola.caderno.router import router as router_caderno
+from agricola.colheita.router import router as router_produtos_colhidos
 # Amostragem de Solo
 from agricola.amostragem_solo.routers.amostras import router as amostras_solo_router
 from agricola.amostragem_solo.routers.mapas_fertilidade import router as mapas_fertilidade_router
@@ -257,6 +276,7 @@ from integracoes.regulatorias.router import router as regulatorias_router
 # from contabilidade.routers.lancamentos import router as contabilidade_lancamentos_router
 
 from financeiro.routers import despesas, receitas, planos_conta, relatorios as relatorios_fin, integracao as integracao_fin, conciliacao, notas_fiscais as notas_fiscais_router
+from financeiro.comercializacao.router import router as router_comercializacoes
 from ambiental.router import router as router_ambiental
 from rh.router import router as router_rh
 from notificacoes.router import router as router_notificacoes
@@ -270,6 +290,7 @@ app.include_router(router_dashboard_agricola, prefix="/api/v1")
 app.include_router(router_operacoes, prefix="/api/v1")
 app.include_router(router_monitoramentos, prefix="/api/v1")
 app.include_router(router_romaneios, prefix="/api/v1")
+app.include_router(router_produtos_colhidos, prefix="/api/v1")
 app.include_router(router_beneficiamento, prefix="/api/v1")
 app.include_router(router_previsoes, prefix="/api/v1")
 app.include_router(router_ndvi, prefix="/api/v1")
@@ -336,6 +357,7 @@ app.include_router(relatorios_fin.router, prefix="/api/v1")
 app.include_router(integracao_fin.router, prefix="/api/v1/financeiro")
 app.include_router(conciliacao.router, prefix="/api/v1/financeiro")
 app.include_router(notas_fiscais_router.router, prefix="/api/v1/financeiro")
+app.include_router(router_comercializacoes, prefix="/api/v1/financeiro")
 app.include_router(router_ambiental, prefix="/api/v1")
 app.include_router(frota_router.router, prefix="/api/v1")
 

@@ -104,7 +104,7 @@ class FrotaService(BaseService[Maquinario]):
             await estoque_svc.registrar_saida_insumo(
                 produto_id=item.produto_id,
                 quantidade=item.quantidade,
-                fazenda_id=maquina.fazenda_id, # Usamos a fazenda do maquinário
+                unidade_produtiva_id=maquina.unidade_produtiva_id, # Usamos a fazenda do maquinário
                 origem_id=os.id,
                 origem_tipo="ORDEM_SERVICO",
                 motivo=f"Uso na OS {os.numero_os} - {maquina.nome}"
@@ -124,7 +124,7 @@ class FrotaService(BaseService[Maquinario]):
         self.session.add(registro)
 
         # 5. Integração Financeira: Despesa de Manutenção
-        if maquina and maquina.fazenda_id and custo_os > 0:
+        if maquina and maquina.unidade_produtiva_id and custo_os > 0:
             from datetime import date as _date
             from financeiro.models.despesa import Despesa
             from financeiro.models.plano_conta import PlanoConta
@@ -144,7 +144,7 @@ class FrotaService(BaseService[Maquinario]):
                 self.session.add(Despesa(
                     id=uuid.uuid4(),
                     tenant_id=self.tenant_id,
-                    fazenda_id=maquina.fazenda_id,
+                    unidade_produtiva_id=maquina.unidade_produtiva_id,
                     plano_conta_id=plano_id,
                     descricao=f"Manutenção — {os.numero_os}: {maquina.nome}",
                     valor_total=round(custo_os, 2),

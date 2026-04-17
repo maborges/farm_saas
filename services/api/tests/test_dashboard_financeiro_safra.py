@@ -34,7 +34,7 @@ class TestDashboardFinanceiroSafra:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Dashboard deve retornar agregação correta de custo + receita."""
@@ -94,7 +94,7 @@ class TestDashboardFinanceiroSafra:
         despesa = Despesa(
             id=uuid4(),
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             plano_conta_id=plano_despesa.id,
             descricao="Colheita — MILHO 2025/26",
             valor_total=5000.0,
@@ -134,7 +134,7 @@ class TestDashboardFinanceiroSafra:
         receita = Receita(
             id=uuid4(),
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             plano_conta_id=plano_receita.id,
             descricao="Venda de grãos — MILHO 2025/26",
             valor_total=100000.0,
@@ -179,7 +179,7 @@ class TestDashboardFinanceiroSafra:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Dashboard com safra sem operações deve retornar zeros."""
@@ -257,7 +257,7 @@ class TestDashboardFinanceiroSafra:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """Produtividade deve ser calculada corretamente (sacas/ha)."""
@@ -321,7 +321,7 @@ class TestDashboardFinanceiroSafra:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
         talhao_id: str
     ):
         """ROI deve ser (receita - despesa) / despesa × 100."""
@@ -379,7 +379,7 @@ class TestDashboardFinanceiroSafra:
         despesa = Despesa(
             id=uuid4(),
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             plano_conta_id=plano_despesa.id,
             descricao="Colheita",
             valor_total=10000.0,
@@ -417,7 +417,7 @@ class TestDashboardFinanceiroSafra:
         receita = Receita(
             id=uuid4(),
             tenant_id=tenant_id,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             plano_conta_id=plano_receita.id,
             descricao="Venda",
             valor_total=300000.0,

@@ -272,17 +272,16 @@ def tenant_com_assinatura_ativa(session):
     session.add(tenant)
     session.commit()
 
-    from core.models.grupo_fazendas import GrupoFazendas
-    grupo = GrupoFazendas(tenant_id=tenant.id, nome="Grupo Teste")
+    # grupos_fazendas removed
     session.add(grupo)
     session.commit()
 
     assinatura = AssinaturaTenant(
         tenant_id=tenant.id,
         plano_id=plano.id,
-        grupo_fazendas_id=grupo.id,
+        ,
         status="ATIVA",
-        tipo_assinatura="GRUPO",
+        tipo_assinatura="TENANT",
     )
     session.add(assinatura)
     session.commit()
@@ -294,7 +293,7 @@ def tenant_com_assinatura_ativa(session):
 @pytest.fixture
 def tenant_com_5_fazendas(session, tenant_com_assinatura_ativa):
     """Cria tenant com 5 fazendas (limite atingido)."""
-    from core.models.fazenda import Fazenda
+    from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
 
     grupo_id = tenant_com_assinatura_ativa._grupo_id
     for i in range(5):
@@ -328,7 +327,6 @@ def tenant_com_plano_ilimitado(session):
     tenant = Tenant(
         nome="Tenant Enterprise",
         documento="11.111.111/0001-11",
-        modulos_ativos=["CORE"],
     )
     session.add(tenant)
     session.commit()

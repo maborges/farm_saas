@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'fase2_ia_iot'
-down_revision = None  # Ajustar para a última migration existente
+down_revision = '001_notas_fiscais'
 branch_labels = None
 depends_on = None
 

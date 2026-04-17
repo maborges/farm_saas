@@ -218,7 +218,7 @@ def test_valor_negativo_receita_rejeitado():
 
     with pytest.raises(ValidationError):
         ReceitaCreate(
-            fazenda_id=uuid.uuid4(),
+            unidade_produtiva_id=uuid.uuid4(),
             plano_conta_id=uuid.uuid4(),
             descricao="Receita inválida",
             valor_total=-1000.0,  # negativo
@@ -234,7 +234,7 @@ def test_valor_zero_despesa_rejeitado():
 
     with pytest.raises(ValidationError):
         DespesaCreate(
-            fazenda_id=uuid.uuid4(),
+            unidade_produtiva_id=uuid.uuid4(),
             plano_conta_id=uuid.uuid4(),
             descricao="Despesa inválida",
             valor_total=0,  # zero

@@ -28,7 +28,7 @@ class TestFIFODeduction:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """FIFO deve consumir lotes na ordem de data_fabricacao (ASC)."""
         # Setup: Criar 3 lotes com datas diferentes
@@ -36,7 +36,7 @@ class TestFIFODeduction:
         deposito = Deposito(
             id=uuid4(),
             tenant_id=UUID(tenant_id),
-            fazenda_id=UUID(fazenda_id),
+            unidade_produtiva_id=UUID(unidade_produtiva_id),
             nome="Galpão A",
             tipo="GERAL",
             ativo=True,
@@ -121,14 +121,14 @@ class TestFIFODeduction:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """FIFO deve usar custo_unitario do lote (histórico), não preco_medio do produto."""
         produto_id = uuid4()
         deposito = Deposito(
             id=uuid4(),
             tenant_id=UUID(tenant_id),
-            fazenda_id=UUID(fazenda_id),
+            unidade_produtiva_id=UUID(unidade_produtiva_id),
             nome="Galpão",
             tipo="GERAL",
             ativo=True,
@@ -169,14 +169,14 @@ class TestFIFODeduction:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """FIFO deve falhar com erro claro quando estoque insuficiente."""
         produto_id = uuid4()
         deposito = Deposito(
             id=uuid4(),
             tenant_id=UUID(tenant_id),
-            fazenda_id=UUID(fazenda_id),
+            unidade_produtiva_id=UUID(unidade_produtiva_id),
             nome="Galpão",
             tipo="GERAL",
             ativo=True,
@@ -215,14 +215,14 @@ class TestFIFODeduction:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """FIFO com quantidade exata que consome todos os lotes."""
         produto_id = uuid4()
         deposito = Deposito(
             id=uuid4(),
             tenant_id=UUID(tenant_id),
-            fazenda_id=UUID(fazenda_id),
+            unidade_produtiva_id=UUID(unidade_produtiva_id),
             nome="Galpão",
             tipo="GERAL",
             ativo=True,
@@ -278,14 +278,14 @@ class TestFIFODeduction:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """FIFO deve marcar lote como ESGOTADO quando quantidade_atual = 0."""
         produto_id = uuid4()
         deposito = Deposito(
             id=uuid4(),
             tenant_id=UUID(tenant_id),
-            fazenda_id=UUID(fazenda_id),
+            unidade_produtiva_id=UUID(unidade_produtiva_id),
             nome="Galpão",
             tipo="GERAL",
             ativo=True,
@@ -325,7 +325,7 @@ class TestFIFODeduction:
         self,
         session: AsyncSession,
         tenant_id: str,
-        fazenda_id: str,
+        unidade_produtiva_id: str,
     ):
         """FIFO sem deposito_id deve buscar em todos os depósitos da fazenda."""
         produto_id = uuid4()
@@ -334,7 +334,7 @@ class TestFIFODeduction:
         dep1 = Deposito(
             id=uuid4(),
             tenant_id=UUID(tenant_id),
-            fazenda_id=UUID(fazenda_id),
+            unidade_produtiva_id=UUID(unidade_produtiva_id),
             nome="Galpão A",
             tipo="GERAL",
             ativo=True,
@@ -342,7 +342,7 @@ class TestFIFODeduction:
         dep2 = Deposito(
             id=uuid4(),
             tenant_id=UUID(tenant_id),
-            fazenda_id=UUID(fazenda_id),
+            unidade_produtiva_id=UUID(unidade_produtiva_id),
             nome="Galpão B",
             tipo="GERAL",
             ativo=True,

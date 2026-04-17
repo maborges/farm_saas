@@ -36,7 +36,7 @@ from pydantic import BaseModel, Field, validator
 class ImovelCreate(BaseModel):
     """Schema para criação de imóvel rural."""
     nome: str = Field(..., min_length=1, max_length=255, description="Nome do imóvel")
-    fazenda_id: uuid.UUID = Field(..., description="ID da fazenda vinculada")
+    unidade_produtiva_id: uuid.UUID = Field(..., description="ID da fazenda vinculada")
     
     # Dados da matrícula
     cartorio_id: Optional[uuid.UUID] = None
@@ -93,7 +93,7 @@ class ImovelResponse(BaseModel):
     """Schema de resposta de imóvel."""
     id: uuid.UUID
     tenant_id: uuid.UUID
-    fazenda_id: uuid.UUID
+    unidade_produtiva_id: uuid.UUID
     nome: str
     nirf: Optional[str]
     car_numero: Optional[str]
@@ -182,7 +182,7 @@ router = APIRouter(prefix="/imoveis", tags=["Imóveis Rurais"])
     dependencies=[Depends(require_module(Modulos.IMOVEIS_CADASTRO))]
 )
 async def list_imoveis(
-    fazenda_id: Optional[uuid.UUID] = Query(None, description="Filtrar por fazenda"),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None, description="Filtrar por fazenda"),
     situacao: Optional[SituacaoImovel] = Query(None, description="Filtrar por situação"),
     tenant: Tenant = Depends(get_current_tenant),
     session: AsyncSession = Depends(get_session)
@@ -190,15 +190,15 @@ async def list_imoveis(
     """
     Lista imóveis rurais do tenant.
     
-    - **fazenda_id**: Opcional. Filtra imóveis de uma fazenda específica.
+    - **unidade_produtiva_id**: Opcional. Filtra imóveis de uma fazenda específica.
     - **situacao**: Opcional. Filtra por situação cadastral (REGULAR, PENDENTE, IRREGULAR).
     
     Requer módulo: IMOVEIS_CADASTRO
     """
     service = ImovelService(session)
     
-    if fazenda_id:
-        imoveis = await service.get_imoveis_by_fazenda(fazenda_id, tenant.id)
+    if unidade_produtiva_id:
+        imoveis = await service.get_imoveis_by_fazenda(unidade_produtiva_id, tenant.id)
     else:
         # Lista todos do tenant
         imoveis = await service.get_imoveis_by_fazenda(None, tenant.id)  # Implementar método geral
@@ -263,7 +263,7 @@ async def create_imovel(
     try:
         imovel, alertas = await service.criar_imovel(
             tenant_id=tenant.id,
-            fazenda_id=data.fazenda_id,
+            unidade_produtiva_id=data.unidade_produtiva_id,
             nome=data.nome,
             municipio=data.municipio,
             uf=data.uf,

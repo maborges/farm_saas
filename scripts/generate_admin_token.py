@@ -25,12 +25,11 @@ tenant_id = str(uuid.uuid4())
 claims = {
     "sub": admin_user_id,
     "tenant_id": tenant_id,
-    "email": "admin@agrosaas.com",
+    "email": "admin_agro@borgus.com.br",
     "username": "admin_agro",
     "is_superuser": True,
-    "modules": ["CORE", "A1_PLANEJAMENTO", "F1_TESOURARIA", "P1_REBANHO", "O1_FROTA", "O2_ESTOQUE"],
     "plan_tier": "PREMIUM",
-    "fazendas_auth": [],
+    "unidades_produtivas_auth": [],
     "exp": datetime.now(timezone.utc) + timedelta(hours=24),
     "iat": datetime.now(timezone.utc),
 }

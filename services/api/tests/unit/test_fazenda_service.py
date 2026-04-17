@@ -1,7 +1,7 @@
 import pytest
 import uuid
 from sqlalchemy import text
-from core.services.fazenda_service import FazendaService
+from core.services.unidade_produtiva_service import UnidadeProdutivaService as FazendaService
 from core.schemas.fazenda_input import FazendaCreate
 from core.exceptions import EntityNotFoundError, TenantViolationError
 

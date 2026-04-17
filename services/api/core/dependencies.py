@@ -194,9 +194,9 @@ async def _resolve_grupo_id(
     fazenda_id_header = request.headers.get("x-fazenda-id")
     if fazenda_id_header:
         try:
-            from core.models.fazenda import Fazenda
+            from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
             faz_result = await session.execute(
-                select(Fazenda.grupo_id).where(
+                select(Fazenda.unidade_produtiva_id).where(
                     Fazenda.id == uuid.UUID(fazenda_id_header),
                     Fazenda.tenant_id == tenant_id,
                 )
@@ -234,11 +234,11 @@ async def _get_modulos_do_grupo(
         .where(
             AssinaturaTenant.tenant_id == tenant_id,
             AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
-            AssinaturaTenant.tipo_assinatura == "GRUPO",
+            AssinaturaTenant.tipo_assinatura == "TENANT",
         )
     )
     if grupo_id:
-        stmt = stmt.where(AssinaturaTenant.grupo_fazendas_id == grupo_id)
+        stmt = stmt.where(AssinaturaTenant.tenant_id == grupo_id)
 
     results = await session.execute(stmt)
     rows = results.scalars().all()
@@ -260,6 +260,10 @@ def require_module(required_module: str):
         session: AsyncSession = Depends(get_session)
     ):
         from core.constants import Modulos
+
+        # SaaS admin tem acesso irrestrito a todos os módulos
+        if claims.get("is_superuser"):
+            return
 
         tenant_id_str = claims.get("tenant_id")
         if not tenant_id_str:
@@ -320,11 +324,11 @@ def require_tier(minimum_tier: "PlanTier"):
                 .where(
                     AssinaturaTenant.tenant_id == tenant_id,
                     AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
-                    AssinaturaTenant.tipo_assinatura == "GRUPO",
+                    AssinaturaTenant.tipo_assinatura == "TENANT",
                 )
             )
             if grupo_id:
-                stmt = stmt.where(AssinaturaTenant.grupo_fazendas_id == grupo_id)
+                stmt = stmt.where(AssinaturaTenant.tenant_id == grupo_id)
             stmt = stmt.limit(1)
             result = await session.execute(stmt)
             tier_str = result.scalar_one_or_none()
@@ -405,7 +409,7 @@ def require_grupo_access():
         claims: dict = Depends(get_current_user_claims),
         session: AsyncSession = Depends(get_session)
     ):
-        from core.models.fazenda import Fazenda
+        from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
         from core.models.auth import TenantUsuario
 
         # is_owner bypasses group check
@@ -431,12 +435,12 @@ def require_grupo_access():
             return True  # No fazenda context — skip group check
 
         try:
-            fazenda_id = uuid.UUID(fazenda_id_header)
+            unidade_produtiva_id = uuid.UUID(fazenda_id_header)
         except ValueError:
             raise HTTPException(status_code=400, detail="x-fazenda-id inválido")
 
         fazenda_stmt = select(Fazenda).where(
-            Fazenda.id == fazenda_id,
+            Fazenda.id == unidade_produtiva_id,
             Fazenda.tenant_id == tenant_id
         )
         fazenda = (await session.execute(fazenda_stmt)).scalar_one_or_none()
@@ -452,13 +456,13 @@ def require_grupo_access():
             fu_stmt = select(FazendaUsuario).where(
                 FazendaUsuario.tenant_id == tenant_id,
                 FazendaUsuario.usuario_id == user_id,
-                FazendaUsuario.fazenda_id == fazenda_id
+                FazendaUsuario.unidade_produtiva_id == unidade_produtiva_id
             )
             fu = (await session.execute(fu_stmt)).scalar_one_or_none()
             if not fu:
                 from loguru import logger
                 logger.warning(
-                    f"TenantViolationError: user {user_id} tentou acessar fazenda {fazenda_id} "
+                    f"TenantViolationError: user {user_id} tentou acessar fazenda {unidade_produtiva_id} "
                     f"(grupo {grupo_id_str}) sem autorização. grupos_auth={grupos_auth}"
                 )
                 raise HTTPException(status_code=403, detail="Acesso negado: você não tem acesso ao grupo desta fazenda")
@@ -471,9 +475,20 @@ def require_role(roles_allowed: List[str]):
         request: Request,
         claims: dict = Depends(get_current_user_claims)
     ):
+        from loguru import logger
         target_fazenda_id = request.headers.get("x-fazenda-id")
         fazendas_auth = claims.get("fazendas_auth", [])
         role = next((f.get("role") for f in fazendas_auth if f.get("id") == target_fazenda_id), None)
+
+        # Admin/Owner do tenant tem acesso implícito a todas as fazendas
+        tenant_role = claims.get("role")
+        is_superuser = claims.get("is_superuser", False)
+        logger.debug(f"require_role: fazenda={target_fazenda_id}, role_from_db={role}, tenant_role={tenant_role}, is_superuser={is_superuser}")
+
+        # Owner e admin do tenant são tratados como 'admin' para permissão
+        if is_superuser or tenant_role in ("owner", "admin"):
+            role = "admin"
+
         if not role or role not in roles_allowed:
             raise HTTPException(status_code=403, detail="Role insuficiente nesta Fazenda de trabalho")
         return claims
@@ -532,8 +547,8 @@ def require_tenant_permission(permission: str):
         fazenda_id_header = request.headers.get("x-fazenda-id")
         if fazenda_id_header:
             try:
-                fazenda_id = uuid.UUID(fazenda_id_header)
-                stmt_f = select(FazendaUsuario, PerfilAcesso).outerjoin(PerfilAcesso, FazendaUsuario.perfil_fazenda_id == PerfilAcesso.id).where(FazendaUsuario.tenant_id == tenant_id, FazendaUsuario.usuario_id == user.id, FazendaUsuario.fazenda_id == fazenda_id)
+                unidade_produtiva_id = uuid.UUID(fazenda_id_header)
+                stmt_f = select(FazendaUsuario, PerfilAcesso).outerjoin(PerfilAcesso, FazendaUsuario.perfil_fazenda_id == PerfilAcesso.id).where(FazendaUsuario.tenant_id == tenant_id, FazendaUsuario.usuario_id == user.id, FazendaUsuario.unidade_produtiva_id == unidade_produtiva_id)
                 res_f = await session.execute(stmt_f)
                 row_f = res_f.first()
                 if row_f and row_f[1]: perfil_acesso = row_f[1]
@@ -577,19 +592,18 @@ def require_limit(limit_type: str):
 
         tenant_id = uuid.UUID(tenant_id_str)
         grupo_id = await _resolve_grupo_id(request, tenant_id, session)
+        effective_tenant_id = grupo_id if grupo_id else tenant_id
 
         # Buscar assinatura ativa do grupo
         stmt = (
             select(PlanoAssinatura)
             .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
             .where(
-                AssinaturaTenant.tenant_id == tenant_id,
+                AssinaturaTenant.tenant_id == effective_tenant_id,
                 AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
-                AssinaturaTenant.tipo_assinatura.in_(["GRUPO", "PRINCIPAL"]),
+                AssinaturaTenant.tipo_assinatura.in_(["GRUPO", "PRINCIPAL", "TENANT"]),
             )
         )
-        if grupo_id:
-            stmt = stmt.where(AssinaturaTenant.grupo_fazendas_id == grupo_id)
         stmt = stmt.limit(1)
         result = await session.execute(stmt)
         plano = result.scalar_one_or_none()
@@ -609,7 +623,7 @@ def require_limit(limit_type: str):
                 return True  # Ilimitado
 
             # Contar fazendas atuais do tenant
-            from core.models.fazenda import Fazenda
+            from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
             count_stmt = select(func.count(Fazenda.id)).where(Fazenda.tenant_id == tenant_id, Fazenda.ativo == True)
             count_result = await session.execute(count_stmt)
             atual = count_result.scalar_one() or 0
@@ -721,11 +735,11 @@ def check_limit_soft(limit_type: str) -> dict:
             .where(
                 AssinaturaTenant.tenant_id == tenant_id,
                 AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
-                AssinaturaTenant.tipo_assinatura == "GRUPO",
+                AssinaturaTenant.tipo_assinatura == "TENANT",
             )
         )
         if grupo_id:
-            stmt = stmt.where(AssinaturaTenant.grupo_fazendas_id == grupo_id)
+            stmt = stmt.where(AssinaturaTenant.tenant_id == grupo_id)
         stmt = stmt.limit(1)
         result = await session.execute(stmt)
         plano = result.scalar_one_or_none()
@@ -741,7 +755,7 @@ def check_limit_soft(limit_type: str) -> dict:
             if limite == -1:
                 return {"atual": 0, "limite": None, "porcentagem": 0.0, "atingido": False}
 
-            from core.models.fazenda import Fazenda
+            from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
             count_stmt = select(func.count(Fazenda.id)).where(Fazenda.tenant_id == tenant_id, Fazenda.ativo == True)
             count_result = await session.execute(count_stmt)
             atual = count_result.scalar_one() or 0
@@ -783,7 +797,7 @@ def check_limit_soft(limit_type: str) -> dict:
 # ACESSO EXPLÍCITO POR FAZENDA (BL-03)
 # ==============================================================================
 
-def require_fazenda_access(fazenda_id_param: str = "fazenda_id"):
+def require_fazenda_access(fazenda_id_param: str = "unidade_produtiva_id"):
     """
     Dependency que verifica se o usuário tem acesso explícito à fazenda.
 
@@ -793,10 +807,10 @@ def require_fazenda_access(fazenda_id_param: str = "fazenda_id"):
     - Caso contrário → 403
 
     Uso:
-        @router.get("/{fazenda_id}/dados")
+        @router.get("/{unidade_produtiva_id}/dados")
         async def endpoint(
-            fazenda_id: uuid.UUID,
-            _: bool = Depends(require_fazenda_access("fazenda_id")),
+            unidade_produtiva_id: uuid.UUID,
+            _: bool = Depends(require_fazenda_access("unidade_produtiva_id")),
             ...
         )
     """
@@ -816,13 +830,13 @@ def require_fazenda_access(fazenda_id_param: str = "fazenda_id"):
         tenant_id = uuid.UUID(tenant_id_str)
         user_id = uuid.UUID(user_id_str)
 
-        # Resolve fazenda_id do path param ou header
+        # Resolve unidade_produtiva_id do path param ou header
         fazenda_id_value = request.path_params.get(fazenda_id_param) or request.headers.get("x-fazenda-id")
         if not fazenda_id_value:
             return True  # Sem contexto de fazenda — deixa passar (outro gate cuida)
 
         try:
-            fazenda_id = uuid.UUID(str(fazenda_id_value))
+            unidade_produtiva_id = uuid.UUID(str(fazenda_id_value))
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Parâmetro '{fazenda_id_param}' inválido")
 
@@ -844,14 +858,14 @@ def require_fazenda_access(fazenda_id_param: str = "fazenda_id"):
             select(FazendaUsuario).where(
                 FazendaUsuario.tenant_id == tenant_id,
                 FazendaUsuario.usuario_id == user_id,
-                FazendaUsuario.fazenda_id == fazenda_id,
+                FazendaUsuario.unidade_produtiva_id == unidade_produtiva_id,
             )
         )
         fu = fu_result.scalar_one_or_none()
 
         if not fu:
             logger.warning(
-                f"require_fazenda_access: user {user_id} tentou acessar fazenda {fazenda_id} "
+                f"require_fazenda_access: user {user_id} tentou acessar fazenda {unidade_produtiva_id} "
                 f"sem FazendaUsuario. tenant={tenant_id}"
             )
             raise HTTPException(status_code=403, detail="Acesso negado: sem permissão para esta propriedade")
@@ -859,7 +873,7 @@ def require_fazenda_access(fazenda_id_param: str = "fazenda_id"):
         # Verificar vigência em runtime (não depende do JWT)
         if fu.vigencia_fim and fu.vigencia_fim < hoje:
             logger.warning(
-                f"require_fazenda_access: acesso expirado — user {user_id} fazenda {fazenda_id} "
+                f"require_fazenda_access: acesso expirado — user {user_id} fazenda {unidade_produtiva_id} "
                 f"vigencia_fim={fu.vigencia_fim}"
             )
             raise HTTPException(

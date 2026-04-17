@@ -8,12 +8,13 @@ from sqlalchemy.exc import IntegrityError
 
 from core.dependencies import get_session, get_tenant_id
 from core.exceptions import EntityNotFoundError
-from .models import Marca, ModeloProduto, CategoriaProduto, Produto, ProdutoAgricola, ProdutoEstoque, ProdutoEPI
+from .models import Marca, ModeloProduto, CategoriaProduto, Produto, ProdutoAgricola, ProdutoEstoque, ProdutoEPI, ProdutoCultura
 from .schemas import (
     MarcaCreate, MarcaUpdate, MarcaResponse,
     ModeloProdutoCreate, ModeloProdutoUpdate, ModeloProdutoResponse, ModeloProdutoComMarcaResponse,
     CategoriaProdutoCreate, CategoriaProdutoUpdate, CategoriaProdutoResponse,
     ProdutoCreate, ProdutoUpdate, ProdutoResponse,
+    ProdutoCulturaCreate, ProdutoCulturaUpdate, ProdutoCulturaResponse,
 )
 
 router = APIRouter(tags=["Cadastros — Produtos"])
@@ -502,4 +503,104 @@ async def remover_produto(
     if not obj:
         raise EntityNotFoundError("Produto não encontrado")
     obj.ativo = False
+    await session.commit()
+
+
+# ===========================================================================
+# Culturas Agrícolas (ProdutoCultura)
+# ===========================================================================
+
+@router.get("/cadastros/culturas", response_model=list[ProdutoCulturaResponse])
+@router.get("/cadastros/culturas/", response_model=list[ProdutoCulturaResponse])
+async def listar_culturas(
+    grupo: Optional[str] = Query(None),
+    ativa: Optional[bool] = Query(None),
+    q: Optional[str] = Query(None, description="Busca por nome ou nome científico"),
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    """Lista culturas de sistema (tenant_id IS NULL) + culturas do tenant."""
+    stmt = (
+        select(ProdutoCultura)
+        .where(
+            or_(
+                ProdutoCultura.tenant_id.is_(None),
+                ProdutoCultura.tenant_id == tenant_id,
+            )
+        )
+        .order_by(ProdutoCultura.nome)
+    )
+    if grupo:
+        stmt = stmt.where(ProdutoCultura.grupo == grupo)
+    if ativa is not None:
+        stmt = stmt.where(ProdutoCultura.ativa == ativa)
+    if q:
+        stmt = stmt.where(
+            or_(
+                ProdutoCultura.nome.ilike(f"%{q}%"),
+                ProdutoCultura.nome_cientifico.ilike(f"%{q}%"),
+            )
+        )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+@router.post("/cadastros/culturas", response_model=ProdutoCulturaResponse, status_code=201)
+@router.post("/cadastros/culturas/", response_model=ProdutoCulturaResponse, status_code=201)
+async def criar_cultura(
+    data: ProdutoCulturaCreate,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    """Cria uma cultura para o tenant."""
+    obj = ProdutoCultura(tenant_id=tenant_id, sistema=False, **data.model_dump())
+    session.add(obj)
+    await session.commit()
+    await session.refresh(obj)
+    return obj
+
+
+@router.patch("/cadastros/culturas/{cultura_id}", response_model=ProdutoCulturaResponse)
+async def atualizar_cultura(
+    cultura_id: uuid.UUID,
+    data: ProdutoCulturaUpdate,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    """Atualiza uma cultura — apenas do tenant (sistema=False)."""
+    result = await session.execute(
+        select(ProdutoCultura).where(
+            ProdutoCultura.id == cultura_id,
+            ProdutoCultura.tenant_id == tenant_id,
+            ProdutoCultura.sistema == False,
+        )
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise EntityNotFoundError("Cultura não encontrada ou não editável")
+    for k, v in data.model_dump(exclude_none=True).items():
+        setattr(obj, k, v)
+    await session.commit()
+    await session.refresh(obj)
+    return obj
+
+
+@router.delete("/cadastros/culturas/{cultura_id}", status_code=204)
+async def remover_cultura(
+    cultura_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    """Desativa uma cultura — apenas do tenant (sistema=False)."""
+    result = await session.execute(
+        select(ProdutoCultura).where(
+            ProdutoCultura.id == cultura_id,
+            ProdutoCultura.tenant_id == tenant_id,
+            ProdutoCultura.sistema == False,
+        )
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise EntityNotFoundError("Cultura não encontrada ou não editável")
+    obj.ativa = False
     await session.commit()

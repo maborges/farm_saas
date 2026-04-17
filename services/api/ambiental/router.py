@@ -31,7 +31,7 @@ class CARCreate(BaseModel):
     data_atualizacao: Optional[date] = None
     pendencias: Optional[str] = None
     observacoes: Optional[str] = None
-    fazenda_id: Optional[UUID] = None
+    unidade_produtiva_id: Optional[UUID] = None
 
 
 class CARUpdate(BaseModel):
@@ -49,7 +49,7 @@ class CARUpdate(BaseModel):
 class CARResponse(BaseModel):
     id: UUID
     tenant_id: UUID
-    fazenda_id: Optional[UUID]
+    unidade_produtiva_id: Optional[UUID]
     fazenda_nome: str
     codigo_car: str
     uf: str
@@ -70,7 +70,7 @@ class CARResponse(BaseModel):
 
 class AlertaCreate(BaseModel):
     fazenda_nome: Optional[str] = None
-    fazenda_id: Optional[UUID] = None
+    unidade_produtiva_id: Optional[UUID] = None
     tipo: str = "DESMATAMENTO"
     severidade: str = "MEDIA"
     area_ha: Optional[float] = None
@@ -92,7 +92,7 @@ class AlertaUpdate(BaseModel):
 class AlertaResponse(BaseModel):
     id: UUID
     tenant_id: UUID
-    fazenda_id: Optional[UUID]
+    unidade_produtiva_id: Optional[UUID]
     fazenda_nome: Optional[str]
     tipo: str
     severidade: str
@@ -112,7 +112,7 @@ class AlertaResponse(BaseModel):
 
 class OutorgaCreate(BaseModel):
     fazenda_nome: Optional[str] = None
-    fazenda_id: Optional[UUID] = None
+    unidade_produtiva_id: Optional[UUID] = None
     numero_outorga: str
     orgao_emissor: Optional[str] = None
     tipo_uso: str = "IRRIGACAO"
@@ -136,7 +136,7 @@ class OutorgaUpdate(BaseModel):
 class OutorgaResponse(BaseModel):
     id: UUID
     tenant_id: UUID
-    fazenda_id: Optional[UUID]
+    unidade_produtiva_id: Optional[UUID]
     fazenda_nome: Optional[str]
     numero_outorga: str
     orgao_emissor: Optional[str]

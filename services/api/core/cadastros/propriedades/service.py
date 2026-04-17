@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from core.base_service import BaseService
 from core.exceptions import EntityNotFoundError, BusinessRuleError
-from .models import AreaRural, MatriculaImovel, RegistroAmbiental, ValorPatrimonial, Infraestrutura, ArquivoGeo, StatusProcessamentoGeo
+from .models import AreaRural, MatriculaImovel, RegistroAmbiental, ValorPatrimonial, Infraestrutura, ArquivoGeo, StatusProcessamentoGeo, FILHOS_PERMITIDOS, TIPOS_AREA_PRODUTIVA, TIPOS_AREA_AMBIENTAL, TIPOS_INFRAESTRUTURA
 
 
 class AreaRuralService(BaseService[AreaRural]):
@@ -16,7 +16,7 @@ class AreaRuralService(BaseService[AreaRural]):
 
     async def listar(
         self,
-        fazenda_id: uuid.UUID | None = None,
+        unidade_produtiva_id: uuid.UUID | None = None,
         tipo: str | None = None,
         parent_id: uuid.UUID | None = None,
         apenas_ativos: bool = True,
@@ -24,8 +24,8 @@ class AreaRuralService(BaseService[AreaRural]):
         stmt = select(AreaRural).where(AreaRural.tenant_id == self.tenant_id)
         if apenas_ativos:
             stmt = stmt.where(AreaRural.ativo == True)
-        if fazenda_id:
-            stmt = stmt.where(AreaRural.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt = stmt.where(AreaRural.unidade_produtiva_id == unidade_produtiva_id)
         if tipo:
             stmt = stmt.where(AreaRural.tipo == tipo)
         if parent_id is not None:
@@ -33,14 +33,14 @@ class AreaRuralService(BaseService[AreaRural]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def listar_raizes(self, fazenda_id: uuid.UUID | None = None) -> list[AreaRural]:
+    async def listar_raizes(self, unidade_produtiva_id: uuid.UUID | None = None) -> list[AreaRural]:
         """Retorna apenas áreas sem parent (raízes da hierarquia)."""
         stmt = (
             select(AreaRural)
             .where(AreaRural.tenant_id == self.tenant_id, AreaRural.parent_id == None, AreaRural.ativo == True)
         )
-        if fazenda_id:
-            stmt = stmt.where(AreaRural.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            stmt = stmt.where(AreaRural.unidade_produtiva_id == unidade_produtiva_id)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -57,12 +57,81 @@ class AreaRuralService(BaseService[AreaRural]):
             raise EntityNotFoundError("Área rural não encontrada")
         return obj
 
+    async def _validar_hierarquia(self, tipo: str, parent_id: uuid.UUID | None) -> None:
+        """Valida que o tipo filho é permitido para o tipo pai."""
+        if parent_id is None:
+            tipos_raiz = FILHOS_PERMITIDOS.get(None, set())
+            if tipo not in tipos_raiz:
+                raise BusinessRuleError(
+                    f"Tipo '{tipo}' não pode ser raiz. Tipos raiz válidos: {sorted(tipos_raiz)}"
+                )
+            return
+
+        pai = await self.get_or_fail(parent_id)
+        permitidos = FILHOS_PERMITIDOS.get(pai.tipo, set())
+        if tipo not in permitidos:
+            raise BusinessRuleError(
+                f"Tipo '{tipo}' não é filho válido de '{pai.tipo}'. "
+                f"Filhos permitidos: {sorted(permitidos) or 'nenhum (folha)'}"
+            )
+
+    async def criar_estrutura_base(self, unidade_produtiva_id: uuid.UUID) -> None:
+        """Cria os nós raiz AREA_RURAL e INFRAESTRUTURA ao cadastrar nova UnidadeProdutiva."""
+        from .models import TipoArea
+        for tipo, nome in [
+            (TipoArea.AREA_RURAL,     "Área Rural"),
+            (TipoArea.INFRAESTRUTURA, "Infraestrutura"),
+        ]:
+            existe = await self.session.execute(
+                select(AreaRural).where(
+                    AreaRural.tenant_id == self.tenant_id,
+                    AreaRural.unidade_produtiva_id == unidade_produtiva_id,
+                    AreaRural.tipo == tipo,
+                    AreaRural.parent_id == None,
+                )
+            )
+            if not existe.scalar_one_or_none():
+                self.session.add(AreaRural(
+                    tenant_id=self.tenant_id,
+                    unidade_produtiva_id=unidade_produtiva_id,
+                    tipo=tipo,
+                    nome=nome,
+                    ativo=True,
+                ))
+
     async def criar_area(self, data: dict) -> AreaRural:
+        await self._validar_hierarquia(data["tipo"], data.get("parent_id"))
         area = AreaRural(tenant_id=self.tenant_id, **data)
         self.session.add(area)
         await self.session.commit()
         await self.session.refresh(area)
         return area
+
+    async def sumario_areas(self, unidade_produtiva_id: uuid.UUID) -> dict:
+        """Agrega hectares por categoria para a unidade produtiva."""
+        stmt = select(AreaRural).where(
+            AreaRural.tenant_id == self.tenant_id,
+            AreaRural.unidade_produtiva_id == unidade_produtiva_id,
+            AreaRural.ativo == True,
+        )
+        result = await self.session.execute(stmt)
+        areas = result.scalars().all()
+
+        def ha(area: AreaRural) -> float:
+            v = area.area_hectares_manual or area.area_hectares
+            return float(v) if v else 0.0
+
+        total = sum(ha(a) for a in areas if a.parent_id is None or a.tipo in TIPOS_AREA_PRODUTIVA | TIPOS_AREA_AMBIENTAL | TIPOS_INFRAESTRUTURA)
+        produtiva = sum(ha(a) for a in areas if a.tipo in TIPOS_AREA_PRODUTIVA)
+        ambiental = sum(ha(a) for a in areas if a.tipo in TIPOS_AREA_AMBIENTAL)
+        infraestrutura = sum(ha(a) for a in areas if a.tipo in TIPOS_INFRAESTRUTURA)
+
+        return {
+            "area_total_ha": total,
+            "area_produtiva_ha": produtiva,
+            "area_ambiental_ha": ambiental,
+            "area_infraestrutura_ha": infraestrutura,
+        }
 
     async def atualizar_area(self, area_id: uuid.UUID, data: dict) -> AreaRural:
         obj = await self.get_or_fail(area_id)

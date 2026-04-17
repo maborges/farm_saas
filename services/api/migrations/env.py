@@ -80,7 +80,7 @@ from core.cadastros.produtos.models import (
 )
 
 # Commodities (produtos de saída / receita)
-from core.cadastros.commodities.models import Commodity, CommodityClassificacao
+from core.cadastros.commodities.models import Commodity
 
 # Financeiro
 from financeiro.models.plano_conta import PlanoConta

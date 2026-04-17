@@ -23,7 +23,7 @@ router = APIRouter(
 
 @router.get("/", response_model=List[DespesaListItem])
 async def listar_despesas(
-    fazenda_id: Optional[uuid.UUID] = Query(None),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None),
     status_filtro: Optional[str] = Query(None, alias="status"),
     vencimento_de: Optional[date] = Query(None, description="Filtrar vencimento a partir desta data"),
     vencimento_ate: Optional[date] = Query(None, description="Filtrar vencimento até esta data"),
@@ -33,7 +33,7 @@ async def listar_despesas(
     """Lista contas a pagar do tenant com filtros opcionais."""
     svc = DespesaService(db, tenant_id)
     return await svc.listar_com_filtros(
-        fazenda_id=fazenda_id,
+        unidade_produtiva_id=unidade_produtiva_id,
         status=status_filtro,
         vencimento_de=vencimento_de,
         vencimento_ate=vencimento_ate,
@@ -43,7 +43,7 @@ async def listar_despesas(
 @router.get("/vencendo", response_model=List[DespesaListItem])
 async def despesas_vencendo(
     dias: int = Query(7, ge=0, le=90, description="Janela de dias a partir de hoje"),
-    fazenda_id: Optional[uuid.UUID] = Query(None),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
     db: AsyncSession = Depends(get_session),
 ):
@@ -53,7 +53,7 @@ async def despesas_vencendo(
     Usado pelo dashboard de alertas financeiros.
     """
     svc = DespesaService(db, tenant_id)
-    return await svc.listar_vencendo(dias=dias, fazenda_id=fazenda_id)
+    return await svc.listar_vencendo(dias=dias, unidade_produtiva_id=unidade_produtiva_id)
 
 
 @router.post("/", response_model=List[DespesaResponse], status_code=status.HTTP_201_CREATED)

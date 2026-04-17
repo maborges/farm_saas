@@ -56,7 +56,7 @@ class TestImovelRural:
             headers=auth_headers,
             json={
                 "nome": "Imóvel Teste 1",
-                "fazenda_id": fazenda["id"],
+                "unidade_produtiva_id": fazenda["id"],
                 "municipio": "Sorriso",
                 "uf": "MT",
                 "area_total_ha": 500.0000,
@@ -79,7 +79,7 @@ class TestImovelRural:
             headers=auth_headers,
             json={
                 "nome": "Imóvel com NIRF",
-                "fazenda_id": fazenda["id"],
+                "unidade_produtiva_id": fazenda["id"],
                 "municipio": "Sorriso",
                 "uf": "MT",
                 "area_total_ha": 300.0000,
@@ -103,7 +103,7 @@ class TestImovelRural:
             headers=auth_headers,
             json={
                 "nome": "Imóvel NIRF Inválido",
-                "fazenda_id": fazenda["id"],
+                "unidade_produtiva_id": fazenda["id"],
                 "municipio": "Sorriso",
                 "uf": "MT",
                 "area_total_ha": 300.0000,
@@ -123,7 +123,7 @@ class TestImovelRural:
             headers=auth_headers,
             json={
                 "nome": "Imóvel 1",
-                "fazenda_id": fazenda["id"],
+                "unidade_produtiva_id": fazenda["id"],
                 "municipio": "Sorriso",
                 "uf": "MT",
                 "area_total_ha": 100.0000,
@@ -137,7 +137,7 @@ class TestImovelRural:
             headers=auth_headers,
             json={
                 "nome": "Imóvel 2",
-                "fazenda_id": fazenda["id"],
+                "unidade_produtiva_id": fazenda["id"],
                 "municipio": "Sorriso",
                 "uf": "MT",
                 "area_total_ha": 200.0000,
@@ -156,7 +156,7 @@ class TestImovelRural:
             headers=auth_headers,
             json={
                 "nome": "Imóvel CAR Inválido",
-                "fazenda_id": fazenda["id"],
+                "unidade_produtiva_id": fazenda["id"],
                 "municipio": "Sorriso",
                 "uf": "MT",
                 "area_total_ha": 300.0000,
@@ -175,7 +175,7 @@ class TestImovelRural:
             headers=auth_headers,
             json={
                 "nome": "Imóvel Área Grande",
-                "fazenda_id": fazenda["id"],
+                "unidade_produtiva_id": fazenda["id"],
                 "municipio": "Sorriso",
                 "uf": "MT",
                 "area_total_ha": 1500.0000,  # Fazenda tem 1000 ha
@@ -196,7 +196,7 @@ class TestImovelRural:
                 headers=auth_headers,
                 json={
                     "nome": f"Imóvel {i}",
-                    "fazenda_id": fazenda["id"],
+                    "unidade_produtiva_id": fazenda["id"],
                     "municipio": "Sorriso",
                     "uf": "MT",
                     "area_total_ha": 100.0000,
@@ -204,7 +204,7 @@ class TestImovelRural:
             )
 
         response = await client.get(
-            f"/api/v1/imoveis/?fazenda_id={fazenda['id']}",
+            f"/api/v1/imoveis/?unidade_produtiva_id={fazenda['id']}",
             headers=auth_headers,
         )
         assert response.status_code == 200
@@ -221,7 +221,7 @@ class TestImovelRural:
             headers=auth_headers,
             json={
                 "nome": "Imóvel Regular",
-                "fazenda_id": fazenda["id"],
+                "unidade_produtiva_id": fazenda["id"],
                 "municipio": "Sorriso",
                 "uf": "MT",
                 "area_total_ha": 100.0000,
@@ -236,7 +236,7 @@ class TestImovelRural:
             headers=auth_headers,
             json={
                 "nome": "Imóvel Pendente",
-                "fazenda_id": fazenda["id"],
+                "unidade_produtiva_id": fazenda["id"],
                 "municipio": "Sorriso",
                 "uf": "MT",
                 "area_total_ha": 200.0000,
@@ -269,7 +269,7 @@ class TestDocumentosLegais:
             headers=auth_headers,
             json={
                 "nome": "Imóvel para Documentos",
-                "fazenda_id": fazenda["id"],
+                "unidade_produtiva_id": fazenda["id"],
                 "municipio": "Sorriso",
                 "uf": "MT",
                 "area_total_ha": 500.0000,
@@ -318,7 +318,7 @@ class TestArrendamentos:
             headers=auth_headers,
             json={
                 "nome": "Imóvel para Arrendamento",
-                "fazenda_id": fazenda["id"],
+                "unidade_produtiva_id": fazenda["id"],
                 "municipio": "Sorriso",
                 "uf": "MT",
                 "area_total_ha": 500.0000,
@@ -332,7 +332,7 @@ class TestArrendamentos:
             headers=auth_headers,
             json={
                 "imovel_id": imovel["id"],
-                "fazenda_id": fazenda["id"],
+                "unidade_produtiva_id": fazenda["id"],
                 "tipo": "arrendamento",
                 "arrendatario_tipo": "pessoa_fisica",
                 "area_arrendada_ha": 200.0000,

@@ -21,14 +21,14 @@ def _svc(session: AsyncSession, tenant: Tenant) -> OperacionalRelatorioService:
 
 @router.get("/custo-maquinario")
 async def custo_por_maquinario(
-    fazenda_id: Optional[uuid.UUID] = Query(None),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None),
     data_inicio: Optional[date] = Query(None),
     data_fim: Optional[date] = Query(None),
     tenant: Tenant = Depends(get_current_tenant),
     session: AsyncSession = Depends(get_session),
 ):
     """Custo total de manutenção (peças + mão de obra) por maquinário."""
-    return await _svc(session, tenant).custo_por_maquinario(fazenda_id, data_inicio, data_fim)
+    return await _svc(session, tenant).custo_por_maquinario(unidade_produtiva_id, data_inicio, data_fim)
 
 
 @router.get("/consumo-insumos")
@@ -45,9 +45,9 @@ async def consumo_insumos_por_safra(
 async def movimentacoes_por_periodo(
     data_inicio: date = Query(default_factory=lambda: date.today() - timedelta(days=30)),
     data_fim: date = Query(default_factory=date.today),
-    fazenda_id: Optional[uuid.UUID] = Query(None),
+    unidade_produtiva_id: Optional[uuid.UUID] = Query(None),
     tenant: Tenant = Depends(get_current_tenant),
     session: AsyncSession = Depends(get_session),
 ):
     """Movimentações de estoque agrupadas por produto e tipo no período."""
-    return await _svc(session, tenant).movimentacoes_por_periodo(data_inicio, data_fim, fazenda_id)
+    return await _svc(session, tenant).movimentacoes_por_periodo(data_inicio, data_fim, unidade_produtiva_id)

@@ -70,7 +70,7 @@ def test_valor_negativo_receita_rejeitado():
 
     with pytest.raises(ValidationError):
         ReceitaCreate(
-            fazenda_id=uuid.uuid4(),
+            unidade_produtiva_id=uuid.uuid4(),
             plano_conta_id=uuid.uuid4(),
             descricao="Receita inválida",
             valor_total=-1000.0,
@@ -85,7 +85,7 @@ def test_valor_zero_despesa_rejeitado():
 
     with pytest.raises(ValidationError):
         DespesaCreate(
-            fazenda_id=uuid.uuid4(),
+            unidade_produtiva_id=uuid.uuid4(),
             plano_conta_id=uuid.uuid4(),
             descricao="Despesa inválida",
             valor_total=0,
@@ -100,7 +100,7 @@ def test_valor_negativo_despesa_rejeitado():
 
     with pytest.raises(ValidationError):
         DespesaCreate(
-            fazenda_id=uuid.uuid4(),
+            unidade_produtiva_id=uuid.uuid4(),
             plano_conta_id=uuid.uuid4(),
             descricao="Despesa negativa",
             valor_total=-500.0,
@@ -134,7 +134,7 @@ def test_quantidade_negativa_lote_bovino():
 
     with pytest.raises(ValidationError):
         LoteBovinoCreate(
-            fazenda_id=uuid.uuid4(),
+            unidade_produtiva_id=uuid.uuid4(),
             identificacao="Lote X",
             categoria="Novilhas",
             raca="Nelore",
@@ -153,7 +153,7 @@ def test_parcelas_acima_limite_rejeitado():
 
     with pytest.raises(ValidationError):
         ReceitaCreate(
-            fazenda_id=uuid.uuid4(),
+            unidade_produtiva_id=uuid.uuid4(),
             plano_conta_id=uuid.uuid4(),
             descricao="Parcelamento absurdo",
             valor_total=1000.0,

@@ -15,7 +15,7 @@ class ApontamentoUsoCreate(BaseModel):
     km_inicio: Optional[float] = None
     km_fim: Optional[float] = None
 
-    fazenda_id: Optional[uuid.UUID] = None
+    unidade_produtiva_id: Optional[uuid.UUID] = None
     talhao_id: Optional[uuid.UUID] = None
     operacao_id: Optional[uuid.UUID] = None
 
@@ -37,7 +37,7 @@ class ApontamentoUsoUpdate(BaseModel):
     horimetro_fim: Optional[float] = None
     km_inicio: Optional[float] = None
     km_fim: Optional[float] = None
-    fazenda_id: Optional[uuid.UUID] = None
+    unidade_produtiva_id: Optional[uuid.UUID] = None
     talhao_id: Optional[uuid.UUID] = None
     operacao_id: Optional[uuid.UUID] = None
     implementos_ids: Optional[list[uuid.UUID]] = None
@@ -57,7 +57,7 @@ class ApontamentoUsoResponse(BaseModel):
     horas_trabalhadas: float = 0.0
     km_inicio: Optional[float]
     km_fim: Optional[float]
-    fazenda_id: Optional[uuid.UUID]
+    unidade_produtiva_id: Optional[uuid.UUID]
     talhao_id: Optional[uuid.UUID]
     operacao_id: Optional[uuid.UUID]
     implementos_ids: Optional[list]

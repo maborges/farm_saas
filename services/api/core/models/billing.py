@@ -101,20 +101,11 @@ class AssinaturaTenant(Base):
         nullable=False
     )
 
-    # Grupo de fazendas — obrigatório: toda assinatura pertence a exatamente um grupo
-    grupo_fazendas_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("grupos_fazendas.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-        comment="Grupo ao qual esta assinatura pertence. Módulos e limites valem apenas para as fazendas do grupo."
-    )
-
     # Tipo de assinatura
     tipo_assinatura: Mapped[str] = mapped_column(
         String(20),
-        default="GRUPO",
-        comment="GRUPO (assinatura base do grupo) | ADICIONAL (add-on de módulos extras)"
+        default="TENANT",
+        comment="TENANT (assinatura do tenant) | ADICIONAL (add-on de módulos extras)"
     )
 
     ciclo_pagamento: Mapped[str] = mapped_column(String(20), default="MENSAL") # MENSAL, ANUAL
@@ -135,10 +126,9 @@ class AssinaturaTenant(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
-        # Garante apenas 1 assinatura do tipo GRUPO por grupo (add-ons são tipo ADICIONAL)
-        UniqueConstraint("grupo_fazendas_id", "tipo_assinatura",
-                         name="uq_assinatura_grupo_tipo",
-                         comment="Cada grupo pode ter apenas uma assinatura GRUPO ativa"),
+        UniqueConstraint("tenant_id", "tipo_assinatura",
+                         name="uq_assinatura_tenant_tipo",
+                         comment="Cada tenant pode ter apenas uma assinatura TENANT ativa"),
     )
 
 

@@ -30,8 +30,8 @@ def _payload_safra(**overrides) -> dict:
 async def _garantir_talhao(session):
     """Garante que os registros de suporte (tenant, fazenda, talhao) existem."""
     await session.execute(text("""
-        INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
-        VALUES (:id, 'Tenant Integração', '12345678901', true, '["CORE","A1","F1"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+        INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+        VALUES (:id, 'Tenant Integração', '12345678901', true,  0, 10240, 'pt-BR', NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(TENANT_ID)})
 
@@ -43,17 +43,17 @@ async def _garantir_talhao(session):
 
     await session.execute(text("""
         INSERT INTO cadastros_areas_rurais
-            (id, tenant_id, fazenda_id, tipo, nome, area_hectares, ativo, created_at, updated_at)
-        VALUES (:id, :tenant_id, :fazenda_id, 'TALHAO', 'Talhão Integração', 100.0, true, NOW(), NOW())
+            (id, tenant_id, unidade_produtiva_id, tipo, nome, area_hectares, ativo, created_at, updated_at)
+        VALUES (:id, :tenant_id, :unidade_produtiva_id, 'TALHAO', 'Talhão Integração', 100.0, true, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
-    """), {"id": str(TALHAO_ID), "tenant_id": str(TENANT_ID), "fazenda_id": str(FAZENDA_ID)})
+    """), {"id": str(TALHAO_ID), "tenant_id": str(TENANT_ID), "unidade_produtiva_id": str(FAZENDA_ID)})
 
     await session.execute(text("""
         INSERT INTO talhoes
-            (id, tenant_id, fazenda_id, nome, area_ha, ativo, irrigado, historico_culturas, created_at, updated_at)
-        VALUES (:id, :tenant_id, :fazenda_id, 'Talhão Integração', 100.0, true, false, '[]'::json, NOW(), NOW())
+            (id, tenant_id, unidade_produtiva_id, nome, area_ha, ativo, irrigado, historico_culturas, created_at, updated_at)
+        VALUES (:id, :tenant_id, :unidade_produtiva_id, 'Talhão Integração', 100.0, true, false, '[]'::json, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
-    """), {"id": str(TALHAO_ID), "tenant_id": str(TENANT_ID), "fazenda_id": str(FAZENDA_ID)})
+    """), {"id": str(TALHAO_ID), "tenant_id": str(TENANT_ID), "unidade_produtiva_id": str(FAZENDA_ID)})
 
     # Cancela safras existentes para evitar conflito de duplicata entre runs
     await session.execute(text(

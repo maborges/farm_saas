@@ -21,3 +21,7 @@ class ModuleNotContractedError(AgroSaaSError):
 class BusinessRuleError(AgroSaaSError):
     """Violação de regra de negócio, validação explícita de campos."""
     pass
+
+class EntityAlreadyExistsError(AgroSaaSError):
+    """Tentativa de criar entidade duplicada ou com chave única existente."""
+    pass

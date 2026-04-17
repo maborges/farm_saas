@@ -22,7 +22,7 @@ class SessionResponse(BaseModel):
     id: UUID
     tenant_id: UUID
     usuario_id: UUID
-    fazenda_id: UUID | None
+    unidade_produtiva_id: UUID | None
     ip_address: str | None
     user_agent: str | None
     inicio: datetime

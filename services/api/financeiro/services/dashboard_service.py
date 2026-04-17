@@ -28,7 +28,7 @@ class DashboardService:
         }
 
     async def resumo(
-        self, fazenda_id: uuid.UUID | None = None
+        self, unidade_produtiva_id: uuid.UUID | None = None
     ) -> DashboardFinanceiroResponse:
         hoje = date.today()
         inicio_mes = hoje.replace(day=1)
@@ -40,8 +40,8 @@ class DashboardService:
             Receita.tenant_id == self.tenant_id,
             Receita.ativo == True,
         )
-        if fazenda_id:
-            rec_stmt = rec_stmt.where(Receita.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            rec_stmt = rec_stmt.where(Receita.unidade_produtiva_id == unidade_produtiva_id)
         receitas = list((await self.session.execute(rec_stmt)).scalars().all())
 
         # ── Carrega despesas abertas + mês corrente ───────────────────────
@@ -49,8 +49,8 @@ class DashboardService:
             Despesa.tenant_id == self.tenant_id,
             Despesa.ativo == True,
         )
-        if fazenda_id:
-            desp_stmt = desp_stmt.where(Despesa.fazenda_id == fazenda_id)
+        if unidade_produtiva_id:
+            desp_stmt = desp_stmt.where(Despesa.unidade_produtiva_id == unidade_produtiva_id)
         despesas = list((await self.session.execute(desp_stmt)).scalars().all())
 
         # ── Resumo do mês corrente ────────────────────────────────────────
@@ -198,7 +198,7 @@ class DashboardService:
 
         return DashboardFinanceiroResponse(
             data_referencia=hoje,
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             total_recebido_mes=round(total_recebido_mes, 2),
             total_pago_mes=round(total_pago_mes, 2),
             saldo_mes=saldo_mes,

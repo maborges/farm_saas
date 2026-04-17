@@ -145,7 +145,7 @@ class TanqueRede(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(String(50), nullable=False)
-    fazenda_id = Column(Integer, ForeignKey("fazendas.id"))
+    unidade_produtiva_id = Column(Integer, ForeignKey("unidades_produtivas.id"))
     
     # Identificação
     nome = Column(String(100), nullable=False)
@@ -231,7 +231,7 @@ class ConfinamentoLote(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(String(50), nullable=False)
-    fazenda_id = Column(Integer, ForeignKey("fazendas.id"))
+    unidade_produtiva_id = Column(Integer, ForeignKey("unidades_produtivas.id"))
     
     # Identificação
     codigo = Column(String(50), nullable=False)
@@ -466,7 +466,7 @@ class SensorIoT(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(String(50), nullable=False)
-    fazenda_id = Column(Integer, ForeignKey("fazendas.id"))
+    unidade_produtiva_id = Column(Integer, ForeignKey("unidades_produtivas.id"))
     
     # Identificação
     nome = Column(String(100), nullable=False)
@@ -517,7 +517,7 @@ class ILPFModulo(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(String(50), nullable=False)
-    fazenda_id = Column(Integer, ForeignKey("fazendas.id"))
+    unidade_produtiva_id = Column(Integer, ForeignKey("unidades_produtivas.id"))
     
     # Identificação
     nome = Column(String(100), nullable=False)

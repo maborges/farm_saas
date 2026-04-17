@@ -7,7 +7,7 @@ import uuid
 from core.dependencies import get_session, get_current_user, get_current_tenant, get_current_user_claims
 from core.models.tenant import Tenant
 from core.models.billing import AssinaturaTenant, PlanoAssinatura, Fatura
-from core.models.fazenda import Fazenda
+from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
 from core.models.auth import TenantUsuario
 from core.schemas.billing_schemas import FaturaResponse, PlanoAssinaturaResponse
 
@@ -16,16 +16,22 @@ router = APIRouter(prefix="/billing", tags=["Billing / Conta"])
 @router.get("/my-account")
 async def get_my_account(tenant: Tenant = Depends(get_current_tenant), session: AsyncSession = Depends(get_session)):
     """Retorna detalhes da conta/tenant logado."""
-    # Buscar assinatura e plano
+    # Buscar assinatura ativa/trial e plano (prefere GRUPO, fallback qualquer)
     stmt = (
         select(AssinaturaTenant, PlanoAssinatura)
         .join(PlanoAssinatura, AssinaturaTenant.plano_id == PlanoAssinatura.id)
-        .where(AssinaturaTenant.tenant_id == tenant.id)
+        .where(
+            AssinaturaTenant.tenant_id == tenant.id,
+            AssinaturaTenant.status.in_(["ATIVA", "TRIAL", "PENDENTE_PAGAMENTO"]),
+        )
+        .order_by(AssinaturaTenant.data_inicio.desc())
     )
     result = await session.execute(stmt)
     row = result.first()
-    
+
     assinatura_data = None
+    modulos_ativos = ["CORE"]
+    max_usuarios = 2
     if row:
         assinatura, plano = row
         assinatura_data = {
@@ -33,8 +39,10 @@ async def get_my_account(tenant: Tenant = Depends(get_current_tenant), session: 
             "valor": float(plano.preco_mensal),
             "status": assinatura.status,
             "data_inicio": assinatura.data_inicio,
-            "proximo_vencimento": assinatura.data_proxima_fatura
+            "proximo_vencimento": assinatura.data_proxima_renovacao,
         }
+        modulos_ativos = plano.modulos_inclusos or ["CORE"]
+        max_usuarios = assinatura.usuarios_contratados or 2
 
     return {
         "tenant": {
@@ -42,9 +50,76 @@ async def get_my_account(tenant: Tenant = Depends(get_current_tenant), session: 
             "nome": tenant.nome,
             "documento": tenant.documento,
             "ativo": tenant.ativo,
-            "modulos_ativos": tenant.modulos_ativos,
-            "max_usuarios": tenant.max_usuarios_simultaneos,
-            "created_at": tenant.created_at
+            "modulos_ativos": modulos_ativos,
+            "max_usuarios": max_usuarios,
+            "created_at": tenant.created_at,
+            "email_responsavel": tenant.email_responsavel,
+            "telefone_responsavel": tenant.telefone_responsavel,
+            "idioma_padrao": tenant.idioma_padrao,
+        },
+        "assinatura": assinatura_data
+    }
+
+@router.patch("/my-account")
+async def update_my_account(
+    tenant: Tenant = Depends(get_current_tenant),
+    session: AsyncSession = Depends(get_session),
+    dados: dict = Body(...),
+):
+    """Atualiza dados do produtor (nome, documento, email_responsavel, telefone_responsavel, idioma_padrao)."""
+    campos_permitidos = {"nome", "documento", "email_responsavel", "telefone_responsavel", "idioma_padrao"}
+    campos_obrigatorios = {"nome", "documento"}
+    
+    for campo, valor in dados.items():
+        if campo in campos_permitidos:
+            if campo in campos_obrigatorios and not (valor or "").strip():
+                raise HTTPException(status_code=422, detail=f"Campo '{campo}' é obrigatório.")
+            setattr(tenant, campo, (valor.strip() if isinstance(valor, str) else valor) or None)
+    
+    await session.commit()
+    await session.refresh(tenant)
+    
+    # Buscar assinatura ativa para retornar estrutura completa
+    stmt = (
+        select(AssinaturaTenant, PlanoAssinatura)
+        .join(PlanoAssinatura, AssinaturaTenant.plano_id == PlanoAssinatura.id)
+        .where(
+            AssinaturaTenant.tenant_id == tenant.id,
+            AssinaturaTenant.status.in_(["ATIVA", "TRIAL", "PENDENTE_PAGAMENTO"]),
+        )
+        .order_by(AssinaturaTenant.data_inicio.desc())
+    )
+    result = await session.execute(stmt)
+    row = result.first()
+
+    assinatura_data = None
+    modulos_ativos = ["CORE"]
+    max_usuarios = 2
+    if row:
+        assinatura, plano = row
+        assinatura_data = {
+            "plano": plano.nome,
+            "valor": float(plano.preco_mensal),
+            "status": assinatura.status,
+            "data_inicio": assinatura.data_inicio,
+            "proximo_vencimento": assinatura.data_proxima_renovacao,
+        }
+        modulos_ativos = plano.modulos_inclusos or ["CORE"]
+        max_usuarios = assinatura.usuarios_contratados or 2
+
+    # Retorna estrutura completa igual ao GET /my-account
+    return {
+        "tenant": {
+            "id": tenant.id,
+            "nome": tenant.nome,
+            "documento": tenant.documento,
+            "ativo": tenant.ativo,
+            "modulos_ativos": modulos_ativos,
+            "max_usuarios": max_usuarios,
+            "created_at": tenant.created_at,
+            "email_responsavel": tenant.email_responsavel,
+            "telefone_responsavel": tenant.telefone_responsavel,
+            "idioma_padrao": tenant.idioma_padrao,
         },
         "assinatura": assinatura_data
     }
@@ -165,12 +240,12 @@ async def get_tenant_limits(
         .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
         .where(
             AssinaturaTenant.tenant_id == tenant_id,
-            AssinaturaTenant.status == "ATIVA",
-            AssinaturaTenant.tipo_assinatura == "GRUPO",
+            AssinaturaTenant.status.in_(["ATIVA", "TRIAL", "PENDENTE_PAGAMENTO"]),
+            AssinaturaTenant.tipo_assinatura == "TENANT",
         )
     )
     if grupo_id:
-        stmt = stmt.where(AssinaturaTenant.grupo_fazendas_id == grupo_id)
+        stmt = stmt.where(AssinaturaTenant.tenant_id == grupo_id)
     stmt = stmt.limit(1)
     result = await session.execute(stmt)
     plano = result.scalar_one_or_none()

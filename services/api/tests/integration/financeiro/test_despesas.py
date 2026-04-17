@@ -19,8 +19,8 @@ PLANO_DESPESA_ID = uuid.UUID("eeeeeeee-0000-0000-0000-000000000020")
 
 async def _garantir_suporte(session):
     await session.execute(text("""
-        INSERT INTO tenants (id, nome, documento, ativo, modulos_ativos, max_usuarios_simultaneos, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
-        VALUES (:id, 'Tenant Despesas', '11122233344', true, '["CORE","F1"]', 10, 0, 10240, 'pt-BR', NOW(), NOW())
+        INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+        VALUES (:id, 'Tenant Despesas', '11122233344', true,  0, 10240, 'pt-BR', NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(TENANT_ID)})
 
@@ -42,7 +42,7 @@ async def _garantir_suporte(session):
 
 def _payload_despesa(**overrides) -> dict:
     base = {
-        "fazenda_id": str(FAZENDA_ID),
+        "unidade_produtiva_id": str(FAZENDA_ID),
         "plano_conta_id": str(PLANO_DESPESA_ID),
         "descricao": "Compra de herbicida",
         "valor_total": 5000.0,

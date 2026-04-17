@@ -7,7 +7,7 @@ from core.utils.cpf_cnpj import validar_cpf_ou_cnpj, apenas_numeros
 class ConviteCreateRequest(BaseModel):
     email_convidado: EmailStr
     perfil_id: UUID
-    fazendas_ids: List[str] # Lista de UUIDs de fazendas em formato string
+    fazendas_ids: List[str] = []  # Lista de UUIDs de unidades produtivas em formato string (backward compat)
     data_validade_acesso: Optional[str] = None # YYYY-MM-DD
     
 class ConviteResponse(BaseModel):
@@ -19,25 +19,39 @@ class ConviteResponse(BaseModel):
     created_at: datetime
     
 class AssinanteRegisterRequest(BaseModel):
-    """Payload de Onboarding Inicial (Produtor criando conta nova no site)"""
+    """Payload de Onboarding Inicial — Usuário + Produtor (Tenant) + Plano"""
+    # Dados do Usuário (Assinante Administrador)
     email: EmailStr
     username: str
     nome_completo: str
     senha: str
-    cnpj_tenant: str
-    # Grupo de fazendas — obrigatório: toda assinatura pertence a um grupo
-    nome_grupo: str  # Ex: "Fazendas Região Sul", "Minha Propriedade"
-    # Primeira fazenda — opcional: pode ser adicionada depois (status PENDENTE_FAZENDA)
-    nome_fazenda: Optional[str] = None
+    cpf: Optional[str] = None
+    telefone: Optional[str] = None
+    # Dados do Produtor (Tenant)
+    nome_produtor: str  # Nome do produtor rural / empresa
+    cnpj_tenant: Optional[str] = None  # CPF ou CNPJ — opcional no cadastro inicial
+    # Plano escolhido
+    plano_id: UUID
+    ciclo: str = "MENSAL"  # MENSAL | ANUAL
+
+    @field_validator("cpf")
+    @classmethod
+    def validar_cpf(cls, v: Optional[str]) -> Optional[str]:
+        if not v:
+            return None
+        from core.utils.cpf_cnpj import validar_cpf
+        digits = "".join(c for c in v if c.isdigit()) if v else ""
+        if len(digits) != 11:
+            return v  # Skip validation if not 11 digits
+        if not validar_cpf(digits):
+            raise ValueError("CPF inválido. Verifique os dados informados.")
+        return digits
 
     @field_validator("cnpj_tenant")
     @classmethod
-    def validar_cnpj_tenant(cls, v: str) -> str:
+    def validar_cnpj_tenant(cls, v: Optional[str]) -> Optional[str]:
         if not v:
-            raise ValueError("CPF ou CNPJ é obrigatório.")
-        
+            return None
         if not validar_cpf_ou_cnpj(v):
             raise ValueError("CPF ou CNPJ inválido. Verifique os dados informados.")
-        
-        # Retorna apenas os números para armazenamento
         return apenas_numeros(v)

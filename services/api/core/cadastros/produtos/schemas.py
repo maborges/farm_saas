@@ -273,3 +273,52 @@ class ProdutoResponse(BaseModel):
     detalhe_epi: Optional[ProdutoEPIResponse] = None
 
     model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
+# ProdutoCultura — catálogo de culturas agrícolas
+# ---------------------------------------------------------------------------
+
+class ProdutoCulturaCreate(BaseModel):
+    nome: str
+    nome_cientifico: Optional[str] = None
+    grupo: Optional[str] = None  # GRAOS | FIBRAS | FRUTAS | HORTALICAS | PASTAGEM | OUTRO
+    ciclo_dias_min: Optional[int] = None
+    ciclo_dias_max: Optional[int] = None
+    espacamento_cm: Optional[float] = None
+    populacao_plantas_ha: Optional[int] = None
+    produtividade_media_sc_ha: Optional[float] = None
+    dados_extras: Optional[dict] = None
+
+
+class ProdutoCulturaUpdate(BaseModel):
+    nome: Optional[str] = None
+    nome_cientifico: Optional[str] = None
+    grupo: Optional[str] = None
+    ciclo_dias_min: Optional[int] = None
+    ciclo_dias_max: Optional[int] = None
+    espacamento_cm: Optional[float] = None
+    populacao_plantas_ha: Optional[int] = None
+    produtividade_media_sc_ha: Optional[float] = None
+    dados_extras: Optional[dict] = None
+    ativa: Optional[bool] = None
+
+
+class ProdutoCulturaResponse(BaseModel):
+    id: uuid.UUID
+    tenant_id: Optional[uuid.UUID]
+    sistema: bool
+    nome: str
+    nome_cientifico: Optional[str]
+    grupo: Optional[str]
+    ciclo_dias_min: Optional[int]
+    ciclo_dias_max: Optional[int]
+    espacamento_cm: Optional[float]
+    populacao_plantas_ha: Optional[int]
+    produtividade_media_sc_ha: Optional[float]
+    dados_extras: Optional[dict]
+    ativa: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}

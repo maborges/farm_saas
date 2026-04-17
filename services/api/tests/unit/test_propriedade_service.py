@@ -82,7 +82,7 @@ class TestExploracaoRuralServiceValidacoes:
 
         # Não deve levantar exceção
         await service._validar_sobreposicao(
-            fazenda_id=uuid.uuid4(),
+            unidade_produtiva_id=uuid.uuid4(),
             propriedade_id=uuid.uuid4(),
             data_inicio=date(2024, 1, 1),
             data_fim=date(2024, 12, 31),
@@ -104,7 +104,7 @@ class TestExploracaoRuralServiceValidacoes:
         
         with pytest.raises(BusinessRuleError) as exc_info:
             await service._validar_sobreposicao(
-                fazenda_id=uuid.uuid4(),
+                unidade_produtiva_id=uuid.uuid4(),
                 propriedade_id=uuid.uuid4(),
                 data_inicio=comeca_antes_termina_depois,
                 data_fim=date(2025, 1, 1),
@@ -124,7 +124,7 @@ class TestExploracaoRuralServiceValidacoes:
 
         # Nova exploração começa depois que a existente termina
         await service._validar_sobreposicao(
-            fazenda_id=uuid.uuid4(),
+            unidade_produtiva_id=uuid.uuid4(),
             propriedade_id=uuid.uuid4(),
             data_inicio=date(2024, 1, 1),
             data_fim=date(2024, 12, 31),
@@ -153,7 +153,7 @@ class TestExploracaoRuralServiceCRUD:
     async def test_criar_exploracao_sucesso(self, service, mock_session):
         """Criar exploração válida deve funcionar."""
         propriedade_id = uuid.uuid4()
-        fazenda_id = uuid.uuid4()
+        unidade_produtiva_id = uuid.uuid4()
         
         # Mock: propriedade existe
         mock_propriedade = MagicMock()
@@ -170,7 +170,7 @@ class TestExploracaoRuralServiceCRUD:
         ]
 
         data = ExploracaoCreate(
-            fazenda_id=fazenda_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             natureza="propria",
             data_inicio=date(2024, 1, 1),
         )
@@ -180,7 +180,7 @@ class TestExploracaoRuralServiceCRUD:
         assert resultado is not None
         assert resultado.tenant_id == service.tenant_id
         assert resultado.propriedade_id == propriedade_id
-        assert resultado.fazenda_id == fazenda_id
+        assert resultado.unidade_produtiva_id == unidade_produtiva_id
         assert resultado.natureza == "propria"
         mock_session.add.assert_called_once()
 
@@ -194,7 +194,7 @@ class TestExploracaoRuralServiceCRUD:
         mock_session.execute.return_value = mock_result
 
         data = ExploracaoCreate(
-            fazenda_id=uuid.uuid4(),
+            unidade_produtiva_id=uuid.uuid4(),
             natureza="propria",
             data_inicio=date(2024, 1, 1),
         )
@@ -220,14 +220,14 @@ class TestExploracaoRuralServiceCRUD:
     @pytest.mark.asyncio
     async def test_listar_vigentes_por_fazenda(self, service, mock_session):
         """listar_vigentes_por_fazenda deve retornar apenas explorações vigentes."""
-        fazenda_id = uuid.uuid4()
+        unidade_produtiva_id = uuid.uuid4()
         
         mock_exploracoes = [MagicMock()]
         mock_result = MagicMock()
         mock_result.scalars.return_value.all.return_value = mock_exploracoes
         mock_session.execute.return_value = mock_result
 
-        resultado = await service.listar_vigentes_por_fazenda(fazenda_id)
+        resultado = await service.listar_vigentes_por_fazenda(unidade_produtiva_id)
         
         assert resultado == mock_exploracoes
 

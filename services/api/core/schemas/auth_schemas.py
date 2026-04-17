@@ -52,15 +52,18 @@ class PerfilSimplesResponse(BaseModel):
     nome: str
     permissoes: dict
 
-class FazendaAcessoResponse(BaseModel):
-    fazenda_id: UUID
+class UnidadeProdutivaAcessoResponse(BaseModel):
+    unidade_produtiva_id: UUID
     nome: str
+
+# Backward compatibility alias
+FazendaAcessoResponse = UnidadeProdutivaAcessoResponse
 
 class TenantAcessoResponse(BaseModel):
     tenant_id: UUID
     nome_tenant: str
     perfil: Optional[PerfilSimplesResponse]
-    fazendas: List[FazendaAcessoResponse]
+    fazendas: List[UnidadeProdutivaAcessoResponse]
     is_owner: bool
     plan_tier: str = "BASICO"
     max_fazendas: int = 1
@@ -100,6 +103,16 @@ class UserUpdateRequest(BaseModel):
     nome_completo: Optional[str] = None
     telefone: Optional[str] = None
     foto_perfil_url: Optional[str] = None
+
+class ChangePasswordRequest(BaseModel):
+    """Alteração de senha pelo próprio usuário (requer senha atual)."""
+    senha_atual: str = Field(..., min_length=6, description="Senha atual do usuário")
+    nova_senha: str = Field(..., min_length=8, description="Nova senha (mínimo 8 caracteres)")
+    confirmar_senha: str = Field(..., min_length=8, description="Confirmação da nova senha")
+
+class ChangePasswordResponse(BaseModel):
+    success: bool
+    message: str
 
 class CreateSubscriptionRequest(BaseModel):
     """Criação de nova assinatura (tenant) por um usuário já logado."""
