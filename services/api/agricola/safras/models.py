@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime, date
+from typing import TYPE_CHECKING
 from sqlalchemy import String, Numeric, Boolean, Integer, Date, Text, ForeignKey, text
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship, TYPE_CHECKING
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Uuid as UUID
 from core.database import Base
 

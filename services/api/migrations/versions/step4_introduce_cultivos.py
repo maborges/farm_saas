@@ -15,7 +15,7 @@ import sqlalchemy as sa
 from sqlalchemy import text
 
 revision = "step4_cultivos_intro"
-down_revision = "step3_fix_prescricoes_vra_talhao"
+down_revision = "add_estoque_benef_fk"
 branch_labels = None
 depends_on = None
 
@@ -119,22 +119,12 @@ def upgrade() -> None:
     )
 
     # 7. Adicionar cultivo_id em itens_orcamento_safra
-    op.add_column('itens_orcamento_safra', sa.Column('cultivo_id', sa.Uuid(), nullable=True))
-    op.create_foreign_key(
-        'fk_itens_orcamento_safra_cultivo_id',
-        'itens_orcamento_safra',
-        'cultivos',
-        ['cultivo_id'],
-        ['id'],
-        ondelete='SET NULL'
-    )
+    # NOTE: Tabela será adicionada em próxima migration se necessário
+    # op.add_column('itens_orcamento_safra', sa.Column('cultivo_id', sa.Uuid(), nullable=True))
 
 
 def downgrade() -> None:
     # Remover FKs nas tabelas dependentes
-    op.drop_constraint('fk_itens_orcamento_safra_cultivo_id', 'itens_orcamento_safra', type_='foreignkey')
-    op.drop_column('itens_orcamento_safra', 'cultivo_id')
-
     op.drop_constraint('fk_cafe_lotes_beneficiamento_cultivo_id', 'cafe_lotes_beneficiamento', type_='foreignkey')
     op.drop_column('cafe_lotes_beneficiamento', 'cultivo_id')
 
