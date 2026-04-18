@@ -178,7 +178,8 @@ class AuthService:
         modulos = ["CORE"]
         fazendas_auth = []
         grupos_jwt = []
-        
+        perfil = None
+
         # Superadministradores não entram vinculados a nenhum tenant por padrão.
         # Eles entram no contexto de Gestão Global.
         if not user.is_superuser and tenant_usuarios:

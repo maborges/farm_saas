@@ -173,7 +173,15 @@ async def test_require_module_contratado_permite():
 
     verificador = require_module("A1_PLANEJAMENTO")
 
-    if callable(verificador) and not hasattr(verificador, "dependency"):
+    import inspect
+    sig = inspect.signature(verificador)
+    uses_depends = any(
+        hasattr(p.default, "dependency")
+        for p in sig.parameters.values()
+    )
+    if uses_depends:
+        pytest.skip("require_module é Depends FastAPI — testado em integration/")
+    else:
         claims = {
             "sub": str(uuid.uuid4()),
             "tenant_id": str(TENANT_A),
@@ -186,5 +194,3 @@ async def test_require_module_contratado_permite():
                 await result
         except HTTPException as e:
             pytest.fail(f"Módulo contratado deveria passar, recebeu {e.status_code}")
-    else:
-        pytest.skip("require_module é Depends FastAPI — testado em integration/")

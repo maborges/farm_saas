@@ -61,7 +61,9 @@ async def test_login_credenciais_validas(auth_service, mock_session):
     mock_session.execute.return_value = result_mock
 
     login_data = LoginRequest(email="fazendeiro@teste.com", senha="Senha@123")
-    returned_user, token = await auth_service.authenticate_user(login_data)
+    with patch("core.services.login_rate_limit_service.LoginRateLimitService.verificar_bloqueio", new=AsyncMock(return_value=(False, None))), \
+         patch("core.services.login_rate_limit_service.LoginRateLimitService.registrar_tentativa_sucesso", new=AsyncMock()):
+        returned_user, token = await auth_service.authenticate_user(login_data)
 
     assert returned_user.id == user.id
     assert token is not None
@@ -107,8 +109,10 @@ async def test_login_senha_invalida(auth_service, mock_session):
 
     login_data = LoginRequest(email="fazendeiro@teste.com", senha="SenhaErrada@999")
 
-    with pytest.raises(HTTPException) as exc_info:
-        await auth_service.authenticate_user(login_data)
+    with patch("core.services.login_rate_limit_service.LoginRateLimitService.verificar_bloqueio", new=AsyncMock(return_value=(False, None))), \
+         patch("core.services.login_rate_limit_service.LoginRateLimitService.registrar_tentativa_falha", new=AsyncMock()):
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.authenticate_user(login_data)
 
     assert exc_info.value.status_code == 401
 
@@ -128,7 +132,9 @@ async def test_token_claims_corretos(auth_service, mock_session):
     mock_session.execute.return_value = result_mock
 
     login_data = LoginRequest(email="fazendeiro@teste.com", senha="Senha@123")
-    _, token = await auth_service.authenticate_user(login_data)
+    with patch("core.services.login_rate_limit_service.LoginRateLimitService.verificar_bloqueio", new=AsyncMock(return_value=(False, None))), \
+         patch("core.services.login_rate_limit_service.LoginRateLimitService.registrar_tentativa_sucesso", new=AsyncMock()):
+        _, token = await auth_service.authenticate_user(login_data)
 
     payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
     assert "sub" in payload
@@ -154,8 +160,10 @@ async def test_login_usuario_inativo(auth_service, mock_session):
 
     login_data = LoginRequest(email="fazendeiro@teste.com", senha="Senha@123")
 
-    with pytest.raises(HTTPException) as exc_info:
-        await auth_service.authenticate_user(login_data)
+    with patch("core.services.login_rate_limit_service.LoginRateLimitService.verificar_bloqueio", new=AsyncMock(return_value=(False, None))), \
+         patch("core.services.login_rate_limit_service.LoginRateLimitService.registrar_tentativa_falha", new=AsyncMock()):
+        with pytest.raises(HTTPException) as exc_info:
+            await auth_service.authenticate_user(login_data)
 
     assert exc_info.value.status_code == 403
 
