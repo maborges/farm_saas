@@ -23,30 +23,29 @@ Isso permite rastrear custos, operações e orçamento **separadamente por cultu
 
 ### Como criar?
 1. Clique em **"+ Nova Safra"** (botão no topo)
-2. Um assistente (wizard) abre em **2 etapas:**
+2. Um diálogo abre com um **formulário único** — preencha:
 
-#### Etapa 1 — Identificação da Safra
+#### Campo: Ano Agrícola
 | Campo | O que é | Exemplo |
 |-------|---------|---------|
-| **Ano Safra** | Identificação temporal da safra | "2025" ou "2025/26" |
+| **Ano Agrícola** | Identificação temporal da safra | "2025" ou "2025/26" |
 
-Clique em **"Próximo"** para continuar.
-
-#### Etapa 2 — Cultivos
-Adicione **pelo menos um cultivo** clicando em **"+ Adicionar Cultivo"**:
+#### Seção: Cultivos
+Adicione **pelo menos um cultivo** clicando em **"+ Cultivo"**. Para cada cultivo:
 
 | Campo | O que é | Exemplo |
 |-------|---------|---------|
-| **Cultura** | Tipo de plantação | "Café" |
-| **Cultivar** | Variedade específica | "Bourbon", "Catuaí", "Mundo Novo" |
-| **Talhões** | Selecione um ou mais talhões | "Talhão A1", "Talhão A2" |
-| **Área por talhão (ha)** | Área real plantada naquele talhão | "40" (40 hectares) |
-| **Meta (sc/ha)** | Produtividade esperada (opcional) | "30" sacas/ha |
-| **Preço previsto** | Preço de venda estimado (opcional) | "R$ 1.200/sc" |
+| **Cultura** | Tipo de plantação (dropdown) | "Café", "Milho", "Soja" |
+| **Cultivar** | Variedade específica (opcional) | "Bourbon", "Catuaí", "Mundo Novo" |
+| **Talhões** | Selecione um ou mais talhões | "Talhão A1" |
+| **Área a Plantar (ha)** | Área real plantada naquele talhão | "40" — auto-preenchida com a área total do talhão |
+| **Meta de Produtividade (sc/ha)** | Produtividade esperada (opcional) | "30" |
 
-> 💡 Você pode adicionar **múltiplos cultivos** por safra (ex: Café + Milho).
+> 💡 **Dica:** Quando você seleciona um talhão, o campo "Área a Plantar" já vem preenchido com a área total cadastrada. Se for plantar menos (ex: pousio), edit o campo.
 
-3. Após adicionar os cultivos, clique em **"Criar Safra"**
+> ⚠️ **Validação:** A área a plantar não pode ser maior que a área real do talhão.
+
+3. Após adicionar os cultivos, clique em **"Criar Safra"** (botão no rodapé)
 
 ✅ Sua safra foi criada com os cultivos e talhões já vinculados!
 
