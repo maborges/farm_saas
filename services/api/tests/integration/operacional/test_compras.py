@@ -8,6 +8,7 @@ from datetime import date
 from sqlalchemy import text
 
 from tests.integration.conftest import TENANT_ID, FAZENDA_ID, PRODUTO_ID, USER_ID
+from tests.integration.helpers import garantir_assinatura
 
 
 # ---------------------------------------------------------------------------
@@ -26,7 +27,7 @@ async def _garantir_suporte(session):
     """), {"id": str(TENANT_ID)})
 
     await session.execute(text("""
-        INSERT INTO fazendas (id, tenant_id, nome, ativo, created_at, updated_at)
+        INSERT INTO unidades_produtivas (id, tenant_id, nome, ativo, created_at, updated_at)
         VALUES (:id, :tenant_id, 'Fazenda Compras', true, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(FAZENDA_ID), "tenant_id": str(TENANT_ID)})
@@ -58,6 +59,7 @@ async def _garantir_suporte(session):
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(FORNECEDOR_ID), "tenant_id": str(TENANT_ID)})
 
+    await garantir_assinatura(session, TENANT_ID)
     await session.commit()
 
 

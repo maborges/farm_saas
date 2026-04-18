@@ -47,11 +47,19 @@ class SafraService(BaseService[Safra]):
         if result.scalars().first():
             raise BusinessRuleError(f"Já existe safra ativa para {dados.ano_safra} neste talhão.")
 
+        # Cultura principal (legado): pega do primeiro cultivo ou do campo raiz
+        cultura_principal: str | None = None
+        if dados.cultivos:
+            cultura_principal = dados.cultivos[0].cultura
+        elif dados.cultura:
+            cultura_principal = dados.cultura
+
         # Cria a Safra
         safra = Safra(
             tenant_id=self.tenant_id,
             talhao_id=talhao_principal_id,
             ano_safra=dados.ano_safra,
+            cultura=cultura_principal,
             status='PLANEJADA',
             observacoes=dados.observacoes,
         )
@@ -89,7 +97,7 @@ class SafraService(BaseService[Safra]):
                     )
                     self.session.add(area)
 
-        # Fluxo legado: cria SafraTalhoes para compatibilidade
+        # Fluxo legado: cria SafraTalhoes + Cultivo para compatibilidade
         elif dados.talhao_ids:
             for talhao_id in dados.talhao_ids:
                 st = SafraTalhao(
@@ -99,6 +107,34 @@ class SafraService(BaseService[Safra]):
                     principal=False
                 )
                 self.session.add(st)
+
+            # Cria cultivo legado se cultura foi informada
+            if dados.cultura:
+                cultivo = Cultivo(
+                    tenant_id=self.tenant_id,
+                    safra_id=safra.id,
+                    cultura=dados.cultura,
+                    cultivar_id=dados.cultivar_id,
+                    cultivar_nome=dados.cultivar_nome,
+                    commodity_id=dados.commodity_id,
+                    sistema_plantio=dados.sistema_plantio,
+                    populacao_prevista=dados.populacao_prevista,
+                    espacamento_cm=dados.espacamento_cm,
+                    data_plantio_prevista=dados.data_plantio_prevista,
+                    produtividade_meta_sc_ha=dados.produtividade_meta_sc_ha,
+                    preco_venda_previsto=dados.preco_venda_previsto,
+                )
+                self.session.add(cultivo)
+                await self.session.flush()
+                # Cria CultivoAreas para cada talhão
+                for talhao_id in dados.talhao_ids:
+                    area = CultivoArea(
+                        tenant_id=self.tenant_id,
+                        cultivo_id=cultivo.id,
+                        area_id=talhao_id,
+                        area_ha=dados.area_plantada_ha or 0.0,
+                    )
+                    self.session.add(area)
 
         await self.session.commit()
         await self.session.refresh(safra, ["cultivos"])

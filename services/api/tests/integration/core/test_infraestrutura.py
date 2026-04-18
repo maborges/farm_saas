@@ -64,7 +64,7 @@ async def client():
 
 
 async def _setup_tenant(session, tenant_id, unidade_produtiva_id, grupo_id, doc):
-    """Garante tenant, grupo e fazenda no banco."""
+    """Garante tenant e fazenda no banco."""
     await session.execute(text("""
         INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb,
             idioma_padrao, created_at, updated_at)
@@ -73,17 +73,10 @@ async def _setup_tenant(session, tenant_id, unidade_produtiva_id, grupo_id, doc)
     """), {"id": str(tenant_id), "nome": f"Tenant {doc}", "doc": doc})
 
     await session.execute(text("""
-        INSERT INTO grupos_fazendas (id, tenant_id, nome, ativo, created_at, updated_at)
+        INSERT INTO unidades_produtivas (id, tenant_id, nome, ativo, created_at, updated_at)
         VALUES (:id, :tenant_id, :nome, true, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
-    """), {"id": str(grupo_id), "tenant_id": str(tenant_id), "nome": "Grupo"})
-
-    await session.execute(text("""
-        INSERT INTO fazendas (id, tenant_id, grupo_id, nome, ativo, created_at, updated_at)
-        VALUES (:id, :tenant_id, :grupo_id, :nome, true, NOW(), NOW())
-        ON CONFLICT (id) DO NOTHING
-    """), {"id": str(unidade_produtiva_id), "tenant_id": str(tenant_id),
-           "grupo_id": str(grupo_id), "nome": "Fazenda"})
+    """), {"id": str(unidade_produtiva_id), "tenant_id": str(tenant_id), "nome": "Fazenda"})
 
 
 async def _create_area_rural(session, tenant_id, unidade_produtiva_id) -> uuid.UUID:

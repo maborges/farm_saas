@@ -267,6 +267,8 @@ class LoginRateLimitService:
             tentativa.tentativas_count = 0
             await self.session.commit()
             logger.info(f"Desbloqueio manual para {email}")
+            return True
+        return False
     
     async def desbloquear_por_usuario_id(self, usuario_id: uuid.UUID):
         """

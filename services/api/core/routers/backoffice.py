@@ -17,6 +17,7 @@ from core.schemas.billing_schemas import (
 from core.schemas.support_schemas import (
     ChamadoSuporteResponse, ChamadoDetalheResponse, MensagemChamadoCreate, MensagemChamadoResponse
 )
+from core.schemas.auth_schemas import LoginBloqueadoItem, LoginBloqueadosListaResponse
 from core.services.email_service import email_service
 
 router = APIRouter(prefix="/backoffice", tags=["Backoffice"])

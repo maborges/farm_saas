@@ -262,7 +262,6 @@ class AuthService:
         # Cria registro da sessão ativa no banco de dados
         from core.models.sessao import SessaoAtiva
         import hashlib
-        from datetime import datetime, timezone, timedelta
         
         token_hash = hashlib.sha256(access_token.encode()).hexdigest()
         agora = datetime.now(timezone.utc)

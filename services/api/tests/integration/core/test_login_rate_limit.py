@@ -10,7 +10,7 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from core.models.auth import Usuario, TentativaLogin
 from core.services.auth_service import hash_password
@@ -19,16 +19,22 @@ from core.services.auth_service import hash_password
 @pytest.fixture
 async def usuario_teste(session: AsyncSession):
     """Cria usuário de teste."""
-    usuario = Usuario(
-        email="rate.limit@teste.com",
-        username="ratelimit",
-        nome_completo="Rate Limit Teste",
-        senha_hash=hash_password("Senha@123"),
-        ativo=True
-    )
-    session.add(usuario)
+    from sqlalchemy import text
+    await session.execute(text("""
+        INSERT INTO usuarios (id, email, username, nome_completo, senha_hash, ativo, is_superuser, created_at, updated_at)
+        VALUES (gen_random_uuid(), :email, :username, :nome, :hash, true, false, NOW(), NOW())
+        ON CONFLICT (email) DO UPDATE SET senha_hash = EXCLUDED.senha_hash, ativo = true
+    """), {
+        "email": "rate.limit@teste.com",
+        "username": "ratelimit",
+        "nome": "Rate Limit Teste",
+        "hash": hash_password("Senha@123"),
+    })
     await session.commit()
-    return usuario
+    from sqlalchemy import select as sel
+    await session.execute(text("DELETE FROM login_tentativas WHERE email = 'rate.limit@teste.com'"))
+    await session.commit()
+    return (await session.execute(sel(Usuario).where(Usuario.email == "rate.limit@teste.com"))).scalar_one()
 
 
 @pytest.mark.asyncio
@@ -64,16 +70,15 @@ async def test_login_sucesso_reseta_contador(client: AsyncClient, session: Async
 async def test_login_cinco_falhas_bloqueia(client: AsyncClient, session: AsyncSession):
     """5 tentativas falhas bloqueiam a conta."""
     email = "bloqueio@teste.com"
+    await session.execute(text("DELETE FROM login_tentativas WHERE email = :e"), {"e": email})
+    await session.commit()
     
     # Cria usuário
-    usuario = Usuario(
-        email=email,
-        username="bloqueioteste",
-        nome_completo="Bloqueio Teste",
-        senha_hash=hash_password("Senha@123"),
-        ativo=True
-    )
-    session.add(usuario)
+    await session.execute(text("""
+        INSERT INTO usuarios (id, email, username, nome_completo, senha_hash, ativo, is_superuser, created_at, updated_at)
+        VALUES (gen_random_uuid(), :email, :username, :nome, :hash, :ativo, false, NOW(), NOW())
+        ON CONFLICT (email) DO UPDATE SET senha_hash = EXCLUDED.senha_hash, ativo = EXCLUDED.ativo
+    """), {"email": email, "username": "bloqueioteste", "nome": "Bloqueio Teste", "hash": hash_password("Senha@123"), "ativo": True})
     await session.commit()
     
     # 5 tentativas falhas
@@ -99,16 +104,15 @@ async def test_login_cinco_falhas_bloqueia(client: AsyncClient, session: AsyncSe
 async def test_login_conta_bloqueada_mensagem_informativa(client: AsyncClient, session: AsyncSession):
     """Conta bloqueada exibe mensagem com tempo restante."""
     email = "bloqueado2@teste.com"
+    await session.execute(text("DELETE FROM login_tentativas WHERE email = :e"), {"e": email})
+    await session.commit()
     
     # Cria usuário
-    usuario = Usuario(
-        email=email,
-        username="bloqueado2teste",
-        nome_completo="Bloqueado 2 Teste",
-        senha_hash=hash_password("Senha@123"),
-        ativo=True
-    )
-    session.add(usuario)
+    await session.execute(text("""
+        INSERT INTO usuarios (id, email, username, nome_completo, senha_hash, ativo, is_superuser, created_at, updated_at)
+        VALUES (gen_random_uuid(), :email, :username, :nome, :hash, :ativo, false, NOW(), NOW())
+        ON CONFLICT (email) DO UPDATE SET senha_hash = EXCLUDED.senha_hash, ativo = EXCLUDED.ativo
+    """), {"email": email, "username": "bloqueado2teste", "nome": "Bloqueado 2 Teste", "hash": hash_password("Senha@123"), "ativo": True})
     
     # Cria registro de bloqueio manualmente
     from datetime import datetime, timedelta, timezone
@@ -138,16 +142,15 @@ async def test_login_conta_bloqueada_mensagem_informativa(client: AsyncClient, s
 async def test_login_usuario_inativo_registra_tentativa(client: AsyncClient, session: AsyncSession):
     """Login de usuário inativo registra tentativa e retorna 403."""
     email = "inativo@teste.com"
+    await session.execute(text("DELETE FROM login_tentativas WHERE email = :e"), {"e": email})
+    await session.commit()
     
-    # Cria usuário inativo
-    usuario = Usuario(
-        email=email,
-        username="inativoteste",
-        nome_completo="Inativo Teste",
-        senha_hash=hash_password("Senha@123"),
-        ativo=False  # Inativo
-    )
-    session.add(usuario)
+    # Cria usuário
+    await session.execute(text("""
+        INSERT INTO usuarios (id, email, username, nome_completo, senha_hash, ativo, is_superuser, created_at, updated_at)
+        VALUES (gen_random_uuid(), :email, :username, :nome, :hash, :ativo, false, NOW(), NOW())
+        ON CONFLICT (email) DO UPDATE SET senha_hash = EXCLUDED.senha_hash, ativo = EXCLUDED.ativo
+    """), {"email": email, "username": "inativoteste", "nome": "Inativo Teste", "hash": hash_password("Senha@123"), "ativo": False})
     await session.commit()
     
     # Tenta login
@@ -172,6 +175,8 @@ async def test_login_usuario_inativo_registra_tentativa(client: AsyncClient, ses
 async def test_login_usuario_nao_encontrado_registra_tentativa(client: AsyncClient, session: AsyncSession):
     """Login com usuário não encontrado registra tentativa."""
     email = "naoexiste@teste.com"
+    await session.execute(text("DELETE FROM login_tentativas WHERE email = :e"), {"e": email})
+    await session.commit()
     
     # Tenta login com usuário que não existe
     response = await client.post("/api/v1/auth/login", json={
@@ -195,16 +200,15 @@ async def test_login_usuario_nao_encontrado_registra_tentativa(client: AsyncClie
 async def test_login_ip_e_user_agent_registrados(client: AsyncClient, session: AsyncSession):
     """IP e User Agent são registrados nas tentativas."""
     email = "auditoria@teste.com"
+    await session.execute(text("DELETE FROM login_tentativas WHERE email = :e"), {"e": email})
+    await session.commit()
     
     # Cria usuário
-    usuario = Usuario(
-        email=email,
-        username="auditoriateste",
-        nome_completo="Auditoria Teste",
-        senha_hash=hash_password("Senha@123"),
-        ativo=True
-    )
-    session.add(usuario)
+    await session.execute(text("""
+        INSERT INTO usuarios (id, email, username, nome_completo, senha_hash, ativo, is_superuser, created_at, updated_at)
+        VALUES (gen_random_uuid(), :email, :username, :nome, :hash, :ativo, false, NOW(), NOW())
+        ON CONFLICT (email) DO UPDATE SET senha_hash = EXCLUDED.senha_hash, ativo = EXCLUDED.ativo
+    """), {"email": email, "username": "auditoriateste", "nome": "Auditoria Teste", "hash": hash_password("Senha@123"), "ativo": True})
     await session.commit()
     
     # Tenta login com headers customizados
@@ -230,16 +234,15 @@ async def test_login_ip_e_user_agent_registrados(client: AsyncClient, session: A
 async def test_login_tentativas_restantes_api(client: AsyncClient, session: AsyncSession):
     """Testa fluxo completo de tentativas."""
     email = "fluxo@teste.com"
+    await session.execute(text("DELETE FROM login_tentativas WHERE email = :e"), {"e": email})
+    await session.commit()
     
     # Cria usuário
-    usuario = Usuario(
-        email=email,
-        username="fluxoteste",
-        nome_completo="Fluxo Teste",
-        senha_hash=hash_password("Senha@123"),
-        ativo=True
-    )
-    session.add(usuario)
+    await session.execute(text("""
+        INSERT INTO usuarios (id, email, username, nome_completo, senha_hash, ativo, is_superuser, created_at, updated_at)
+        VALUES (gen_random_uuid(), :email, :username, :nome, :hash, :ativo, false, NOW(), NOW())
+        ON CONFLICT (email) DO UPDATE SET senha_hash = EXCLUDED.senha_hash, ativo = EXCLUDED.ativo
+    """), {"email": email, "username": "fluxoteste", "nome": "Fluxo Teste", "hash": hash_password("Senha@123"), "ativo": True})
     await session.commit()
     
     # 3 tentativas falhas

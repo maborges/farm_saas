@@ -11,8 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.pool import NullPool
 from sqlalchemy import text
 from core.database import Base
-from core.models import Tenant, Fazenda
-# grupos_fazendas removed
+from core.models import Tenant
 from core.models.billing import AssinaturaTenant, PlanoAssinatura
 from core.config import settings
 
@@ -151,40 +150,31 @@ async def unidade_produtiva_id(session, tenant_id: uuid.UUID) -> uuid.UUID:
             "INSERT INTO planos_assinatura (id, nome, modulos_inclusos, limite_usuarios_minimo, limite_usuarios_maximo, "
             "preco_mensal, preco_anual, max_fazendas, max_categorias_plano, tem_trial, dias_trial, is_free, "
             "destaque, ordem, ativo, disponivel_site, disponivel_crm, created_at) "
-            "VALUES (:id, 'Plano Teste', '[\"CORE\",\"A1\"]'::json, 1, 5, 0, 0, -1, -1, false, 15, false, false, 0, true, false, true, now()) "
+            "VALUES (:id, 'Plano Teste', CAST('[\"CORE\",\"A1\"]' AS json), 1, 5, 0, 0, -1, -1, false, 15, false, false, 0, true, false, true, now()) "
             "ON CONFLICT DO NOTHING"
         ),
         {"id": str(plano_id)},
     )
 
-    # Cria grupo de fazendas via SQL (modelo removido)
-    await session.execute(text(
-        "INSERT INTO grupos_fazendas (id, tenant_id, nome, ativo, created_at) "
-        "VALUES (:id, :tenant_id, 'Grupo Teste', true, now()) "
-        "ON CONFLICT DO NOTHING"
-    ), {"id": str(uuid.uuid4()), "tenant_id": str(tenant_id)})
-    await session.commit()
-
-    # Cria assinatura vinculada ao grupo
+    # Cria assinatura
     assinatura = AssinaturaTenant(
         tenant_id=tenant_id,
         plano_id=plano_id,
         tipo_assinatura="TENANT",
+        ciclo_pagamento="MENSAL",
         status="ATIVA",
     )
     session.add(assinatura)
 
-    # Cria fazenda vinculada ao grupo
-    fazenda = Fazenda(
-        id=uuid.uuid4(),
-        tenant_id=tenant_id,
-        nome="Fazenda Teste",
-        grupo_id=grupo.id,
-        ativo=True,
-    )
-    session.add(fazenda)
+    # Cria unidade produtiva (antiga fazenda)
+    fazenda_id = uuid.uuid4()
+    await session.execute(text(
+        "INSERT INTO unidades_produtivas (id, tenant_id, nome, ativo, created_at, updated_at) "
+        "VALUES (:id, :tenant_id, 'Fazenda Teste', true, now(), now()) "
+        "ON CONFLICT DO NOTHING"
+    ), {"id": str(fazenda_id), "tenant_id": str(tenant_id)})
     await session.commit()
-    return fazenda.id
+    return fazenda_id
 
 @pytest.fixture
 async def talhao_id(session, tenant_id: uuid.UUID, unidade_produtiva_id: uuid.UUID) -> uuid.UUID:

@@ -60,7 +60,7 @@ async def _setup_banco(session):
     """), {"id": str(TENANT_E2E)})
 
     await session.execute(text("""
-        INSERT INTO fazendas (id, tenant_id, nome, ativo, created_at, updated_at)
+        INSERT INTO unidades_produtivas (id, tenant_id, nome, ativo, created_at, updated_at)
         VALUES (:id, :tenant_id, 'Fazenda E2E', true, NOW(), NOW())
         ON CONFLICT (id) DO NOTHING
     """), {"id": str(FAZENDA_E2E), "tenant_id": str(TENANT_E2E)})

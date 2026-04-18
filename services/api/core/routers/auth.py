@@ -408,26 +408,25 @@ async def gestor_desbloquear_usuario(
     # Verifica se é owner ou admin (perfil com permissão de gerenciar usuários)
     # Owner sempre pode, outros perfis precisam verificar permissões
     if not tenant_usuario.is_owner:
-        # Verifica se tem permissão de admin no perfil
+        pode_gerenciar_usuarios = False
         if tenant_usuario.perfil_id:
             from core.models.auth import PerfilAcesso
             perfil_stmt = select(PerfilAcesso).where(PerfilAcesso.id == tenant_usuario.perfil_id)
             perfil_result = await session.execute(perfil_stmt)
             perfil = perfil_result.scalar_one_or_none()
-            
-            # Verifica se tem permissão de escrever em usuários
-            permissoes = perfil.permissoes if perfil else {}
-            pode_gerenciar_usuarios = (
-                permissoes.get("core", {}).get("usuarios") == "write" or
-                permissoes.get("backoffice") == "write" or
-                perfil.nome.lower() in ["administrador", "admin", "owner", "gestor"]
-            )
-            
-            if not pode_gerenciar_usuarios:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Usuário não tem permissão para desbloquear outros usuários"
+            if perfil:
+                permissoes = perfil.permissoes or {}
+                pode_gerenciar_usuarios = (
+                    permissoes.get("core", {}).get("usuarios") == "write" or
+                    permissoes.get("backoffice") == "write" or
+                    perfil.nome.lower() in ["administrador", "admin", "owner", "gestor"]
                 )
+
+        if not pode_gerenciar_usuarios:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Usuário não tem permissão para desbloquear outros usuários"
+            )
     
     # Verifica se o usuário a ser desbloqueado pertence ao mesmo tenant
     stmt_usuario_alvo = select(Usuario).where(Usuario.id == usuario_id)

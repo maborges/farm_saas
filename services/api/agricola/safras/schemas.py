@@ -39,6 +39,19 @@ class SafraCreate(BaseModel):
     cultivos: list[CultivoDefine] = Field(default_factory=list, description="Cultivos da safra")
     observacoes: str | None = None
 
+    # Campos legados aceitos na raiz (compat. com clientes antigos e testes)
+    cultura: str | None = None
+    cultivar_id: UUID | None = None
+    cultivar_nome: str | None = None
+    commodity_id: UUID | None = None
+    sistema_plantio: str | None = None
+    area_plantada_ha: float | None = Field(None, gt=0)
+    produtividade_meta_sc_ha: float | None = Field(None, gt=0)
+    preco_venda_previsto: float | None = Field(None, gt=0)
+    populacao_prevista: int | None = Field(None, gt=0, le=500000)
+    espacamento_cm: int | None = Field(None, gt=0, le=200)
+    data_plantio_prevista: date | None = None
+
     @model_validator(mode="after")
     def validar_campos(self):
         # Valida que ao menos uma forma de definir cultivos foi informada
@@ -92,26 +105,9 @@ class SafraResponse(BaseModel):
     tenant_id: UUID
     talhao_id: UUID
     ano_safra: str
-    cultura: str
-    cultivar_id: UUID | None
-    cultivar_nome: str | None
-    commodity_id: UUID | None
-    sistema_plantio: str | None
-    data_plantio_prevista: date | None
-    data_plantio_real: date | None
-    data_colheita_prevista: date | None
-    data_colheita_real: date | None
-    populacao_prevista: int | None
-    populacao_real: int | None
-    espacamento_cm: int | None
-    area_plantada_ha: float | None
-    produtividade_meta_sc_ha: float | None
-    produtividade_real_sc_ha: float | None
-    preco_venda_previsto: float | None
-    custo_previsto_ha: float | None
-    custo_realizado_ha: float | None
+    cultura: str | None = None  # legado: cultura principal (detalhes em cultivos[])
     status: str
-    observacoes: str | None
+    observacoes: str | None = None
     created_at: datetime
     updated_at: datetime
 

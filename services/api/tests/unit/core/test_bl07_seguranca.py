@@ -3,7 +3,7 @@ BL-07 — Testes de Segurança
 
 Cobre os gaps introduzidos pela refatoração:
 1. require_fazenda_access() — vigência expirada → 403
-2. FazendaService._check_limite_fazendas() — limite do plano → BusinessRuleError
+2. FazendaService._check_limite_unidades() — limite do plano → BusinessRuleError
 3. Validação de formato CAR
 4. Validação CPF (algoritmo)
 """
@@ -70,11 +70,11 @@ class TestRequireFazendaAccess:
 
 
 # ---------------------------------------------------------------------------
-# 2. FazendaService._check_limite_fazendas — limite do plano
+# 2. FazendaService._check_limite_unidades — limite do plano
 # ---------------------------------------------------------------------------
 
 class TestFazendaLimite:
-    """Verifica que _check_limite_fazendas bloqueia ao atingir o plano."""
+    """Verifica que _check_limite_unidades bloqueia ao atingir o plano."""
 
     async def test_limite_ilimitado_nao_bloqueia(self):
         """max_fazendas = -1 → ilimitado → não lança exceção."""
@@ -91,7 +91,7 @@ class TestFazendaLimite:
         ))
 
         # Não deve lançar exceção
-        await service._check_limite_fazendas()
+        await service._check_limite_unidades()
 
     async def test_limite_sem_plano_nao_bloqueia(self):
         """Sem plano ativo (None) → não bloqueia."""
@@ -105,7 +105,7 @@ class TestFazendaLimite:
             scalar_one_or_none=MagicMock(return_value=None)
         ))
 
-        await service._check_limite_fazendas()
+        await service._check_limite_unidades()
 
     async def test_limite_atingido_lanca_business_rule_error(self):
         """Tenant com 3 fazendas e plano max=3 → BusinessRuleError."""
@@ -132,7 +132,7 @@ class TestFazendaLimite:
         session.execute = mock_execute
 
         with pytest.raises(BusinessRuleError) as exc_info:
-            await service._check_limite_fazendas()
+            await service._check_limite_unidades()
 
         assert "3" in str(exc_info.value)
 
@@ -159,7 +159,7 @@ class TestFazendaLimite:
         session.execute = mock_execute
 
         # Não deve lançar
-        await service._check_limite_fazendas()
+        await service._check_limite_unidades()
 
 
 # ---------------------------------------------------------------------------
