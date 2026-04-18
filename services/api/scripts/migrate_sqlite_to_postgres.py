@@ -16,7 +16,6 @@ from loguru import logger
 
 # Import todos os models
 from core.models import *
-from agricola.talhoes.models import *
 from agricola.safras.models import *
 from agricola.operacoes.models import *
 from agricola.monitoramento.models import *
