@@ -113,6 +113,10 @@ class Commodity(Base):
     # safras: Mapped[list["Safra"]] = relationship(back_populates="commodity", lazy="noload")
 
 
+# Importação no final para registrar ConversaoUnidade no mapper registry sem circular import
+from core.cadastros.commodities.conversao import ConversaoUnidade as ConversaoUnidade  # noqa: E402, F401
+
+
 # ---------------------------------------------------------------------------
 # CommodityClassificacao — classes de qualidade por commodity
 # ---------------------------------------------------------------------------
