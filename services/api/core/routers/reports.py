@@ -80,43 +80,6 @@ async def get_agricola_talhoes_report(
         {"id": "t4", "nome": "Talhão 08 - Morro", "area": 145, "cultura": "Milho"},
     ]
 
-@router.get("/agricola/talhao/{talhao_id}")
-async def get_talhao_detail_report(
-    talhao_id: str,
-    session: AsyncSession = Depends(get_session),
-    user = Depends(get_current_user)
-):
-    """Relatório detalhado de um talhão específico."""
-    # Simulado por enquanto, em produção buscaria de OrdemServico e Monitoramento
-    return {
-        "id": talhao_id,
-        "nome": "Talhão 01 - Sede" if talhao_id == "t1" else "Talhão Selecionado",
-        "area": 120 if talhao_id == "t1" else 150,
-        "cultura_atual": "Soja (Variedade M8210)",
-        "data_plantio": "2025-11-20",
-        "dias_ciclo": 110,
-        "estagio_fenologico": "R5.4 (Enchimento de Grãos)",
-        "historico_produtividade": [
-            {"safra": "2021/22", "produtividade": 58.5},
-            {"safra": "2022/23", "produtividade": 64.2},
-            {"safra": "2023/24", "produtividade": 61.0},
-            {"safra": "2024/25 (Est.)", "produtividade": 69.5}
-        ],
-        "custos_acumulados": {
-            "preparo_solo": 12500.00,
-            "sementes": 42000.00,
-            "fertilizantes": 85600.00,
-            "defensivos": 31200.00,
-            "operacoes": 18400.00,
-            "total": 189700.00,
-            "por_ha": 1580.83
-        },
-        "apontamentos_recentes": [
-            {"data": "2026-02-10", "tipo": "Aplicação", "detalhe": "Fungicida + Inseticida (Percevejo)"},
-            {"data": "2026-02-15", "tipo": "Monitoramento", "detalhe": "Incidência baixa de Ferrugem Asiática (0.5%)"},
-            {"data": "2026-02-28", "tipo": "Adubação", "detalhe": "Cobertura Nitrogenada Tardia"}
-        ]
-    }
 
 @router.get("/agricola/profitability")
 async def get_agricola_profitability_report(

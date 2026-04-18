@@ -62,7 +62,6 @@ MIGRATION_ORDER = [
 
     # Agrícola - Dependem de Tenant/Fazenda
     Cultura,
-    Talhao,
     Safra,
 
     # Operações e demais
