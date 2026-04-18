@@ -5,6 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
 from agricola.safras.models import Safra
+from agricola.cultivos.models import Cultivo, CultivoArea
 from agricola.operacoes.models import OperacaoAgricola
 from agricola.checklist.models import SafraChecklistItem
 from agricola.fenologia.models import SafraFenologiaRegistro, FenologiaEscala
@@ -41,16 +42,17 @@ class DashboardAgricolaService:
                     "id": str(s.id),
                     "cultura": s.cultura,
                     "ano_safra": s.ano_safra,
-                    "cultivar_nome": s.cultivar_nome,
-                    "area_plantada_ha": float(s.area_plantada_ha or 0),
-                    "produtividade_meta_sc_ha": float(s.produtividade_meta_sc_ha or 0),
-                    "custo_previsto_ha": float(s.custo_previsto_ha or 0),
-                    "custo_realizado_ha": float(s.custo_realizado_ha or 0),
                     "status": s.status,
                 })
 
         # ── KPIs executivos ───────────────────────────────────────────────────
-        area_total = sum(float(s.area_plantada_ha or 0) for s in safras_ativas)
+        if safra_ids_ativas:
+            stmt_area = select(func.coalesce(func.sum(CultivoArea.area_ha), 0)).join(
+                Cultivo, CultivoArea.cultivo_id == Cultivo.id
+            ).where(Cultivo.safra_id.in_(safra_ids_ativas))
+            area_total = float((await self.session.execute(stmt_area)).scalar() or 0)
+        else:
+            area_total = 0.0
 
         stmt_custo = select(func.coalesce(func.sum(OperacaoAgricola.custo_total), 0)).where(
             OperacaoAgricola.tenant_id == self.tenant_id,
@@ -58,10 +60,16 @@ class DashboardAgricolaService:
         )
         custo_acumulado = float((await self.session.execute(stmt_custo)).scalar() or 0)
 
-        meta_total_sc = sum(
-            float(s.produtividade_meta_sc_ha or 0) * float(s.area_plantada_ha or 0)
-            for s in safras_ativas
-        )
+        if safra_ids_ativas:
+            stmt_meta = select(func.coalesce(
+                func.sum(Cultivo.produtividade_meta_sc_ha * CultivoArea.area_ha), 0
+            )).join(CultivoArea, CultivoArea.cultivo_id == Cultivo.id).where(
+                Cultivo.safra_id.in_(safra_ids_ativas),
+                Cultivo.produtividade_meta_sc_ha.isnot(None),
+            )
+            meta_total_sc = float((await self.session.execute(stmt_meta)).scalar() or 0)
+        else:
+            meta_total_sc = 0.0
 
         # ── Romaneios: sacas e receita acumuladas ─────────────────────────────
         sacas_total = 0.0
@@ -93,7 +101,7 @@ class DashboardAgricolaService:
             if pendentes > 0:
                 alertas_checklist.append({
                     "safra_id": str(s.id),
-                    "safra": f"{s.cultura} {s.ano_safra}",
+                    "safra": f"{s.cultura or 'Safra'} {s.ano_safra}",
                     "fase": s.status,
                     "pendentes": pendentes,
                     "severidade": "CRITICO" if pendentes >= 3 else "AVISO",
@@ -119,7 +127,7 @@ class DashboardAgricolaService:
                 safra_obj = next((s for s in safras_ativas if s.id == row.safra_id), None)
                 alertas_nde.append({
                     "safra_id": str(row.safra_id),
-                    "safra": f"{safra_obj.cultura} {safra_obj.ano_safra}" if safra_obj else "—",
+                    "safra": f"{safra_obj.cultura or 'Safra'} {safra_obj.ano_safra}" if safra_obj else "—",
                     "agente": row.nome_popular or "—",
                     "nivel": float(row.nivel_infestacao or 0),
                     "nde": float(row.nde_cultura or 0),
@@ -144,7 +152,7 @@ class DashboardAgricolaService:
             reg = (await self.session.execute(stmt_fen)).scalars().first()
             fenologia_atual.append({
                 "safra_id": str(s.id),
-                "safra": f"{s.cultura} {s.ano_safra}",
+                "safra": f"{s.cultura or 'Safra'} {s.ano_safra}",
                 "estagio_codigo": reg.escala.codigo if reg and reg.escala else None,
                 "estagio_nome": reg.escala.nome if reg and reg.escala else None,
                 "data_observacao": str(reg.data_observacao) if reg else None,
@@ -191,7 +199,10 @@ class DashboardAgricolaService:
         if not safra or safra.tenant_id != self.tenant_id:
             raise EntityNotFoundError("Safra", safra_id)
 
-        area_ha = float(safra.area_plantada_ha or 0) if safra.area_plantada_ha else 0
+        stmt_area = select(func.coalesce(func.sum(CultivoArea.area_ha), 0)).join(
+            Cultivo, CultivoArea.cultivo_id == Cultivo.id
+        ).where(Cultivo.safra_id == safra_id)
+        area_ha = float((await self.session.execute(stmt_area)).scalar() or 0)
 
         # 2. Operações
         stmt_ops = select(OperacaoAgricola).where(
@@ -292,10 +303,10 @@ class DashboardAgricolaService:
 
         return SafraResumoFinanceiro(
             id=safra.id,
-            cultura=safra.cultura,
+            cultura=safra.cultura or "",
             ano_safra=safra.ano_safra,
             status=safra.status,
-            area_plantada_ha=float(safra.area_plantada_ha or 0),
+            area_plantada_ha=area_ha,
             financeiro=financeiro
         )
 
@@ -319,7 +330,10 @@ class DashboardAgricolaService:
         if not safra or safra.tenant_id != self.tenant_id:
             raise EntityNotFoundError("Safra", safra_id)
 
-        area_total = float(safra.area_plantada_ha or 0)
+        stmt_area = select(func.coalesce(func.sum(CultivoArea.area_ha), 0)).join(
+            Cultivo, CultivoArea.cultivo_id == Cultivo.id
+        ).where(Cultivo.safra_id == safra_id)
+        area_total = float((await self.session.execute(stmt_area)).scalar() or 0)
 
         # ── Operações e custos ──
         stmt_ops = select(OperacaoAgricola).where(
@@ -435,7 +449,7 @@ class DashboardAgricolaService:
 
         return SafraMargemCompleta(
             safra_id=safra.id,
-            cultura=safra.cultura,
+            cultura=safra.cultura or "",
             ano_safra=safra.ano_safra,
             status=safra.status,
             area_total_ha=round(area_total, 2),
