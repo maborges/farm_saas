@@ -13,63 +13,65 @@ Este manual guia você passo a passo para criar uma safra de café na aplicaçã
 ### Onde encontrar?
 **Menu: Agricultura → ⑥ Resultados → Resumo de Safras**
 
-### O que fazer?
-1. Clique em **"+ Nova Safra"** (botão verde no topo)
-2. Preencha os campos:
+### O que é um Cultivo?
+Uma safra pode ter **um ou mais cultivos**. Cada cultivo representa uma **cultura específica** plantada em determinados talhões durante aquela safra. Exemplos:
+
+- Safra 2025 → **Cultivo 1:** Café Bourbon no Talhão A1 (40 ha)
+- Safra 2025 → **Cultivo 2:** Milho Safrinha no Talhão B2 (10 ha)
+
+Isso permite rastrear custos, operações e orçamento **separadamente por cultura**.
+
+### Como criar?
+1. Clique em **"+ Nova Safra"** (botão no topo)
+2. Um assistente (wizard) abre em **2 etapas:**
+
+#### Etapa 1 — Identificação da Safra
+| Campo | O que é | Exemplo |
+|-------|---------|---------|
+| **Ano Safra** | Identificação temporal da safra | "2025" ou "2025/26" |
+
+Clique em **"Próximo"** para continuar.
+
+#### Etapa 2 — Cultivos
+Adicione **pelo menos um cultivo** clicando em **"+ Adicionar Cultivo"**:
 
 | Campo | O que é | Exemplo |
 |-------|---------|---------|
 | **Cultura** | Tipo de plantação | "Café" |
-| **Cultivar** | Variedade específica | "Mundo Novo", "Bourbon", "Catuaí" |
-| **Talhão** | Área da fazenda onde vai plantar | "Talhão A1" ou "Área de 5 hectares" |
-| **Ano Safra** | Quando foi plantado | "2025/2026" |
-| **Área (ha)** | Tamanho em hectares | "5" (5 hectares) |
-| **Data Plantio Prevista** | Quando você quer plantar | "15 de setembro de 2025" |
+| **Cultivar** | Variedade específica | "Bourbon", "Catuaí", "Mundo Novo" |
+| **Talhões** | Selecione um ou mais talhões | "Talhão A1", "Talhão A2" |
+| **Área por talhão (ha)** | Área real plantada naquele talhão | "40" (40 hectares) |
+| **Meta (sc/ha)** | Produtividade esperada (opcional) | "30" sacas/ha |
+| **Preço previsto** | Preço de venda estimado (opcional) | "R$ 1.200/sc" |
 
-3. Clique em **"Salvar"**
+> 💡 Você pode adicionar **múltiplos cultivos** por safra (ex: Café + Milho).
 
-✅ Sua safra foi criada! Agora aparece na lista.
+3. Após adicionar os cultivos, clique em **"Criar Safra"**
+
+✅ Sua safra foi criada com os cultivos e talhões já vinculados!
 
 ---
 
-### 1.1 - Vincular Talhões e Definir Área Real da Safra
+### 1.1 - Por que a área por talhão importa?
 
-Após criar a safra, você pode **vinculá-la a múltiplos talhões** e especificar a **área real plantada em cada talhão nesta safra**.
-
-**Por que isso importa?**
-- Um **talhão pode ter 100 hectares**, mas nem sempre você planta os 100 ha
-- Você pode plantar apenas **80 ha** (deixando 20 ha em pousio para recuperação)
-- Ou fazer rotação: **50 ha de café + 50 ha de outra cultura**
-- Isso afeta diretamente o **cálculo do custo por hectare** no orçamento!
-
-**Como fazer:**
-1. Na página da safra criada, clique no botão **"Editar"** na seção "Talhões desta safra"
-2. Abre o dialog **"Talhões da Safra"**
-3. **Selecione todos os talhões** que serão plantados nesta safra (checkbox)
-4. Para cada talhão selecionado, aparece um campo **"ha nesta safra"** (opcional)
-5. Preencha com a **área real que será plantada** se for diferente da área cadastrada
+Ao informar a área de cada cultivo em cada talhão, o sistema consegue:
+- Calcular o **custo por hectare** corretamente no orçamento
+- Identificar **qual cultivo ocupa qual parte** da fazenda
+- Fazer **rotação de culturas** no mesmo talhão em safras diferentes
 
 **Exemplo:**
 ```
-Talhão: A1 (cadastrado com 100 ha)
-└─→ Campo "ha nesta safra": Digite "80"
-└─→ Significa: Apenas 80 dos 100 ha serão plantados
+Talhão A1 (cadastrado com 100 ha)
+├─ Cultivo: Café Bourbon → 80 ha (deixando 20 ha em pousio)
+└─ Cultivo: Milho Safrinha → não entra neste talhão
 
-Talhão: B2 (cadastrado com 50 ha)
-└─→ Campo "ha nesta safra": Deixe em branco
-└─→ Significa: Toda a área cadastrada (50 ha) será plantada
+Talhão B2 (cadastrado com 50 ha)
+└─ Cultivo: Milho Safrinha → 50 ha (área toda)
 ```
 
 **Resultado:**
-- Área total da safra = 80 + 50 = **130 hectares**
-- Orçamento e custos serão calculados sobre **130 ha** (não 150)
-
-**Validações:**
-- ❌ Não é permitido informar área **negativa**
-- ❌ Não é permitido informar área **maior que a cadastrada** do talhão
-
-**Se deixar em branco:**
-- O sistema usa a **área cadastrada do talhão** automaticamente
+- Café: 80 ha → orçamento calculado sobre 80 ha
+- Milho: 50 ha → orçamento calculado sobre 50 ha
 
 ---
 
@@ -102,12 +104,15 @@ Clique em **"+ Adicionar Item"** e preencha:
 **Exemplo de entrada:**
 ```
 Categoria: FERTILIZANTE
+Cultivo: Café Bourbon (opcional — deixe em branco para aplicar a todos os cultivos)
 Descrição: Adubo granulado para café
 Quantidade: 500
 Unidade: kg
 Custo Unitário: R$ 4,00
 → Custo Total: R$ 2.000 (calculado automaticamente)
 ```
+
+> 💡 **Campo Cultivo no Orçamento:** Se sua safra tem mais de um cultivo (ex: Café + Milho), você pode vincular cada item de custo a um cultivo específico. Isso permite visualizar o orçamento separado por cultura.
 
 #### 2.2 - Onde você vê o resultado?
 - **Custo Total Previsto:** Soma de tudo que você colocou
@@ -136,13 +141,14 @@ Ou na página da safra: clique na aba/botão **"Operações"**
 **O que registrar:**
 ```
 Tipo: PLANTIO
+Cultivo: Café Bourbon (opcional — vincule à cultura específica se houver mais de uma)
 Data: 15/09/2025
 Descrição: Plantio de mudas de café no talhão A1
-Quantidade: 200 (mudas)
-Unidade: mudas
 Custo Total: R$ 1.200
 Observações: Solo estava úmido, condições ideais
 ```
+
+> 💡 **Campo Cultivo nas Operações:** Em safras com múltiplos cultivos, selecione o cultivo correspondente para que os custos operacionais sejam atribuídos corretamente.
 
 **Para café:** Espaçamento típico é **3,5m × 0,7m**  
 (significa: 3,5 metros entre linhas, 0,7 entre mudas)
