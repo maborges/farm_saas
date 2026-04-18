@@ -21,21 +21,19 @@ async def listar_cultivos(
     tenant_id: UUID = Depends(get_tenant_id),
     session: AsyncSession = Depends(get_session),
 ):
-    """Lista todos os cultivos de uma safra."""
     service = CultivoService(session, tenant_id)
     cultivos = await service.listar_por_safra(safra_id)
     return [CultivoResponse.model_validate(c) for c in cultivos]
 
 
 @router.post("/{safra_id}/cultivos", response_model=CultivoResponse, status_code=status.HTTP_201_CREATED)
-@require_tenant_permission("agricola:cultivo:criar")
 async def criar_cultivo(
     safra_id: UUID,
     cultivo_in: CultivoCreate,
     tenant_id: UUID = Depends(get_tenant_id),
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_tenant_permission("agricola:cultivo:criar")),
 ):
-    """Cria um novo cultivo dentro de uma safra."""
     service = CultivoService(session, tenant_id)
     cultivo = await service.criar_com_areas(safra_id, cultivo_in)
     return CultivoResponse.model_validate(cultivo)
@@ -48,7 +46,6 @@ async def get_cultivo(
     tenant_id: UUID = Depends(get_tenant_id),
     session: AsyncSession = Depends(get_session),
 ):
-    """Obtém detalhes de um cultivo."""
     service = CultivoService(session, tenant_id)
     try:
         cultivo = await service.get_or_fail(cultivo_id)
@@ -58,15 +55,14 @@ async def get_cultivo(
 
 
 @router.patch("/{safra_id}/cultivos/{cultivo_id}", response_model=CultivoResponse)
-@require_tenant_permission("agricola:cultivo:editar")
 async def atualizar_cultivo(
     safra_id: UUID,
     cultivo_id: UUID,
     cultivo_in: CultivoUpdate,
     tenant_id: UUID = Depends(get_tenant_id),
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_tenant_permission("agricola:cultivo:editar")),
 ):
-    """Atualiza um cultivo."""
     service = CultivoService(session, tenant_id)
     try:
         updates = cultivo_in.model_dump(exclude_unset=True)
@@ -77,14 +73,13 @@ async def atualizar_cultivo(
 
 
 @router.delete("/{safra_id}/cultivos/{cultivo_id}", status_code=status.HTTP_204_NO_CONTENT)
-@require_tenant_permission("agricola:cultivo:deletar")
 async def deletar_cultivo(
     safra_id: UUID,
     cultivo_id: UUID,
     tenant_id: UUID = Depends(get_tenant_id),
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_tenant_permission("agricola:cultivo:deletar")),
 ):
-    """Deleta um cultivo e todas suas áreas associadas."""
     service = CultivoService(session, tenant_id)
     try:
         await service.hard_delete(cultivo_id)
@@ -93,15 +88,14 @@ async def deletar_cultivo(
 
 
 @router.put("/{safra_id}/cultivos/{cultivo_id}/areas")
-@require_tenant_permission("agricola:cultivo:editar")
 async def sincronizar_areas(
     safra_id: UUID,
     cultivo_id: UUID,
     areas_in: list[CultivoAreaCreate],
     tenant_id: UUID = Depends(get_tenant_id),
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_tenant_permission("agricola:cultivo:editar")),
 ):
-    """Sincroniza as CultivoAreas (talhões) de um cultivo."""
     service = CultivoService(session, tenant_id)
     try:
         cultivo = await service.sincronizar_areas(cultivo_id, areas_in)
