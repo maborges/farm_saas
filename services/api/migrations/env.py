@@ -49,6 +49,8 @@ from agricola.climatico.models import RegistroClima
 from agricola.rastreabilidade.models import LoteRastreabilidade, CertificacaoPropriedade
 from agricola.agronomo.models import ConversaAgronomo, RelatorioTecnico
 from agricola.cadastros.models import Cultura
+from agricola.caderno.models import CadernoCampoEntrada, CadernoCampoFoto, VisitaTecnica, EPIEntrega, CadernoExportacao
+from agricola.colheita.models import ProdutoColhido
 
 # Cultura migrada para cadastros/produtos (verificar redundância)
 from agricola.a1_planejamento.models import ItemOrcamentoSafra
@@ -88,6 +90,7 @@ from financeiro.models.plano_conta import PlanoConta
 from financeiro.models.despesa import Despesa
 from financeiro.models.receita import Receita
 from financeiro.models.rateio import Rateio
+from financeiro.comercializacao.models import ComercializacaoCommodity
 
 # IA Diagnóstico
 from ia_diagnostico.models import PragasDoencas, Tratamentos, Diagnosticos, Recomendacoes, ModelosMl
