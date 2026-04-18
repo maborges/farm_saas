@@ -1,10 +1,15 @@
+from __future__ import annotations
 import uuid
 from datetime import datetime, date
+from typing import TYPE_CHECKING
 from sqlalchemy import String, Numeric, Boolean, Integer, Date, Text, ForeignKey, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Uuid as UUID
 from core.database import Base
+
+if TYPE_CHECKING:
+    from agricola.safras.models import Safra
 
 
 class Cultivo(Base):
@@ -52,6 +57,7 @@ class Cultivo(Base):
     updated_at: Mapped[datetime] = mapped_column(server_default=text("(CURRENT_TIMESTAMP)"), onupdate=datetime.utcnow)
 
     # Relacionamentos
+    safra: Mapped["Safra"] = relationship(back_populates="cultivos", lazy="noload")
     areas: Mapped[list["CultivoArea"]] = relationship(
         back_populates="cultivo", lazy="noload", cascade="all, delete-orphan"
     )

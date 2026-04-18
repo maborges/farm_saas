@@ -68,9 +68,9 @@ async def test_tenant_a_nao_ve_safras_de_tenant_b(client, session, headers_a, he
     from sqlalchemy import text
 
     # Setup: garante grupos, fazendas e talhão para ambos os tenants
-    for t_id, f_id, g_id, doc in [
-        (TENANT_A_ID, FAZENDA_A_ID, GRUPO_A_ID, "11111111111"),
-        (TENANT_B_ID, FAZENDA_B_ID, GRUPO_B_ID, "22222222222"),
+    for t_id, f_id, doc in [
+        (TENANT_A_ID, FAZENDA_A_ID, "11111111111"),
+        (TENANT_B_ID, FAZENDA_B_ID, "22222222222"),
     ]:
         await session.execute(text("""
             INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
@@ -78,17 +78,13 @@ async def test_tenant_a_nao_ve_safras_de_tenant_b(client, session, headers_a, he
             ON CONFLICT (id) DO NOTHING
         """), {"id": str(t_id), "nome": f"Tenant {str(t_id)[:4]}", "doc": doc})
 
-        await session.execute(text("""
-            INSERT INTO grupos_fazendas (id, tenant_id, nome, ativo, created_at, updated_at)
-            VALUES (:id, :tenant_id, :nome, true, NOW(), NOW())
-            ON CONFLICT (id) DO NOTHING
-        """), {"id": str(g_id), "tenant_id": str(t_id), "nome": f"Grupo {str(t_id)[:4]}"})
+        pass  # grupos_fazendas removed from schema
 
         await session.execute(text("""
-            INSERT INTO fazendas (id, tenant_id, grupo_id, nome, ativo, created_at, updated_at)
-            VALUES (:id, :tenant_id, :grupo_id, :nome, true, NOW(), NOW())
+            INSERT INTO unidades_produtivas (id, tenant_id, nome, ativo, created_at, updated_at)
+            VALUES (:id, :tenant_id, :nome, true, NOW(), NOW())
             ON CONFLICT (id) DO NOTHING
-        """), {"id": str(f_id), "tenant_id": str(t_id), "grupo_id": str(g_id), "nome": f"Fazenda {str(t_id)[:4]}"})
+        """), {"id": str(f_id), "tenant_id": str(t_id), "nome": f"Fazenda {str(t_id)[:4]}"})
 
     talhao_b_id = uuid.uuid4()
     await session.execute(text("""
@@ -132,9 +128,9 @@ async def test_tenant_a_nao_ve_financeiro_de_tenant_b(client, session, headers_a
     from sqlalchemy import text
 
     # Setup: garante tenants, grupos e fazendas
-    for t_id, f_id, g_id, doc in [
-        (TENANT_A_ID, FAZENDA_A_ID, GRUPO_A_ID, "11111111111"),
-        (TENANT_B_ID, FAZENDA_B_ID, GRUPO_B_ID, "22222222222"),
+    for t_id, f_id, doc in [
+        (TENANT_A_ID, FAZENDA_A_ID, "11111111111"),
+        (TENANT_B_ID, FAZENDA_B_ID, "22222222222"),
     ]:
         await session.execute(text("""
             INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
@@ -142,17 +138,13 @@ async def test_tenant_a_nao_ve_financeiro_de_tenant_b(client, session, headers_a
             ON CONFLICT (id) DO NOTHING
         """), {"id": str(t_id), "nome": f"Tenant {str(t_id)[:4]}", "doc": doc})
 
-        await session.execute(text("""
-            INSERT INTO grupos_fazendas (id, tenant_id, nome, ativo, created_at, updated_at)
-            VALUES (:id, :tenant_id, :nome, true, NOW(), NOW())
-            ON CONFLICT (id) DO NOTHING
-        """), {"id": str(g_id), "tenant_id": str(t_id), "nome": f"Grupo {str(t_id)[:4]}"})
+        pass  # grupos_fazendas removed from schema
 
         await session.execute(text("""
-            INSERT INTO fazendas (id, tenant_id, grupo_id, nome, ativo, created_at, updated_at)
-            VALUES (:id, :tenant_id, :grupo_id, :nome, true, NOW(), NOW())
+            INSERT INTO unidades_produtivas (id, tenant_id, nome, ativo, created_at, updated_at)
+            VALUES (:id, :tenant_id, :nome, true, NOW(), NOW())
             ON CONFLICT (id) DO NOTHING
-        """), {"id": str(f_id), "tenant_id": str(t_id), "grupo_id": str(g_id), "nome": f"Fazenda {str(t_id)[:4]}"})
+        """), {"id": str(f_id), "tenant_id": str(t_id), "nome": f"Fazenda {str(t_id)[:4]}"})
     await session.commit()
 
     plano_b_id = uuid.uuid4()
@@ -200,9 +192,9 @@ async def test_tenant_a_nao_acessa_recurso_por_id_direto(client, session, header
     from datetime import date
 
     # Setup: garante tenants, grupos e fazendas
-    for t_id, f_id, g_id, doc in [
-        (TENANT_A_ID, FAZENDA_A_ID, GRUPO_A_ID, "11111111111"),
-        (TENANT_B_ID, FAZENDA_B_ID, GRUPO_B_ID, "22222222222"),
+    for t_id, f_id, doc in [
+        (TENANT_A_ID, FAZENDA_A_ID, "11111111111"),
+        (TENANT_B_ID, FAZENDA_B_ID, "22222222222"),
     ]:
         await session.execute(text("""
             INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
@@ -210,17 +202,13 @@ async def test_tenant_a_nao_acessa_recurso_por_id_direto(client, session, header
             ON CONFLICT (id) DO NOTHING
         """), {"id": str(t_id), "nome": f"Tenant {str(t_id)[:4]}", "doc": doc})
 
-        await session.execute(text("""
-            INSERT INTO grupos_fazendas (id, tenant_id, nome, ativo, created_at, updated_at)
-            VALUES (:id, :tenant_id, :nome, true, NOW(), NOW())
-            ON CONFLICT (id) DO NOTHING
-        """), {"id": str(g_id), "tenant_id": str(t_id), "nome": f"Grupo {str(t_id)[:4]}"})
+        pass  # grupos_fazendas removed from schema
 
         await session.execute(text("""
-            INSERT INTO fazendas (id, tenant_id, grupo_id, nome, ativo, created_at, updated_at)
-            VALUES (:id, :tenant_id, :grupo_id, :nome, true, NOW(), NOW())
+            INSERT INTO unidades_produtivas (id, tenant_id, nome, ativo, created_at, updated_at)
+            VALUES (:id, :tenant_id, :nome, true, NOW(), NOW())
             ON CONFLICT (id) DO NOTHING
-        """), {"id": str(f_id), "tenant_id": str(t_id), "grupo_id": str(g_id), "nome": f"Fazenda {str(t_id)[:4]}"})
+        """), {"id": str(f_id), "tenant_id": str(t_id), "nome": f"Fazenda {str(t_id)[:4]}"})
     await session.commit()
 
     plano_b_id = uuid.uuid4()
