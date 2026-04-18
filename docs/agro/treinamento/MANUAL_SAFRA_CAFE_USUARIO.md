@@ -40,10 +40,27 @@ Adicione **pelo menos um cultivo** clicando em **"+ Cultivo"**. Para cada cultiv
 | **Talhões** | Selecione um ou mais talhões | "Talhão A1" |
 | **Área a Plantar (ha)** | Área real plantada naquele talhão | "40" — auto-preenchida com a área total do talhão |
 | **Meta de Produtividade (sc/ha)** | Produtividade esperada (opcional) | "30" |
+| **Consorciado** | Marca se este cultivo compartilha espaço com outro (checkbox) | ☐ (desmarcar = uso exclusivo) |
 
 > 💡 **Dica:** Quando você seleciona um talhão, o campo "Área a Plantar" já vem preenchido com a área total cadastrada. Se for plantar menos (ex: pousio), edit o campo.
 
 > ⚠️ **Validação:** A área a plantar não pode ser maior que a área real do talhão.
+
+### ⚠️ O que é "Consorciado"?
+
+**Consorciado** significa que este cultivo **compartilha o mesmo espaço físico** com outro cultivo no mesmo talhão e período.
+
+**Exemplos:**
+- Café (perene) + Milho Safrinha (temporário) no mesmo talhão = ambos marcados como consorciados
+- Milho + Braquiária plantados juntos = ambos consorciados
+- Soja sozinha no talhão = **não** marcar como consorciado
+
+**Como funciona?**
+- **SEM marcar "Consorciado":** O sistema não permite que dois cultivos ocupem a mesma área no mesmo período
+- **MARCANDO "Consorciado":** Indica que os cultivos vão dividir o espaço, então não há limite de ocupação
+
+**Regra prática:**
+Se você plantar cultura A (30 ha) e cultura B (30 ha) no mesmo talhão de 50 ha **no mesmo período**, você DEVE marcar ambas como consorciadas. Caso contrário, o sistema vai rejeitar, alertando que a ocupação total ultrapassaria a capacidade do talhão.
 
 3. Após adicionar os cultivos, clique em **"Criar Safra"** (botão no rodapé)
 

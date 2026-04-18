@@ -49,8 +49,9 @@ class Cultivo(Base):
     custo_previsto_ha: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     custo_realizado_ha: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
 
-    # Status e observações
+    # Status e ocupação
     status: Mapped[str] = mapped_column(String(20), nullable=False, default='PLANEJADO')
+    consorciado: Mapped[bool] = mapped_column(default=False, nullable=False)
     observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(server_default=text("(CURRENT_TIMESTAMP)"))

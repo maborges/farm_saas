@@ -28,6 +28,7 @@ class CultivoCreate(BaseModel):
     data_plantio_prevista: date | None = None
     produtividade_meta_sc_ha: float | None = None
     preco_venda_previsto: float | None = None
+    consorciado: bool = False
     observacoes: str | None = None
     areas: list[CultivoAreaCreate] = Field(default_factory=list, description="Talhões e áreas associadas")
 
@@ -50,6 +51,7 @@ class CultivoUpdate(BaseModel):
     preco_venda_previsto: float | None = None
     custo_previsto_ha: float | None = None
     custo_realizado_ha: float | None = None
+    consorciado: bool | None = None
     status: str | None = None
     observacoes: str | None = None
 
@@ -76,6 +78,7 @@ class CultivoResponse(BaseModel):
     preco_venda_previsto: float | None
     custo_previsto_ha: float | None
     custo_realizado_ha: float | None
+    consorciado: bool
     status: str
     observacoes: str | None
     areas: list[CultivoAreaResponse] = Field(default_factory=list)

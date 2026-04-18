@@ -1,7 +1,8 @@
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import func, and_
+from decimal import Decimal
 
 from core.base_service import BaseService
 from core.exceptions import BusinessRuleError, EntityNotFoundError
@@ -13,6 +14,7 @@ from agricola.cultivos.schemas import (
     CultivoResponse,
     CultivoAreaCreate,
 )
+from core.cadastros.propriedades.models import AreaRural
 
 
 class CultivoService(BaseService[Cultivo]):
@@ -34,11 +36,56 @@ class CultivoService(BaseService[Cultivo]):
             raise EntityNotFoundError(f"Safra {safra_id} não encontrada.")
         return safra
 
+    async def _validar_ocupacao_talhao(
+        self, safra_id: uuid.UUID, areas_data: list[CultivoAreaCreate], consorciado: bool
+    ) -> None:
+        """Valida que a ocupação de cada talhão não ultrapassa sua capacidade.
+
+        Regra: Para cada talhão, a soma das áreas de cultivos não-consorciados
+        não pode ultrapassar a área total do talhão. Cultivos consorciados podem
+        compartilhar a mesma área.
+        """
+        if not areas_data or consorciado:
+            return
+
+        for area_data in areas_data:
+            # Get talhao info
+            talhao_stmt = select(AreaRural).where(
+                AreaRural.id == area_data.area_id,
+                AreaRural.tenant_id == self.tenant_id,
+            )
+            talhao = (await self.session.execute(talhao_stmt)).scalars().first()
+            if not talhao or not talhao.area_hectares:
+                continue
+
+            # Sum all non-consorciado cultivo areas for this talhao in same safra
+            sum_stmt = select(func.sum(CultivoArea.area_ha)).where(
+                and_(
+                    CultivoArea.area_id == area_data.area_id,
+                    CultivoArea.tenant_id == self.tenant_id,
+                    Cultivo.safra_id == safra_id,
+                    Cultivo.consorciado == False,
+                )
+            ).select_from(CultivoArea).join(Cultivo)
+
+            total_area = (await self.session.execute(sum_stmt)).scalar() or 0.0
+            total_area = float(total_area) + float(area_data.area_ha)
+
+            if total_area > float(talhao.area_hectares):
+                raise BusinessRuleError(
+                    f"Talhão '{talhao.nome}' tem capacidade de {talhao.area_hectares} ha, "
+                    f"mas seria ocupado com {total_area:.2f} ha. "
+                    f"Marque como 'consorciado' se cultivos devem compartilhar espaço."
+                )
+
     async def criar_com_areas(
         self, safra_id: uuid.UUID, data: CultivoCreate
     ) -> Cultivo:
         """Cria um cultivo com suas CultivoAreas atomicamente."""
         await self._get_safra(safra_id)
+
+        # Validar ocupação de talhões
+        await self._validar_ocupacao_talhao(safra_id, data.areas, data.consorciado)
 
         cultivo = Cultivo(
             tenant_id=self.tenant_id,
@@ -53,6 +100,7 @@ class CultivoService(BaseService[Cultivo]):
             data_plantio_prevista=data.data_plantio_prevista,
             produtividade_meta_sc_ha=data.produtividade_meta_sc_ha,
             preco_venda_previsto=data.preco_venda_previsto,
+            consorciado=data.consorciado,
             observacoes=data.observacoes,
         )
         self.session.add(cultivo)

@@ -252,7 +252,7 @@ class TestRequireLimitHeaders:
 
 @pytest.fixture
 def tenant_com_assinatura_ativa(session):
-    \"\"\"Cria tenant com assinatura ativa e max_fazendas=5.\"\"\"
+    """Cria tenant com assinatura ativa e max_fazendas=5."""
     from core.models.tenant import Tenant
     from core.models.billing import PlanoAssinatura, AssinaturaTenant
 
@@ -311,7 +311,7 @@ def tenant_com_5_fazendas(session, tenant_com_assinatura_ativa):
 
 @pytest.fixture
 def tenant_com_plano_ilimitado(session):
-    \"\"\"Cria tenant com max_fazendas=-1 (ilimitado).\"\"\"
+    """Cria tenant com max_fazendas=-1 (ilimitado)."""
     from core.models.tenant import Tenant
     from core.models.billing import PlanoAssinatura, AssinaturaTenant
 

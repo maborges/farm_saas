@@ -33,6 +33,7 @@ from core.models import (
     PlanoPricing, MudancaPlano, CobrancaAsaas, HistoricoBloqueio
 )
 from agricola.safras.models import Safra, SafraTalhao, SafraFaseHistorico
+from agricola.cultivos.models import Cultivo, CultivoArea
 from agricola.operacoes.models import OperacaoAgricola, InsumoOperacao
 from agricola.monitoramento.models import MonitoramentoPragas
 from agricola.monitoramento.catalogo_model import MonitoramentoCatalogo
