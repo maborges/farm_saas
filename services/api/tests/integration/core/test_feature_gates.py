@@ -61,73 +61,39 @@ def _headers(tenant_id: uuid.UUID, unidade_produtiva_id: uuid.UUID, modules: lis
 # ── DB Fixtures ───────────────────────────────────────────────────────────────
 
 async def _setup_tenant(session, tenant_id: uuid.UUID, unidade_produtiva_id: uuid.UUID, modules: list[str]):
-    """Insere tenant, fazenda, plano e assinatura de teste via ORM."""
-    from datetime import date
-    from sqlalchemy import select
-    from core.models.tenant import Tenant
-    from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
-    # grupos_fazendas removed
-    from core.models.billing import PlanoAssinatura, AssinaturaTenant
+    """Insere tenant, fazenda, plano e assinatura via SQL raw (evita mapper lazy-init)."""
+    import json
+    from sqlalchemy import text
 
-    # Tenant
-    t = await session.get(Tenant, tenant_id)
-    if not t:
-        session.add(Tenant(
-            id=tenant_id, nome=f"Tenant Gate {str(tenant_id)[:8]}",
-            documento=str(tenant_id.int)[:11], ativo=True, storage_usado_mb=0,
-            storage_limite_mb=10240, idioma_padrao="pt-BR",
-        ))
+    doc = str(tenant_id.int)[:11]
+    plano_id = str(uuid.uuid4())
 
-    await session.flush()
+    await session.execute(text("""
+        INSERT INTO tenants (id, nome, documento, ativo, storage_usado_mb, storage_limite_mb, idioma_padrao, created_at, updated_at)
+        VALUES (:id, :nome, :doc, true, 0, 10240, 'pt-BR', NOW(), NOW())
+        ON CONFLICT (id) DO NOTHING
+    """), {"id": str(tenant_id), "nome": f"Tenant Gate {str(tenant_id)[:8]}", "doc": doc})
 
-    # Grupo
-    grupo = await session.scalar(
-    )
-    if not grupo:
-            id=uuid.uuid4(), tenant_id=tenant_id, nome="Grupo Gate Test",
-            cor="#000000", icone="home", ordem=0, ativo=True,
-        )
-        session.add(grupo)
-        await session.flush()
+    await session.execute(text("""
+        INSERT INTO unidades_produtivas (id, tenant_id, nome, ativo, created_at, updated_at)
+        VALUES (:id, :tenant_id, :nome, true, NOW(), NOW())
+        ON CONFLICT (id) DO NOTHING
+    """), {"id": str(unidade_produtiva_id), "tenant_id": str(tenant_id), "nome": "Fazenda Gate Test"})
 
-    # Fazenda
-    faz = await session.get(Fazenda, unidade_produtiva_id)
-    if not faz:
-        session.add(Fazenda(
-            id=unidade_produtiva_id, tenant_id=tenant_id, grupo_id=grupo.id,
-            nome="Fazenda Gate Test", ativo=True,
-        ))
-        await session.flush()
+    await session.execute(text("""
+        INSERT INTO planos_assinatura (id, nome, modulos_inclusos, max_fazendas, limite_usuarios_minimo,
+            limite_usuarios_maximo, preco_mensal, preco_anual, plan_tier, ativo, tem_trial, dias_trial,
+            is_free, destaque, disponivel_site, disponivel_crm, ordem, created_at)
+        VALUES (:id, :nome, CAST(:modulos AS json), -1, 1, 9999, 0, 0, 'PROFISSIONAL', true,
+                false, 0, true, false, false, false, 0, NOW())
+        ON CONFLICT (id) DO NOTHING
+    """), {"id": plano_id, "nome": f"Plano Gate {str(tenant_id)[:8]}", "modulos": json.dumps(modules)})
 
-    # Plano
-    plano_id = uuid.uuid4()
-    plano = PlanoAssinatura(
-        id=plano_id, nome=f"Plano Gate {str(tenant_id)[:8]}",
-        modulos_inclusos=modules, max_fazendas=-1, limite_usuarios_minimo=1, limite_usuarios_maximo=9999,
-        preco_mensal=0, preco_anual=0, plan_tier="PROFISSIONAL", ativo=True,
-        tem_trial=False, dias_trial=0, is_free=True,
-        destaque=False, disponivel_site=False, disponivel_crm=False, ordem=0,
-    )
-    session.add(plano)
-    await session.flush()
-
-    # Upsert assinatura: atualiza existente ou cria nova
-    existing_sub = await session.scalar(
-        select(AssinaturaTenant).where(
-            AssinaturaTenant.tenant_id == grupo.id,
-            AssinaturaTenant.tipo_assinatura == "TENANT",
-        ).limit(1)
-    )
-    if existing_sub:
-        existing_sub.plano_id = plano_id
-        existing_sub.status = "ATIVA"
-        existing_sub.modulos_inclusos = modules if hasattr(existing_sub, "modulos_inclusos") else None
-    else:
-        session.add(AssinaturaTenant(
-            id=uuid.uuid4(), tenant_id=tenant_id, plano_id=plano_id,
-            ,
-            status="ATIVA", tipo_assinatura="TENANT", data_inicio=date.today(),
-        ))
+    await session.execute(text("""
+        INSERT INTO assinaturas_tenant (id, tenant_id, plano_id, status, tipo_assinatura, ciclo_pagamento, data_inicio, created_at, updated_at)
+        VALUES (:id, :tenant_id, :plano_id, 'ATIVA', 'TENANT', 'MENSAL', NOW(), NOW(), NOW())
+        ON CONFLICT (tenant_id, tipo_assinatura) DO UPDATE SET plano_id = EXCLUDED.plano_id, status = 'ATIVA'
+    """), {"id": str(uuid.uuid4()), "tenant_id": str(tenant_id), "plano_id": plano_id})
 
     await session.commit()
 
