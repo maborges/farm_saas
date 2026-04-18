@@ -11,6 +11,7 @@ class RomaneioColheita(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     safra_id: Mapped[UUID] = mapped_column(ForeignKey("safras.id", ondelete="CASCADE"), nullable=False, index=True)
+    cultivo_id: Mapped[UUID | None] = mapped_column(ForeignKey("cultivos.id", ondelete="CASCADE"), nullable=True, index=True)
     talhao_id: Mapped[UUID] = mapped_column(ForeignKey("cadastros_areas_rurais.id", ondelete="CASCADE"), nullable=False, index=True)
     commodity_id: Mapped[UUID | None] = mapped_column(
         Uuid,
