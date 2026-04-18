@@ -36,14 +36,27 @@ class CultivoService(BaseService[Cultivo]):
             raise EntityNotFoundError(f"Safra {safra_id} não encontrada.")
         return safra
 
+    @staticmethod
+    def _periodos_se_sobrepoe(inicio1, fim1, inicio2, fim2) -> bool:
+        """Verifica se dois períodos se sobrepõem.
+
+        Períodos vazios (None) são considerados como "sempre ativo".
+        """
+        # Se ambos têm datas, verifica sobreposição
+        if inicio1 and fim1 and inicio2 and fim2:
+            return not (fim1 < inicio2 or fim2 < inicio1)
+        # Se algum período está vazio, considera como sobreposição
+        return True
+
     async def _validar_ocupacao_talhao(
-        self, safra_id: uuid.UUID, areas_data: list[CultivoAreaCreate], consorciado: bool
+        self, safra_id: uuid.UUID, areas_data: list[CultivoAreaCreate],
+        consorciado: bool, data_inicio=None, data_fim=None
     ) -> None:
         """Valida que a ocupação de cada talhão não ultrapassa sua capacidade.
 
         Regra: Para cada talhão, a soma das áreas de cultivos não-consorciados
-        não pode ultrapassar a área total do talhão. Cultivos consorciados podem
-        compartilhar a mesma área.
+        não pode ultrapassar a área total do talhão no mesmo período.
+        Cultivos consorciados podem compartilhar a mesma área no mesmo período.
         """
         if not areas_data or consorciado:
             return
@@ -59,22 +72,34 @@ class CultivoService(BaseService[Cultivo]):
                 continue
 
             # Sum all non-consorciado cultivo areas for this talhao in same safra
-            sum_stmt = select(func.sum(CultivoArea.area_ha)).where(
+            # que se sobrepõem temporalmente
+            cultivos_stmt = select(Cultivo).where(
                 and_(
-                    CultivoArea.area_id == area_data.area_id,
-                    CultivoArea.tenant_id == self.tenant_id,
                     Cultivo.safra_id == safra_id,
                     Cultivo.consorciado == False,
                 )
             ).select_from(CultivoArea).join(Cultivo)
 
-            total_area = (await self.session.execute(sum_stmt)).scalar() or 0.0
-            total_area = float(total_area) + float(area_data.area_ha)
+            cultivos = (await self.session.execute(cultivos_stmt)).scalars().all()
+
+            total_area = float(area_data.area_ha)
+            for cultivo in cultivos:
+                # Verificar se há sobreposição temporal
+                if self._periodos_se_sobrepoe(data_inicio, data_fim, cultivo.data_inicio, cultivo.data_fim):
+                    # Somar áreas de cultivos que se sobrepõem
+                    areas_cultivo = select(func.sum(CultivoArea.area_ha)).where(
+                        and_(
+                            CultivoArea.cultivo_id == cultivo.id,
+                            CultivoArea.area_id == area_data.area_id,
+                        )
+                    )
+                    area_cultivo = (await self.session.execute(areas_cultivo)).scalar() or 0.0
+                    total_area += float(area_cultivo)
 
             if total_area > float(talhao.area_hectares):
                 raise BusinessRuleError(
                     f"Talhão '{talhao.nome}' tem capacidade de {talhao.area_hectares} ha, "
-                    f"mas seria ocupado com {total_area:.2f} ha. "
+                    f"mas seria ocupado com {total_area:.2f} ha no período. "
                     f"Marque como 'consorciado' se cultivos devem compartilhar espaço."
                 )
 
@@ -84,8 +109,10 @@ class CultivoService(BaseService[Cultivo]):
         """Cria um cultivo com suas CultivoAreas atomicamente."""
         await self._get_safra(safra_id)
 
-        # Validar ocupação de talhões
-        await self._validar_ocupacao_talhao(safra_id, data.areas, data.consorciado)
+        # Validar ocupação de talhões considerando períodos
+        await self._validar_ocupacao_talhao(
+            safra_id, data.areas, data.consorciado, data.data_inicio, data.data_fim
+        )
 
         cultivo = Cultivo(
             tenant_id=self.tenant_id,
@@ -97,6 +124,8 @@ class CultivoService(BaseService[Cultivo]):
             sistema_plantio=data.sistema_plantio,
             populacao_prevista=data.populacao_prevista,
             espacamento_cm=data.espacamento_cm,
+            data_inicio=data.data_inicio,
+            data_fim=data.data_fim,
             data_plantio_prevista=data.data_plantio_prevista,
             produtividade_meta_sc_ha=data.produtividade_meta_sc_ha,
             preco_venda_previsto=data.preco_venda_previsto,

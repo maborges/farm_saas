@@ -41,6 +41,8 @@ Adicione **pelo menos um cultivo** clicando em **"+ Cultivo"**. Para cada cultiv
 | **Área a Plantar (ha)** | Área real plantada naquele talhão | "40" — auto-preenchida com a área total do talhão |
 | **Meta de Produtividade (sc/ha)** | Produtividade esperada (opcional) | "30" |
 | **Consorciado** | Marca se este cultivo compartilha espaço com outro (checkbox) | ☐ (desmarcar = uso exclusivo) |
+| **Início da ocupação** | Data quando o cultivo começa a ocupar o talhão (opcional) | "01/09/2025" |
+| **Fim da ocupação** | Data quando o cultivo deixa de ocupar o talhão (opcional) | "30/08/2026" |
 
 > 💡 **Dica:** Quando você seleciona um talhão, o campo "Área a Plantar" já vem preenchido com a área total cadastrada. Se for plantar menos (ex: pousio), edit o campo.
 
@@ -61,6 +63,60 @@ Adicione **pelo menos um cultivo** clicando em **"+ Cultivo"**. Para cada cultiv
 
 **Regra prática:**
 Se você plantar cultura A (30 ha) e cultura B (30 ha) no mesmo talhão de 50 ha **no mesmo período**, você DEVE marcar ambas como consorciadas. Caso contrário, o sistema vai rejeitar, alertando que a ocupação total ultrapassaria a capacidade do talhão.
+
+### 📅 O que é "Período de Ocupação"?
+
+**Início da ocupação** e **Fim da ocupação** definem quando o cultivo está ativo no talhão.
+
+**Por que isso importa?**
+- Permite registrar **rotação de culturas** (diferentes cultivos em períodos diferentes)
+- Permite registrar **pousio** (períodos sem produção)
+- Garante que a validação de consorciado seja **temporal** (só valida sobreposição no mesmo período)
+
+**Exemplos:**
+
+**Exemplo 1 — Rotação (sem sobreposição):**
+```
+Talhão A1:
+├─ Cultivo: Café Bourbon
+│  ├─ Início: 01/jan/2024
+│  └─ Fim: 31/dez/2024
+└─ Cultivo: Milho
+   ├─ Início: 01/jan/2025
+   └─ Fim: 31/dez/2025
+   
+Resultado: ✅ Válido (períodos não se sobrepõem)
+```
+
+**Exemplo 2 — Consórcio (sobreposição no mesmo período):**
+```
+Talhão A1 (50 ha):
+├─ Cultivo: Café (40 ha)
+│  ├─ Consorciado: ✓ (marcado)
+│  ├─ Início: 01/jan/2024
+│  └─ Fim: 31/dez/2024
+└─ Cultivo: Milho Safrinha (30 ha)
+   ├─ Consorciado: ✓ (marcado)
+   ├─ Início: 01/jan/2024
+   └─ Fim: 31/dez/2024
+   
+Resultado: ✅ Válido (ambos consorciados + períodos iguais)
+```
+
+**Exemplo 3 — Pousio:**
+```
+Talhão A1:
+├─ Cultivo: Soja (período 1)
+│  ├─ Início: 01/out/2024
+│  └─ Fim: 28/fev/2025
+└─ Cultivo: POUSIO (período 2)
+   ├─ Início: 01/mar/2025
+   └─ Fim: 31/ago/2025
+   
+Resultado: ✅ Histórico completo do talhão
+```
+
+> 💡 **Dica:** Se deixar os campos de data vazios, o sistema entende que o cultivo está "sempre ativo" durante a safra.
 
 3. Após adicionar os cultivos, clique em **"Criar Safra"** (botão no rodapé)
 

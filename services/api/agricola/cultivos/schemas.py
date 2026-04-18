@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 
@@ -25,6 +25,8 @@ class CultivoCreate(BaseModel):
     sistema_plantio: str | None = None
     populacao_prevista: int | None = None
     espacamento_cm: int | None = None
+    data_inicio: date | None = None
+    data_fim: date | None = None
     data_plantio_prevista: date | None = None
     produtividade_meta_sc_ha: float | None = None
     preco_venda_previsto: float | None = None
@@ -42,6 +44,8 @@ class CultivoUpdate(BaseModel):
     populacao_prevista: int | None = None
     populacao_real: int | None = None
     espacamento_cm: int | None = None
+    data_inicio: date | None = None
+    data_fim: date | None = None
     data_plantio_prevista: date | None = None
     data_plantio_real: date | None = None
     data_colheita_prevista: date | None = None
@@ -69,6 +73,8 @@ class CultivoResponse(BaseModel):
     populacao_prevista: int | None
     populacao_real: int | None
     espacamento_cm: int | None
+    data_inicio: date | None
+    data_fim: date | None
     data_plantio_prevista: date | None
     data_plantio_real: date | None
     data_colheita_prevista: date | None

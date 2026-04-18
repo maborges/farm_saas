@@ -36,6 +36,10 @@ class Cultivo(Base):
     populacao_real: Mapped[int | None] = mapped_column(Integer, nullable=True)
     espacamento_cm: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Período de ocupação do talhão (para validação de rotação, pousio, consórcio)
+    data_inicio: Mapped[date | None] = mapped_column(Date, nullable=True)
+    data_fim: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     # Datas de plantio e colheita
     data_plantio_prevista: Mapped[date | None] = mapped_column(Date, nullable=True)
     data_plantio_real: Mapped[date | None] = mapped_column(Date, nullable=True)
