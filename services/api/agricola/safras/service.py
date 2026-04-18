@@ -9,50 +9,99 @@ from core.base_service import BaseService
 
 from agricola.safras.models import Safra, SafraFaseHistorico, SafraTalhao, SAFRA_TRANSICOES
 from agricola.safras.schemas import SafraCreate, SafraUpdate
+from agricola.cultivos.models import Cultivo, CultivoArea
 
 class SafraService(BaseService[Safra]):
     def __init__(self, session: AsyncSession, tenant_id: UUID):
         super().__init__(Safra, session, tenant_id)
 
     async def criar(self, dados: SafraCreate) -> Safra:
-        # 1. Valida lista de talhões
-        if not dados.talhao_ids:
-            raise BusinessRuleError("Informe pelo menos um talhão")
+        """Cria uma safra com cultivos de forma atômica.
 
-        # 2. Usa primeiro talhão como principal
-        talhao_principal_id = dados.talhao_ids[0]
+        Suporta dois fluxos:
+        1. Novo: cultivos + areas aninhados em SafraCreate.cultivos
+        2. Legado: talhao_ids para compatibilidade
+        """
+        talhao_principal_id: UUID | None = None
 
-        # 3. Verifica se já existe safra ativa para talhao_principal+ano+cultura
+        # Determina talhão principal
+        if dados.cultivos:
+            # Novo fluxo: extrai talhão principal do primeiro cultivo
+            primeiro_cultivo = dados.cultivos[0]
+            if primeiro_cultivo.areas:
+                talhao_principal_id = primeiro_cultivo.areas[0].area_id
+        elif dados.talhao_ids:
+            # Fluxo legado: usa primeiro talhao_ids
+            talhao_principal_id = dados.talhao_ids[0]
+
+        if not talhao_principal_id:
+            raise BusinessRuleError("Informe pelo menos um talhão (via cultivos ou talhao_ids)")
+
+        # Valida duplicatas: safra com mesmo ano para este talhão
         stmt = select(Safra).filter_by(
             tenant_id=self.tenant_id,
             talhao_id=talhao_principal_id,
             ano_safra=dados.ano_safra,
-            cultura=dados.cultura
         ).where(Safra.status != 'CANCELADA')
         result = await self.session.execute(stmt)
         if result.scalars().first():
-            raise BusinessRuleError("Já existe uma safra ativa para este talhão, ano e cultura.")
+            raise BusinessRuleError(f"Já existe safra ativa para {dados.ano_safra} neste talhão.")
 
-        # 4. Cria a Safra com talhão principal
-        dados_dict = dados.model_dump()
-        dados_dict['talhao_id'] = talhao_principal_id
-        # Remove talhao_ids do dict antes de criar (não é campo do modelo)
-        dados_dict.pop('talhao_ids', None)
+        # Cria a Safra
+        safra = Safra(
+            tenant_id=self.tenant_id,
+            talhao_id=talhao_principal_id,
+            ano_safra=dados.ano_safra,
+            status='PLANEJADA',
+            observacoes=dados.observacoes,
+        )
+        self.session.add(safra)
+        await self.session.flush()
 
-        safra = await super().create(dados_dict)
+        # Fluxo novo: cria Cultivos com CultivoAreas
+        if dados.cultivos:
+            for cult_data in dados.cultivos:
+                cultivo = Cultivo(
+                    tenant_id=self.tenant_id,
+                    safra_id=safra.id,
+                    cultura=cult_data.cultura,
+                    cultivar_id=cult_data.cultivar_id,
+                    cultivar_nome=cult_data.cultivar_nome,
+                    commodity_id=cult_data.commodity_id,
+                    sistema_plantio=cult_data.sistema_plantio,
+                    populacao_prevista=cult_data.populacao_prevista,
+                    espacamento_cm=cult_data.espacamento_cm,
+                    data_plantio_prevista=cult_data.data_plantio_prevista,
+                    produtividade_meta_sc_ha=cult_data.produtividade_meta_sc_ha,
+                    preco_venda_previsto=cult_data.preco_venda_previsto,
+                    observacoes=cult_data.observacoes,
+                )
+                self.session.add(cultivo)
+                await self.session.flush()
 
-        # 5. Sincroniza múltiplos talhões (criar SafraTalhoes)
-        if len(dados.talhao_ids) > 1:
-            from agricola.safras.models import SafraTalhao
+                # Adiciona CultivoAreas
+                for area_data in cult_data.areas:
+                    area = CultivoArea(
+                        tenant_id=self.tenant_id,
+                        cultivo_id=cultivo.id,
+                        area_id=area_data.area_id,
+                        area_ha=area_data.area_ha,
+                    )
+                    self.session.add(area)
+
+        # Fluxo legado: cria SafraTalhoes para compatibilidade
+        elif dados.talhao_ids:
             for talhao_id in dados.talhao_ids:
                 st = SafraTalhao(
                     safra_id=safra.id,
                     tenant_id=self.tenant_id,
                     area_id=talhao_id,
-                    principal=False  # Nenhum talhão é "principal"
+                    principal=False
                 )
                 self.session.add(st)
 
+        await self.session.commit()
+        await self.session.refresh(safra, ["cultivos"])
         return safra
 
     async def avancar_fase(

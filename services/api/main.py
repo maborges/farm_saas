@@ -214,6 +214,7 @@ app.include_router(router_produtos, prefix="/api/v1")
 app.include_router(router_imoveis, prefix="/api/v1")
 app.include_router(unidades_produtivas.router, prefix="/api/v1")
 from agricola.safras.router import router as router_safras
+from agricola.cultivos.router import router as router_cultivos
 from agricola.checklist.router import router as router_checklist_agricola
 from agricola.fenologia.router import router as router_fenologia
 from agricola.dashboard.router import router as router_dashboard_agricola
@@ -284,6 +285,7 @@ from pecuaria.routers import lotes
 from pecuaria.routers import manejos as pecuaria_manejos
 from operacional.routers import frota as frota_router
 app.include_router(router_safras, prefix="/api/v1")
+app.include_router(router_cultivos, prefix="/api/v1")
 app.include_router(router_checklist_agricola, prefix="/api/v1")
 app.include_router(router_fenologia, prefix="/api/v1")
 app.include_router(router_dashboard_agricola, prefix="/api/v1")

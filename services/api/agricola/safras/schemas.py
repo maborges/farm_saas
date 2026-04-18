@@ -3,28 +3,47 @@ from uuid import UUID
 from datetime import date, datetime
 from typing import Optional
 
-class SafraCreate(BaseModel):
-    talhao_ids: list[UUID]  # Múltiplos talhões (primeiro é principal)
-    ano_safra: str = Field(..., pattern=r"^\d{4}(/\d{2,4})?$")
+
+class CultivoAreaCreate(BaseModel):
+    """Definição de um cultivo dentro da safra."""
+    area_id: UUID
+    area_ha: float = Field(gt=0, description="Área em hectares")
+
+
+class CultivoDefine(BaseModel):
+    """Definição de um cultivo para ser criado com a safra."""
     cultura: str
     cultivar_id: UUID | None = None
     cultivar_nome: str | None = None
     commodity_id: UUID | None = None
     sistema_plantio: str | None = None
-    data_plantio_prevista: date | None = None
     populacao_prevista: int | None = Field(None, gt=0, le=500000)
     espacamento_cm: int | None = Field(None, gt=0, le=200)
-    area_plantada_ha: float | None = Field(None, gt=0)
+    data_plantio_prevista: date | None = None
     produtividade_meta_sc_ha: float | None = Field(None, gt=0)
     preco_venda_previsto: float | None = Field(None, gt=0)
+    observacoes: str | None = None
+    areas: list[CultivoAreaCreate] = Field(default_factory=list, description="Talhões e áreas do cultivo")
+
+    @model_validator(mode="after")
+    def validar_campos(self):
+        if not self.cultivar_id and not self.cultivar_nome:
+            raise ValueError("Informe cultivar_id ou cultivar_nome")
+        return self
+
+
+class SafraCreate(BaseModel):
+    """Cria uma safra com um ou mais cultivos atomicamente."""
+    ano_safra: str = Field(..., pattern=r"^\d{4}(/\d{2,4})?$")
+    talhao_ids: list[UUID] | None = None  # LEGADO: para compatibilidade
+    cultivos: list[CultivoDefine] = Field(default_factory=list, description="Cultivos da safra")
     observacoes: str | None = None
 
     @model_validator(mode="after")
     def validar_campos(self):
-        if not self.talhao_ids or len(self.talhao_ids) == 0:
-            raise ValueError("Informe pelo menos um talhão")
-        if not self.cultivar_id and not self.cultivar_nome:
-            raise ValueError("Informe cultivar_id ou cultivar_nome")
+        # Valida que ao menos uma forma de definir cultivos foi informada
+        if not self.cultivos and not self.talhao_ids:
+            raise ValueError("Informe cultivos ou talhao_ids")
         return self
 
 class SafraUpdate(BaseModel):
