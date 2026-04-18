@@ -186,12 +186,30 @@ Custo Unitário: R$ 4,00
 
 > 💡 **Campo Cultivo no Orçamento:** Se sua safra tem mais de um cultivo (ex: Café + Milho), você pode vincular cada item de custo a um cultivo específico. Isso permite visualizar o orçamento separado por cultura.
 
+> 💡 **Rastreamento por Cultivo:** O sistema vincula automaticamente operações, despesas, colheita e beneficiamento ao cultivo correto. Toda a cadeia de valor — do plantio à venda — fica rastreável por cultura.
+
 #### 2.2 - Onde você vê o resultado?
 - **Custo Total Previsto:** Soma de tudo que você colocou
 - **Custo por Hectare:** Divide pelo tamanho da área
 - Exemplo: R$ 10.000 ÷ 5 hectares = **R$ 2.000 por hectare**
 
 ✅ Agora você tem um planejamento de quanto vai gastar!
+
+---
+
+### 2.3 - Rastreamento Completo por Cultivo
+
+O sistema rastreia **toda a cadeia de valor** vinculada ao cultivo específico:
+
+| Módulo | Campo Cultivo | O que permite |
+|--------|--------------|---------------|
+| **Orçamento** | ✅ Vincula por cultivo | Custo planejado por cultura |
+| **Despesas Financeiras** | ✅ Vincula por cultivo | Custo real por cultura |
+| **Operações de Campo** | ✅ Vincula por cultivo | Custo operacional por cultura |
+| **Romaneio de Colheita** | ✅ Vincula por cultivo | Produção por cultura |
+| **Beneficiamento** | ✅ Vincula por cultivo | Processamento por cultura |
+
+> ✅ **Resultado:** Com todos os vínculos preenchidos, o sistema consegue calcular o **lucro real por cultivo** dentro da mesma safra.
 
 ---
 
