@@ -79,10 +79,10 @@ async def _setup_tenants(session):
             limite_usuarios_maximo, preco_mensal, preco_anual, max_fazendas,
             max_categorias_plano, tem_trial, dias_trial, is_free, destaque, ordem,
             ativo, disponivel_site, disponivel_crm, created_at)
-        VALUES (:id, 'Plano Base', '["CORE","AGRICOLA_ESSENCIAL"]'::json, 1, 5,
+        VALUES (:id, 'Plano Base', CAST(:modulos AS json), 1, 5,
                 0, 0, -1, -1, false, 15, false, false, 0, true, false, true, NOW())
         ON CONFLICT (id) DO NOTHING
-    """), {"id": plano_base_id})
+    """), {"id": plano_base_id, "modulos": '["CORE","AGRICOLA_ESSENCIAL"]'})
 
     for t_id, f_id, doc in [
         (TENANT_A_ID, FAZENDA_A_ID, "11111111111"),
@@ -101,6 +101,12 @@ async def _setup_tenants(session):
             ON CONFLICT (id) DO NOTHING
         """), {"id": str(f_id), "tenant_id": str(t_id),
                "nome": f"Fazenda {str(t_id)[:4]}"})
+
+        await session.execute(text("""
+            INSERT INTO assinaturas_tenant (id, tenant_id, plano_id, status, tipo_assinatura, ciclo_pagamento, data_inicio, created_at, updated_at)
+            VALUES (:id, :tenant_id, :plano_id, 'ATIVA', 'TENANT', 'MENSAL', NOW(), NOW(), NOW())
+            ON CONFLICT (tenant_id, tipo_assinatura) DO UPDATE SET plano_id = EXCLUDED.plano_id, status = 'ATIVA'
+        """), {"id": str(uuid.uuid4()), "tenant_id": str(t_id), "plano_id": plano_base_id})
 
     # Áreas rurais tipo TALHAO
     for talhao_id, tenant_id, unidade_produtiva_id, nome in [
