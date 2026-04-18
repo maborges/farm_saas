@@ -30,6 +30,15 @@ class Despesa(Base):
         UUID(as_uuid=True), ForeignKey("fin_planos_conta.id", ondelete="RESTRICT"), nullable=False
     )
 
+    # Vínculo agrícola (opcional — para rastreamento de custo por cultivo)
+    cultivo_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cultivos.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Cultivo específico ao qual a despesa está associada (rastreamento de custo agrícola)"
+    )
+
     # Vinculação com Pessoas (substitui campo texto livre fornecedor)
     pessoa_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
