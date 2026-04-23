@@ -90,28 +90,6 @@ LOGOS_DIR = Path("/tmp/agrosaas_logos")
 LOGOS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static/logos", StaticFiles(directory=str(LOGOS_DIR)), name="logos")
 
-# IMPORTANTE: CORS deve ser o PRIMEIRO middleware para garantir que headers
-# sejam adicionados mesmo em caso de erro de autenticação
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        *settings.allow_origins,
-        # Variantes de localhost
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://0.0.0.0:3000",
-        "http://0.0.0.0:3001",
-        "http://localhost.localdomain:3000",
-        "http://localhost.localdomain:3001",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=600,  # Cache de preflight por 10 minutos
-)
-
-
 # Middleware para atualizar o heartbeat da sessão ativa
 from starlette.middleware.base import BaseHTTPMiddleware
 from datetime import datetime, timezone, timedelta
@@ -163,7 +141,29 @@ class SessionHeartbeatMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# Adicionar middlewares na ordem INVERSA (último adicionado = primeiro executado)
+# SessionHeartbeatMiddleware PRIMEIRO
 app.add_middleware(SessionHeartbeatMiddleware)
+
+# CORS ÚLTIMO (será executado PRIMEIRO em tempo de execução)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        *settings.allow_origins,
+        # Variantes de localhost
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://0.0.0.0:3000",
+        "http://0.0.0.0:3001",
+        "http://localhost.localdomain:3000",
+        "http://localhost.localdomain:3001",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,  # Cache de preflight por 10 minutos
+)
 
 # --- INCLUSÃO DE ROTEADORES ---
 app.include_router(auth.router, prefix="/api/v1")
