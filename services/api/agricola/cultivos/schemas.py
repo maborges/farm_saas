@@ -15,6 +15,25 @@ class CultivoAreaResponse(BaseModel):
     cultivo_id: UUID
     area_id: UUID
     area_ha: float
+    analise_solo_id: UUID | None = None
+    regiao_analise: str | None = None
+    analise_status: str = "NAO_SELECIONADA"
+
+
+class CultivoAreaAnalisePatch(BaseModel):
+    analise_solo_id: UUID | None
+    regiao_analise: str | None = None
+    analise_status: str = "SELECIONADA"
+
+
+class TarefaSoloGerada(BaseModel):
+    nutriente: str
+    descricao: str
+    dose_kg_ha: float | None
+    area_ha: float
+    quantidade_total_kg: float | None
+    nivel: str
+    obs: str | None = None
 
 
 class CultivoCreate(BaseModel):
@@ -88,5 +107,5 @@ class CultivoResponse(BaseModel):
     status: str
     observacoes: str | None
     areas: list[CultivoAreaResponse] = Field(default_factory=list)
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime

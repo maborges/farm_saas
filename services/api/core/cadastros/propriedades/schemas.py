@@ -1,6 +1,6 @@
 from pydantic import BaseModel, field_validator, model_validator
-from typing import Optional, Any
-from datetime import datetime
+from typing import Optional, Any, List
+from datetime import datetime, date
 import uuid
 
 from .models import TipoArea, TipoInfraestrutura, FormatoArquivoGeo, StatusProcessamentoGeo
@@ -29,6 +29,9 @@ class AreaRuralCreate(BaseModel):
     geometria: Optional[dict[str, Any]] = None
     centroide_lat: Optional[float] = None
     centroide_lng: Optional[float] = None
+    tipo_solo_id: Optional[uuid.UUID] = None
+    irrigado: bool = False
+    tipo_irrigacao_id: Optional[uuid.UUID] = None
     dados_extras: Optional[dict[str, Any]] = None
 
     @field_validator("tipo")
@@ -58,6 +61,9 @@ class AreaRuralUpdate(BaseModel):
     geometria: Optional[dict[str, Any]] = None
     centroide_lat: Optional[float] = None
     centroide_lng: Optional[float] = None
+    tipo_solo_id: Optional[uuid.UUID] = None
+    irrigado: Optional[bool] = None
+    tipo_irrigacao_id: Optional[uuid.UUID] = None
     dados_extras: Optional[dict[str, Any]] = None
     ativo: Optional[bool] = None
 
@@ -86,11 +92,27 @@ class AreaRuralResponse(BaseModel):
     geometria: Optional[dict[str, Any]]
     centroide_lat: Optional[float]
     centroide_lng: Optional[float]
+    tipo_solo_id: Optional[uuid.UUID]
+    tipo_solo_nome: Optional[str] = None
+    irrigado: bool
+    tipo_irrigacao_id: Optional[uuid.UUID]
+    tipo_irrigacao_nome: Optional[str] = None
     dados_extras: Optional[dict[str, Any]]
     ativo: bool
     created_at: datetime
     updated_at: datetime
+    cultivo_atual: Optional["CultivoResumo"] = None
 
+    model_config = {"from_attributes": True}
+
+
+class CultivoResumo(BaseModel):
+    id: uuid.UUID
+    cultura: str
+    safra_nome: str
+    data_plantio_real: Optional[date]
+    status: str
+    
     model_config = {"from_attributes": True}
 
 
@@ -392,6 +414,32 @@ class PropriedadeComHierarquiaResponse(BaseModel):
     """
     propriedade: "PropriedadeResponse"
     fazendas: list[FazendaHierarquiaResponse] = []
+
+
+# ---------------------------------------------------------------------------
+# Seletores / Lookup
+# ---------------------------------------------------------------------------
+
+class TipoSoloResponse(BaseModel):
+    id: uuid.UUID
+    nome: str
+    descricao: Optional[str] = None
+    retencao_agua: str
+    lixiviacao: str
+    ctc_resumo: str
+    ativo: bool
+
+    model_config = {"from_attributes": True}
+
+
+class TipoIrrigacaoResponse(BaseModel):
+    id: uuid.UUID
+    nome: str
+    metodo: Optional[str] = None
+    descricao: Optional[str] = None
+    ativo: bool
+
+    model_config = {"from_attributes": True}
 
 
 # Forward references

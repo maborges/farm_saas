@@ -13,6 +13,7 @@ class OperacaoAgricola(Base):
     safra_id: Mapped[UUID] = mapped_column(ForeignKey("safras.id", ondelete="CASCADE"), nullable=False, index=True)
     cultivo_id: Mapped[UUID | None] = mapped_column(ForeignKey("cultivos.id", ondelete="CASCADE"), nullable=True, index=True)
     talhao_id: Mapped[UUID] = mapped_column(ForeignKey("cadastros_areas_rurais.id", ondelete="CASCADE"), nullable=False, index=True)
+    tarefa_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("safra_tarefas.id", ondelete="SET NULL"), nullable=True, index=True)
 
     tipo: Mapped[str] = mapped_column(String(30), nullable=False)
     subtipo: Mapped[str | None] = mapped_column(String(50))

@@ -22,9 +22,15 @@ O projeto é dividido em um monorepo contendo:
 - **Segurança de Convites**: Tokens expiráveis e vínculos automáticos de propriedade ao aceitar o acesso.
 
 ### 3. Gestão Agrícola e Pecuária (Módulos Base)
-- **Meus Talhões**: Visualização geográfica de áreas produtivas.
-- **Controle de Lotes**: Gestão técnica de rebanho.
+- **Meus Talhões**: Visualização geográfica de áreas produtivas com gestão de solo e irrigação.
+- **Análise de Solo Inteligente**: Motor de diagnóstico que converte laudos laboratoriais em recomendações de calagem e adubação, incluindo **estimativa automática de custos**.
+- **Automação de Tarefas**: Geração automática de ordens de serviço (SafraTarefa) baseada em prescrições técnicas com cálculo de investimento total.
 - **Financeiro Rural**: DRE, Contas a Pagar/Receber com foco em custeio de safra.
+
+### 4. Templates Agrícolas e Governança (Fase Atual)
+- **Módulo de Templates**: Centralização de PhaseTemplates (Governança) e OperationTemplates (Operacional).
+- **Instanciação Rápida**: Aplicação de checklists e tarefas padronizadas por cultura e fase da safra com um clique.
+- **Regras de Gate**: Configuração de pré-requisitos para avanço de fase, garantindo compliance e padronização operacional entre diferentes propriedades.
 
 ---
 

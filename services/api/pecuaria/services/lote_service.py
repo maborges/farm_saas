@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 
 from core.base_service import BaseService
 from core.exceptions import BusinessRuleError
-from pecuaria.models.lote import LoteBovino
+from pecuaria.animal.models import LoteAnimal as LoteBovino
 from pecuaria.models.piquete import Piquete
 from pecuaria.schemas.lote_schema import LoteBovinoCreate
 

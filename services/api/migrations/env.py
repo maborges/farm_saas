@@ -37,8 +37,13 @@ from agricola.cultivos.models import Cultivo, CultivoArea
 from agricola.operacoes.models import OperacaoAgricola, InsumoOperacao
 from agricola.monitoramento.models import MonitoramentoPragas
 from agricola.monitoramento.catalogo_model import MonitoramentoCatalogo
-from agricola.analises_solo.models import AnaliseSolo
+from agricola.analises_solo.models import AnaliseSolo, RegraAgronomica
+from agricola.tarefas.models import SafraTarefa
 from agricola.checklist.models import ChecklistTemplate, SafraChecklistItem
+from agricola.models.templates import (
+    PhaseTemplate, PhaseTemplateChecklistItem, PhaseTemplateTask,
+    PhaseGateRule, OperationTemplate, OperationTemplateItem, OperationDependency
+)
 from agricola.fenologia.models import FenologiaEscala, SafraTalhaoGrupo, SafraTalhaoGrupoItem, SafraFenologiaRegistro
 from agricola.romaneios.models import RomaneioColheita
 from agricola.beneficiamento.models import LoteBeneficiamento
@@ -67,7 +72,7 @@ from core.cadastros.pessoas.models import (
 )
 
 # Propriedades / Áreas Rurais
-from core.cadastros.propriedades.models import AreaRural, MatriculaImovel, RegistroAmbiental
+from core.cadastros.propriedades.models import AreaRural, MatriculaImovel, RegistroAmbiental, TipoSolo, TipoIrrigacao
 from core.cadastros.propriedades.propriedade_models import Propriedade, ExploracaoRural, DocumentoExploracao
 
 # Equipamentos

@@ -87,6 +87,30 @@ TIPOS_AREA_AMBIENTAL  = {TipoArea.APP, TipoArea.RESERVA_LEGAL}
 TIPOS_INFRAESTRUTURA  = {TipoArea.INFRAESTRUTURA, TipoArea.SEDE, TipoArea.ARMAZEM, TipoArea.CURRAL, TipoArea.OUTROS}
 
 
+class TipoSolo(Base):
+    __tablename__ = "cadastros_tipos_solo"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    nome: Mapped[str] = mapped_column(String(50), nullable=False, unique=True) # Arenoso, Médio, Argiloso
+    
+    retencao_agua: Mapped[str] = mapped_column(String(10), nullable=False) # BAIXA, MEDIA, ALTA
+    lixiviacao: Mapped[str] = mapped_column(String(10), nullable=False)    # BAIXA, MEDIA, ALTA
+    ctc_resumo: Mapped[str] = mapped_column(String(10), nullable=False)    # BAIXA, MEDIA, ALTA
+    
+    descricao: Mapped[str | None] = mapped_column(String(200))
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class TipoIrrigacao(Base):
+    __tablename__ = "cadastros_tipos_irrigacao"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    nome: Mapped[str] = mapped_column(String(50), nullable=False, unique=True) # Gotejamento, Pivô Central, etc.
+    metodo: Mapped[str | None] = mapped_column(String(50))
+    descricao: Mapped[str | None] = mapped_column(String(200))
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 # ---------------------------------------------------------------------------
 # AreaRural — entidade hierárquica central
 # ---------------------------------------------------------------------------
@@ -157,6 +181,15 @@ class AreaRural(Base):
     )
     centroide_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
     centroide_lng: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Contexto Agronômico
+    tipo_solo_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cadastros_tipos_solo.id", ondelete="SET NULL"), nullable=True
+    )
+    irrigado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    tipo_irrigacao_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cadastros_tipos_irrigacao.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Dados específicos por tipo (evita tabelas extras para atributos simples)
     # Exemplos:

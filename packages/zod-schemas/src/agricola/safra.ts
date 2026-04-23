@@ -34,6 +34,7 @@ export const SafraCreateSchema = z.object({
   cultivar_nome: z.string().max(100).optional().nullable(),
   commodity_id: z.string().uuid().optional().nullable(),
   sistema_plantio: SistemaPlantioEnum.optional().nullable(),
+  analise_solo_id: z.string().uuid().optional().nullable(),
   data_plantio_prevista: z.string().date().optional().nullable(),
   data_plantio_real: z.string().date().optional().nullable(),
   data_colheita_prevista: z.string().date().optional().nullable(),
@@ -73,7 +74,7 @@ export const SafraFaseHistoricoSchema = z.object({
 export const SafraAvancarFaseSchema = z.object({
   nova_fase: SafraStatusEnum,
   observacao: z.string().max(500).optional().nullable(),
-  dados_fase: z.record(z.unknown()).optional().nullable(),
+  dados_fase: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 // ---- Tipos inferidos ----

@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 revision = "step5_add_consorciado"
-down_revision = "step4_introduce_cultivos"
+down_revision = "step4_cultivos_intro"
 branch_labels = None
 depends_on = None
 

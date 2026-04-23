@@ -14,7 +14,7 @@ from financeiro.models.plano_conta import PlanoConta
 from financeiro.models.despesa import Despesa
 from financeiro.models.rateio import Rateio
 from pecuaria.models.piquete import Piquete
-from pecuaria.models.lote import LoteBovino
+from pecuaria.animal.models import LoteAnimal as LoteBovino
 
 # Engine para setup
 engine = create_async_engine(DB_URL, echo=False)

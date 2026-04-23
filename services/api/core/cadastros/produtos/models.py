@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Boolean, DateTime, Float, Integer, ForeignKey, Text, JSON, UniqueConstraint
+from sqlalchemy import String, Boolean, DateTime, Float, Integer, ForeignKey, Text, JSON, UniqueConstraint, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Uuid as UUID
 from core.database import Base
@@ -307,7 +307,7 @@ class ProdutoAgricola(Base):
     registro_mapa: Mapped[str | None] = mapped_column(String(50), nullable=True)
     classe_agronomica: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="HERBICIDA | FUNGICIDA | INSETICIDA | ACARICIDA | NEMATICIDA")
     classe_toxicologica: Mapped[str | None] = mapped_column(String(5), nullable=True, comment="I | II | III | IV")
-    principio_ativo: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    principio_ativo: Mapped[str | None] = mapped_column(String(300), nullable=True)
     formulacao: Mapped[str | None] = mapped_column(String(50), nullable=True, comment="CE | SC | WG | EC | SL")
     periodo_carencia_dias: Mapped[int | None] = mapped_column(Integer, nullable=True)
     intervalo_reentrada_horas: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -410,6 +410,9 @@ class ProdutoCultura(Base):
     populacao_plantas_ha: Mapped[int | None] = mapped_column(Integer, nullable=True)
     produtividade_media_sc_ha: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    # Parâmetro de solo — V% meta padrão para calagem (Embrapa)
+    v_meta_pct_padrao: Mapped[float | None] = mapped_column(Numeric(5, 1), nullable=True)
+
     dados_extras: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     ativa: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -419,3 +422,48 @@ class ProdutoCultura(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+    parametros_solo: Mapped[list["SoloParametroCultura"]] = relationship(
+        back_populates="cultura", lazy="noload", cascade="all, delete-orphan"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Solo — Parâmetros de interpretação por cultura/região/tenant
+# ---------------------------------------------------------------------------
+
+class SoloParametroCultura(Base):
+    """
+    Faixas de interpretação e doses de recomendação por cultura, região e tenant.
+    Hierarquia: tenant+região > tenant > sistema+região > sistema > fallback hardcoded.
+    """
+    __tablename__ = "solo_parametros_cultura"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    cultura_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cadastros_culturas.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True, index=True,
+        comment="NULL = padrão do sistema"
+    )
+    regiao: Mapped[str | None] = mapped_column(String(50), nullable=True,
+        comment="CERRADO | SUL | NORDESTE | SUDESTE | NORTE | null=geral")
+    parametro: Mapped[str] = mapped_column(String(20), nullable=False,
+        comment="FOSFORO | POTASSIO | PH | NITROGENIO | CALCARIO")
+    faixa_min: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False)
+    faixa_max: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True,
+        comment="NULL = sem limite superior")
+    classificacao: Mapped[str] = mapped_column(String(20), nullable=False,
+        comment="MUITO_BAIXO | BAIXO | MEDIO | ALTO | MUITO_ALTO")
+    rec_dose_kg_ha: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
+    obs: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    cultura: Mapped["ProdutoCultura"] = relationship(back_populates="parametros_solo", lazy="noload")

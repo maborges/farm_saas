@@ -218,7 +218,19 @@ export const areaRuralSchema = z.object({
   geometria: z.any().optional().nullable(),
   centroide_lat: z.number().optional().nullable(),
   centroide_lng: z.number().optional().nullable(),
-  dados_extras: z.record(z.any()).optional().nullable(),
+  dados_extras: z.record(z.string(), z.any()).optional().nullable(),
+  tipo_solo_id: z.string().uuid().optional().nullable(),
+  tipo_solo_nome: z.string().optional().nullable(),
+  irrigado: z.boolean().default(false),
+  tipo_irrigacao_id: z.string().uuid().optional().nullable(),
+  tipo_irrigacao_nome: z.string().optional().nullable(),
+  cultivo_atual: z.object({
+    id: z.string().uuid(),
+    cultura: z.string(),
+    safra_nome: z.string(),
+    data_plantio_real: z.string().date().optional().nullable(),
+    status: z.string(),
+  }).optional().nullable(),
   ativo: z.boolean(),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
@@ -250,7 +262,7 @@ export const createAreaRuralSchema = z.object({
   parent_id: z.string().uuid().optional().nullable(),
   area_hectares: z.number().gt(0).optional().nullable(),
   area_hectares_manual: z.number().gt(0).optional().nullable(),
-  dados_extras: z.record(z.any()).optional().nullable(),
+  dados_extras: z.record(z.string(), z.any()).optional().nullable(),
 });
 
 export const updateAreaRuralSchema = createAreaRuralSchema.partial();

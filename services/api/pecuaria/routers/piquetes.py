@@ -37,4 +37,6 @@ async def criar_piquete(
     """Cadastra um novo piquete/pastagem na fazenda."""
     svc = PiqueteService(tenant_id)
     svc.session = db
-    return await svc.criar_piquete(db, obj_in=payload)
+    piquete = await svc.criar_piquete(db, obj_in=payload)
+    await db.commit()
+    return piquete

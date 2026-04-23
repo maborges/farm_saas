@@ -46,7 +46,6 @@ class Safra(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
-    talhao_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("cadastros_areas_rurais.id", ondelete="CASCADE"), nullable=False, index=True)
 
     ano_safra: Mapped[str] = mapped_column(String(10), nullable=False)
     cultura: Mapped[str | None] = mapped_column(String(100), nullable=True)  # legado: cultura principal
@@ -94,6 +93,11 @@ class SafraFaseHistorico(Base):
     usuario_id: Mapped[uuid.UUID | None] = mapped_column(UUID, nullable=True)
     observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
     dados_fase: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    
+    # Bypass mechanism
+    forcou_avanco: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    justificativa_avanco: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(server_default=text("(CURRENT_TIMESTAMP)"))
 
     safra: Mapped["Safra"] = relationship(back_populates="fase_historico", lazy="noload")

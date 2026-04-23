@@ -29,6 +29,7 @@ class InsumoOperacaoResponse(BaseModel):
 class OperacaoAgricolaCreate(BaseModel):
     safra_id: UUID
     talhao_id: UUID
+    tarefa_id: UUID | None = None
     tipo: str
     subtipo: str | None = None
     descricao: str = Field(..., min_length=3, max_length=500)
@@ -81,6 +82,7 @@ class OperacaoAgricolaResponse(BaseModel):
     tenant_id: UUID
     safra_id: UUID
     talhao_id: UUID
+    tarefa_id: UUID | None = None
     tipo: str
     subtipo: str | None
     descricao: str

@@ -84,6 +84,13 @@ class CultivoArea(Base):
     # Área ocupada por este cultivo neste talhão (em hectares)
     area_ha: Mapped[float] = mapped_column(Numeric(12, 4), nullable=False)
 
+    # Análise de solo vinculada a este talhão/cultivo
+    analise_solo_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("analises_solo.id", ondelete="SET NULL"), nullable=True
+    )
+    regiao_analise: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    analise_status: Mapped[str] = mapped_column(String(20), nullable=False, default="NAO_SELECIONADA")
+
     created_at: Mapped[datetime] = mapped_column(server_default=text("(CURRENT_TIMESTAMP)"))
 
     # Relacionamentos

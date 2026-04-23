@@ -6,7 +6,7 @@ from sqlalchemy.future import select
 from core.base_service import BaseService
 from core.exceptions import EntityNotFoundError, BusinessRuleError
 from pecuaria.models.manejo import ManejoLote
-from pecuaria.models.lote import LoteBovino
+from pecuaria.animal.models import LoteAnimal as LoteBovino
 from pecuaria.schemas.manejo_schema import ManejoLoteCreate
 
 TIPOS_VALIDOS = {

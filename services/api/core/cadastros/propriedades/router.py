@@ -12,7 +12,7 @@ from .schemas import (
     ValorPatrimonialCreate, ValorPatrimonialUpdate, ValorPatrimonialResponse,
     InfraestruturaCreate, InfraestruturaUpdate, InfraestruturaResponse,
     ArquivoGeoResponse, ArquivoGeoProcessadoResponse,
-    SumarioAreasResponse,
+    SumarioAreasResponse, TipoSoloResponse, TipoIrrigacaoResponse
 )
 from .service import AreaRuralService, MatriculaService, RegistroAmbientalService, ValorPatrimonialService, InfraestruturaService, ArquivoGeoService
 
@@ -111,6 +111,28 @@ async def remover(
 ):
     svc = AreaRuralService(AreaRural, session, tenant_id)
     await svc.soft_delete(area_id)
+
+
+# ---------------------------------------------------------------------------
+# Seletores (Lookup)
+# ---------------------------------------------------------------------------
+
+@router.get("/seletores/tipos-solo", response_model=list[TipoSoloResponse])
+async def listar_tipos_solo(
+    session=Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    svc = AreaRuralService(AreaRural, session, tenant_id)
+    return await svc.listar_tipos_solo()
+
+
+@router.get("/seletores/tipos-irrigacao", response_model=list[TipoIrrigacaoResponse])
+async def listar_tipos_irrigacao(
+    session=Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    svc = AreaRuralService(AreaRural, session, tenant_id)
+    return await svc.listar_tipos_irrigacao()
 
 
 # ---------------------------------------------------------------------------

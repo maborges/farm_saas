@@ -8,9 +8,12 @@ Respeite o budget de contexto em TODAS as respostas:
   - NUNCA use Bash para: testes, busca de arquivos, análise de logs, processamento de outputs
   - Exceptions: git, mkdir, rm, mv, navegação local
 - **Respostas:** ≤150 palavras; artefatos (código, configs) sempre em FILES, nunca inline.
-- **Idioma:** sempre em português pt-br.
+- **Idioma:** nossa iteração será em português pt-br.
+- **Valores decimais** usar "," como separador decimal e "." como sepadador de milhar.
+- **Formatação de Campos** sempre usar mascáras para inputs ou apresentaçãoo de dados conforme campo (cpd, cpf, cnpj, etc)
 - **Code review loops:** Delegue a subagents via Agent tool com isolation=worktree
 - **Busca de padrões:** Use Grep com glob patterns (`--glob="*.ts"`), não find
+- **Confirmação:** todas as mensagem de confirmação para o usuário devem utilizar o componente AlertDialog em @/components/ui/alert-dialog.
 
 ---
 

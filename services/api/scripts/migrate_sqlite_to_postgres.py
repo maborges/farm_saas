@@ -23,7 +23,7 @@ from agricola.romaneios.models import *
 from agricola.previsoes.models import *
 from agricola.cadastros.models import *
 from pecuaria.models.piquete import *
-from pecuaria.models.lote import *
+from pecuaria.animal.models import LoteAnimal
 from pecuaria.models.manejo import *
 from financeiro.models.plano_conta import *
 from financeiro.models.despesa import *

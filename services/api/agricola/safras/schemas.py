@@ -23,13 +23,13 @@ class CultivoDefine(BaseModel):
     produtividade_meta_sc_ha: float | None = Field(None, gt=0)
     preco_venda_previsto: float | None = Field(None, gt=0)
     observacoes: str | None = None
+    consorciado: bool = False
+    data_inicio: date | None = None
+    data_fim: date | None = None
     areas: list[CultivoAreaCreate] = Field(default_factory=list, description="Talhões e áreas do cultivo")
 
-    @model_validator(mode="after")
-    def validar_campos(self):
-        if not self.cultivar_id and not self.cultivar_nome:
-            raise ValueError("Informe cultivar_id ou cultivar_nome")
-        return self
+    # Validação removida: cultivar_id e cultivar_nome são opcionais
+    # A cultura já é obrigatória, cultivar é apenas complemento
 
 
 class SafraCreate(BaseModel):
@@ -83,8 +83,11 @@ class SafraUpdate(BaseModel):
     observacoes: str | None = None
 
 class SafraAvancarFase(BaseModel):
-    observacao: str | None = None
-    dados_fase: dict | None = None
+    novo_status: str
+    observacao: Optional[str] = None
+    dados_fase: Optional[dict] = None
+    forcar_avanco: bool = False
+    justificativa_forcar_avanco: Optional[str] = None
 
 
 class SafraFaseHistoricoResponse(BaseModel):
@@ -103,7 +106,6 @@ class SafraFaseHistoricoResponse(BaseModel):
 class SafraResponse(BaseModel):
     id: UUID
     tenant_id: UUID
-    talhao_id: UUID
     ano_safra: str
     cultura: str | None = None  # legado: cultura principal (detalhes em cultivos[])
     status: str

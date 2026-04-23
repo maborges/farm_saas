@@ -14,6 +14,7 @@ from agricola.safras.schemas import (
     EstoqueResumoResponse, MovimentacaoSafraResponse,
     LotesResponse,
 )
+from agricola.cultivos.schemas import CultivoResponse
 from agricola.safras.models import SAFRA_FASES_ORDEM, SAFRA_TRANSICOES
 from agricola.safras.service import SafraService
 
@@ -41,7 +42,7 @@ async def criar_safra(
 @router.get(
     "/",
     response_model=List[SafraResponse],
-    summary="Lista safras de um talhão",
+    summary="Lista safras com cultivos",
 )
 async def listar_safras(
     talhao_id: UUID | None = None,
@@ -58,8 +59,8 @@ async def listar_safras(
     if ano_safra: filters["ano_safra"] = ano_safra
     if cultura: filters["cultura"] = cultura
     if status: filters["status"] = status
-    
-    safras = await svc.list_all(**filters)
+
+    safras = await svc.list_with_cultivos(**filters)
     return [SafraResponse.model_validate(s) for s in safras]
 
 
@@ -77,6 +78,23 @@ async def detalhar_safra(
     svc = SafraService(session, tenant_id)
     safra = await svc.get_or_fail(id)
     return SafraResponse.model_validate(safra)
+
+
+@router.get(
+    "/{id}/cultivos",
+    response_model=List[CultivoResponse],
+    summary="Lista cultivos de uma safra com áreas",
+)
+async def listar_cultivos_safra(
+    id: UUID,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
+):
+    from agricola.cultivos.service import CultivoService
+    svc = CultivoService(session, tenant_id)
+    cultivos = await svc.listar_por_safra(id)
+    return [CultivoResponse.model_validate(c) for c in cultivos]
 
 @router.patch(
     "/{id}",
@@ -121,7 +139,7 @@ async def resumo_safra(
 async def avancar_fase_safra(
     id: UUID,
     nova_fase: str,
-    dados: SafraAvancarFase = SafraAvancarFase(),
+    dados: SafraAvancarFase,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A1_PLANEJAMENTO")),
@@ -181,6 +199,8 @@ async def listar_talhoes_safra(
     # Se ainda não foi populado via sincronizar, retorna o talhao_id legado
     if not talhoes:
         safra = await svc.get_or_fail(id)
+        if not safra.talhao_id:
+            return []
         from agricola.safras.models import SafraTalhao
         import uuid as _uuid
         placeholder = SafraTalhao()

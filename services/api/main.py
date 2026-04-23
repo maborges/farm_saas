@@ -20,6 +20,7 @@ from core.routers import backoffice
 from core.routers import billing
 from core.routers import backoffice_admins
 from core.routers import backoffice_tenants
+from core.routers import backoffice_agro_templates
 from core.routers import team
 from core.routers import plan_changes
 from core.routers import backoffice_plan_changes
@@ -215,6 +216,7 @@ app.include_router(router_imoveis, prefix="/api/v1")
 app.include_router(unidades_produtivas.router, prefix="/api/v1")
 from agricola.safras.router import router as router_safras
 from agricola.cultivos.router import router as router_cultivos
+from agricola.talhoes.router import router as router_agricola_talhoes
 from agricola.checklist.router import router as router_checklist_agricola
 from agricola.fenologia.router import router as router_fenologia
 from agricola.dashboard.router import router as router_dashboard_agricola
@@ -233,8 +235,10 @@ from agricola.rastreabilidade.router import router as router_rastreabilidade
 from agricola.rastreabilidade.public_router import router as router_rastreabilidade_publica
 from agricola.prescricoes.router import router as router_prescricoes
 from agricola.a1_planejamento.router import router as router_a1_planejamento
+from agricola.tarefas.router import router as router_tarefas
 from agricola.caderno.router import router as router_caderno
 from agricola.colheita.router import router as router_produtos_colhidos
+from agricola.templates.router import router as router_templates_agricola
 # Amostragem de Solo
 from agricola.amostragem_solo.routers.amostras import router as amostras_solo_router
 from agricola.amostragem_solo.routers.mapas_fertilidade import router as mapas_fertilidade_router
@@ -286,6 +290,7 @@ from pecuaria.routers import manejos as pecuaria_manejos
 from operacional.routers import frota as frota_router
 app.include_router(router_safras, prefix="/api/v1")
 app.include_router(router_cultivos, prefix="/api/v1")
+app.include_router(router_agricola_talhoes, prefix="/api/v1")
 app.include_router(router_checklist_agricola, prefix="/api/v1")
 app.include_router(router_fenologia, prefix="/api/v1")
 app.include_router(router_dashboard_agricola, prefix="/api/v1")
@@ -306,6 +311,9 @@ app.include_router(router_rastreabilidade_publica, prefix="/api/v1")
 app.include_router(router_prescricoes, prefix="/api/v1")
 app.include_router(router_caderno, prefix="/api/v1")
 app.include_router(router_a1_planejamento, prefix="/api/v1")
+app.include_router(router_tarefas, prefix="/api/v1")
+app.include_router(router_templates_agricola, prefix="/api/v1")
+app.include_router(backoffice_agro_templates.router, prefix="/api/v1")
 
 # Amostragem de Solo
 app.include_router(amostras_solo_router, prefix="/api/v1/amostragem-solo")

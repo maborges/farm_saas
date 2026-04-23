@@ -7,10 +7,12 @@ export const TalhaoCreateSchema = z.object({
   nome: z.string().min(1, "Nome do talhão obrigatório").max(100),
   area_ha: z.number().positive({ message: "Área em hectares obrigatória" }),
   cultura_predominante: z.string().max(50).optional().nullable(),
-  tipo_solo: z.string().max(100).optional().nullable(),
+  tipo_solo_id: z.string().uuid().optional().nullable(),
+  irrigado: z.boolean().default(false),
+  tipo_irrigacao_id: z.string().uuid().optional().nullable(),
   observacoes: z.string().max(2000).optional().nullable(),
   // GeoJSON opcional para exibição no mapa
-  geometry: z.record(z.unknown()).optional().nullable(),
+  geometry: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
 export const TalhaoUpdateSchema = TalhaoCreateSchema.partial();

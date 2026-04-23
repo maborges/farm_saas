@@ -47,4 +47,9 @@ class SafraChecklistItem(Base):
     usuario_id: Mapped[uuid.UUID | None] = mapped_column(UUID, nullable=True)
     concluido_em: Mapped[datetime | None] = mapped_column(nullable=True)
 
+    cancelado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    usuario_cancelamento_id: Mapped[uuid.UUID | None] = mapped_column(UUID, nullable=True)
+    cancelado_em: Mapped[datetime | None] = mapped_column(nullable=True)
+    motivo_cancelamento: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(server_default=text("(CURRENT_TIMESTAMP)"))

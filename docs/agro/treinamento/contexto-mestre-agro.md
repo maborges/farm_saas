@@ -1,28 +1,29 @@
-# 🌾 CONTEXTO MESTRE — AGROSaaS
+# 🌾 CONTEXTO MESTRE — AGROSAAS (VERSÃO CONSOLIDADA)
 
 ## 🎯 Objetivo
 
-Definir o modelo conceitual completo para um sistema SaaS de gestão agrícola e pecuária, garantindo consistência entre estrutura física, operações, custos, produção e análise financeira.
+Definir o modelo conceitual completo para um sistema SaaS de gestão agro (agricultura e pecuária), garantindo consistência entre estrutura física, ocupação do solo, operações, custos, produção e análise financeira.
 
-Este documento serve como base única para desenvolvimento, IA, modelagem de dados e regras de negócio.
+Este documento é a base única para desenvolvimento, modelagem de dados, regras de negócio e uso por IA.
 
 ---
 
 # 🧠 PRINCÍPIOS FUNDAMENTAIS
 
-1. Talhão representa espaço físico  
-2. Safra representa tempo  
-3. Cultivo representa a ocupação real (tempo + espaço)  
-4. Custos, operações e produção pertencem ao cultivo  
-5. Cada cultura é tratada como um negócio independente  
-6. Tudo que acontece no tempo de um talhão deve ser registrado  
+- Talhão representa espaço físico  
+- Safra representa organização temporal  
+- Cultivo representa ocupação real (tempo + espaço)  
+- Custos, operações e produção pertencem ao cultivo  
+- Cada cultura é tratada como uma unidade de negócio independente  
+- Tudo que ocorre no tempo do talhão deve ser registrado  
 
 ---
 
 # 🏢 ESTRUTURA ORGANIZACIONAL
 
 Tenant (Produtor / Empresa)
-→ representa o cliente do SaaS
+
+Representa o cliente do sistema.
 
 Um tenant pode possuir múltiplas unidades produtivas.
 
@@ -30,21 +31,20 @@ Um tenant pode possuir múltiplas unidades produtivas.
 
 # 🚜 UNIDADE PRODUTIVA
 
-Representa uma entidade operacional rural:
+Representa uma entidade rural operacional:
 
 - Fazenda  
 - Sítio  
 - Arrendamento  
 - Parceria  
 
-A unidade produtiva pode ou não possuir infraestrutura própria.
+Pode possuir infraestrutura própria ou compartilhada.
 
 ---
 
-# 🌍 ESTRUTURA ESPACIAL (HIERARQUIA)
+# 🌍 ESTRUTURA ESPACIAL
 
-Unidade Produtiva
-→ Área Rural (estrutura única e hierárquica)
+Hierarquia baseada em uma única tabela de áreas (estrutura auto-relacionada).
 
 Tipos de área:
 
@@ -52,7 +52,7 @@ Tipos de área:
 - TALHÃO (produção agrícola)
 - PASTAGEM (pecuária)
 - PIQUETE (subdivisão da pastagem)
-- APP (área de preservação permanente)
+- APP (área protegida)
 - RESERVA LEGAL
 - INFRAESTRUTURA (sede, armazém, etc.)
 
@@ -60,45 +60,82 @@ Tipos de área:
 
 # 📏 CONCEITO DE ÁREAS
 
-- Área Total = área completa da unidade  
-- APP = área protegida  
-- Reserva Legal = área obrigatória  
+- Área Total  
+- APP  
+- Reserva Legal  
 - Área Produtiva = Área Total - (APP + Reserva Legal)  
 
-A área produtiva pode ser subdividida em talhões e pastagens.
+A área produtiva é utilizada por talhões e pastagens.
 
 ---
 
-# 🌱 SAFRA (TEMPO)
+# 🌱 SAFRA
 
-Safra representa um período produtivo.
+Safra representa um agrupador organizacional de produção.
 
-- possui data início e fim  
-- pode se sobrepor a outras safras  
+Características:
+
 - não ocupa espaço físico  
+- pode conter múltiplos cultivos  
+- datas são opcionais e servem como referência  
+
+Estrutura:
+
+- id  
+- nome  
+- data_inicio (opcional)  
+- data_fim (opcional)  
 
 ---
 
-# 🌿 CULTIVO (OCUPAÇÃO REAL)
+# 🌿 CULTIVO (ENTIDADE CENTRAL)
 
-Cultivo é a entidade central do sistema.
-
-Representa:
-
-- uma cultura  
-- em um talhão  
-- durante um período  
-- com uma área definida  
+Cultivo representa a ocupação real do solo.
 
 Estrutura:
 
 - safra_id  
 - talhao_id  
-- cultura_id  
+- cultura_id (obrigatório)  
+- cultivar_id (opcional)  
 - area  
-- data_inicio  
-- data_fim  
+- data_inicio (obrigatório)  
+- data_fim (opcional)  
+- status  
 - consorciado (boolean)  
+
+---
+
+# 📅 REGRAS DE DATAS NO CULTIVO
+
+## Data de Início
+
+- obrigatória  
+- define o início da ocupação  
+- base para operações, custos e validações  
+
+## Data de Fim
+
+- opcional na criação  
+- obrigatória no encerramento  
+
+## Regra por status
+
+- PLANEJADO:
+  - data_inicio obrigatório  
+  - data_fim opcional  
+
+- EM_ANDAMENTO:
+  - data_inicio obrigatório  
+  - data_fim opcional  
+
+- FINALIZADO:
+  - data_inicio obrigatório  
+  - data_fim obrigatório  
+
+## Culturas Perenes
+
+- data_fim pode permanecer nula por tempo indeterminado  
 
 ---
 
@@ -106,66 +143,61 @@ Estrutura:
 
 Para um talhão:
 
-- soma das áreas simultâneas ≤ área do talhão  
+- soma das áreas simultâneas ≤ área total  
 - exceção: consórcio  
 
 ---
 
 # 🌿 CONSÓRCIO
 
-Consórcio ocorre quando duas culturas ocupam a mesma área ao mesmo tempo.
+Cultivos que compartilham a mesma área no mesmo período.
 
 Regras:
 
 - consorciado = true  
 - permite sobreposição total ou parcial  
-- não mistura custos nem produção  
+- custos e produção permanecem separados  
 
 ---
 
 # 🔁 ROTAÇÃO DE CULTURAS
 
-Alternância de culturas ao longo do tempo no mesmo talhão.
+Alternância de culturas no tempo no mesmo talhão.
 
 Exemplo:
+
 - Soja → Milho → Braquiária  
 
 ---
 
-# 🌿 POUSIO (DESCANSO)
+# 🌿 POUSIO (DESCANSO DO SOLO)
 
 Período sem produção agrícola.
 
-Deve ser modelado como cultivo técnico:
+Deve ser modelado como cultura técnica:
 
 - cultura = POUSIO  
 
-Permite:
-
-- manter histórico  
-- registrar custos  
-- análise agronômica  
+Permite rastreabilidade e análise.
 
 ---
 
 # ⚙️ OPERAÇÕES
 
-Toda operação deve estar associada a um cultivo.
+Toda operação pertence a um cultivo.
 
 Tipos:
 
 - plantio  
-- pulverização  
 - adubação  
+- pulverização  
 - colheita  
 
 ---
 
 ## 🔁 OPERAÇÕES COMPARTILHADAS
 
-Quando uma operação impacta múltiplos cultivos:
-
-- deve ser rateada  
+Devem ser rateadas entre cultivos.
 
 Estrutura:
 
@@ -182,18 +214,18 @@ Todo custo pertence ao cultivo.
 
 Tipos:
 
-- direto (100% do cultivo)  
+- direto  
 - indireto (rateado)  
 
 ---
 
-## 🔁 RATEIO DE CUSTOS
+## 🔁 RATEIO
 
-Critérios:
+Pode ser baseado em:
 
-- por área (padrão)  
-- manual  
-- por uso  
+- área  
+- percentual manual  
+- uso real  
 
 ---
 
@@ -201,68 +233,66 @@ Critérios:
 
 Sempre por cultivo.
 
-- produção separada por cultura  
-- unidade específica (saca, kg, litro, etc.)  
+Estrutura:
+
+- cultivo_id  
+- quantidade  
+- unidade  
+
+Produção nunca deve ser agregada por talhão.
 
 ---
 
 # 📦 COMMODITIES
 
-Representam o produto final disponível para comercialização.
+Produto final disponível para comercialização.
 
 Origem:
 
-- resultado da colheita  
+- colheita  
 
 Atributos:
 
-- tipo (grão, animal, leite, etc.)  
+- tipo  
 - unidade  
 - peso por unidade  
 - qualidade  
-- rastreabilidade  
 
 ---
 
 # 🐄 PECUÁRIA
 
-Estrutura baseada em:
+Baseada em:
 
-- Pastagem  
-- Piquete  
-- Lotes de animais  
+- pastagem  
+- piquete  
+- lote de animais  
 
 Produção:
 
-- peso (kg)  
-- volume (litros)  
+- peso  
+- volume  
 
 ---
 
 # 💰 APURAÇÃO DE RESULTADO
 
-Baseada no cultivo:
+Sempre no nível do cultivo:
 
 - custo total  
-- produção total  
+- produção  
 - receita  
 - lucro  
-
----
-
-# 📊 REGRA DE OURO DE CUSTO
-
-Custos são apurados por safra e por cultivo, nunca apenas por talhão.
 
 ---
 
 # 🔄 FLUXO OPERACIONAL
 
 1. Criar unidade produtiva  
-2. Criar estrutura (gleba, talhão, etc.)  
+2. Criar estrutura espacial  
 3. Criar safra  
 4. Criar cultivos  
-5. Associar área e período  
+5. Definir área e datas  
 6. Registrar operações  
 7. Registrar custos  
 8. Registrar colheita  
@@ -273,8 +303,8 @@ Custos são apurados por safra e por cultivo, nunca apenas por talhão.
 
 # 🧠 VALIDAÇÕES ESSENCIAIS
 
-- não permitir área excedente  
-- validar sobreposição de período  
+- impedir excesso de área  
+- validar sobreposição temporal  
 - permitir consórcio  
 - garantir rastreabilidade  
 
@@ -282,29 +312,30 @@ Custos são apurados por safra e por cultivo, nunca apenas por talhão.
 
 # 🚀 NÍVEL AVANÇADO
 
-## 🌍 SUBÁREA (CultivoArea)
+## Subárea (CultivoArea)
 
-Permite dividir talhão logicamente.
+Permite subdividir talhão.
 
-- cultivo_area_id  
-- geometria (opcional)  
+- cultivo_id  
+- area  
+- geometria  
 
 ---
 
-## 🗺️ GEOREFERENCIAMENTO
+## Georreferenciamento
 
 Permite:
 
 - mapas  
 - agricultura de precisão  
-- controle espacial real  
+- controle espacial  
 
 ---
 
-## 🔄 AUTOMAÇÃO
+## Automação
 
 - rateio automático  
-- sugestão de cultura  
+- recomendação de cultura  
 - análise de solo  
 - previsão de produtividade  
 
@@ -315,7 +346,7 @@ Permite:
 Evolução do sistema:
 
 - marketplace de insumos  
-- venda de produção  
+- comercialização de produção  
 - serviços agrícolas  
 - crédito rural  
 - profissionais e empregos  
@@ -337,4 +368,10 @@ Este modelo garante:
 - análise financeira real  
 - base para inteligência agrícola  
 
-Este é o fundamento para construção de um SaaS agro moderno, escalável e orientado a dados.
+---
+
+# 🧠 REGRA DE OURO
+
+Talhão = espaço  
+Safra = organização  
+Cultivo = realidade operacional

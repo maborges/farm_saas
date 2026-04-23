@@ -42,7 +42,9 @@ class ChecklistTemplateResponse(BaseModel):
 # --- Itens por safra ---
 
 class ChecklistItemConcluidoUpdate(BaseModel):
-    concluido: bool
+    concluido: Optional[bool] = None
+    cancelado: Optional[bool] = None
+    motivo_cancelamento: Optional[str] = None
 
 
 class ChecklistItemAdicionar(BaseModel):
@@ -64,6 +66,10 @@ class SafraChecklistItemResponse(BaseModel):
     concluido: bool
     usuario_id: UUID | None
     concluido_em: datetime | None
+    cancelado: bool
+    usuario_cancelamento_id: UUID | None
+    cancelado_em: datetime | None
+    motivo_cancelamento: str | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

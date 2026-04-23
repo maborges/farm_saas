@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from core.base_service import BaseService
 from core.exceptions import EntityNotFoundError, BusinessRuleError
-from .models import AreaRural, MatriculaImovel, RegistroAmbiental, ValorPatrimonial, Infraestrutura, ArquivoGeo, StatusProcessamentoGeo, FILHOS_PERMITIDOS, TIPOS_AREA_PRODUTIVA, TIPOS_AREA_AMBIENTAL, TIPOS_INFRAESTRUTURA
+from .models import AreaRural, MatriculaImovel, RegistroAmbiental, ValorPatrimonial, Infraestrutura, ArquivoGeo, StatusProcessamentoGeo, FILHOS_PERMITIDOS, TIPOS_AREA_PRODUTIVA, TIPOS_AREA_AMBIENTAL, TIPOS_INFRAESTRUTURA, TipoSolo, TipoIrrigacao
 
 
 class AreaRuralService(BaseService[AreaRural]):
@@ -21,7 +21,13 @@ class AreaRuralService(BaseService[AreaRural]):
         parent_id: uuid.UUID | None = None,
         apenas_ativos: bool = True,
     ) -> list[AreaRural]:
-        stmt = select(AreaRural).where(AreaRural.tenant_id == self.tenant_id)
+        stmt = (
+            select(AreaRural)
+            .outerjoin(TipoSolo, AreaRural.tipo_solo_id == TipoSolo.id)
+            .outerjoin(TipoIrrigacao, AreaRural.tipo_irrigacao_id == TipoIrrigacao.id)
+            .add_columns(TipoSolo.nome.label("tipo_solo_nome"), TipoIrrigacao.nome.label("tipo_irrigacao_nome"))
+            .where(AreaRural.tenant_id == self.tenant_id)
+        )
         if apenas_ativos:
             stmt = stmt.where(AreaRural.ativo == True)
         if unidade_produtiva_id:
@@ -30,19 +36,40 @@ class AreaRuralService(BaseService[AreaRural]):
             stmt = stmt.where(AreaRural.tipo == tipo)
         if parent_id is not None:
             stmt = stmt.where(AreaRural.parent_id == parent_id)
+        
         result = await self.session.execute(stmt)
-        return list(result.scalars().all())
+        rows = result.all()
+        
+        areas = []
+        for row in rows:
+            area = row.AreaRural
+            area.tipo_solo_nome = row.tipo_solo_nome
+            area.tipo_irrigacao_nome = row.tipo_irrigacao_nome
+            areas.append(area)
+        return areas
 
     async def listar_raizes(self, unidade_produtiva_id: uuid.UUID | None = None) -> list[AreaRural]:
         """Retorna apenas áreas sem parent (raízes da hierarquia)."""
         stmt = (
             select(AreaRural)
+            .outerjoin(TipoSolo, AreaRural.tipo_solo_id == TipoSolo.id)
+            .outerjoin(TipoIrrigacao, AreaRural.tipo_irrigacao_id == TipoIrrigacao.id)
+            .add_columns(TipoSolo.nome.label("tipo_solo_nome"), TipoIrrigacao.nome.label("tipo_irrigacao_nome"))
             .where(AreaRural.tenant_id == self.tenant_id, AreaRural.parent_id == None, AreaRural.ativo == True)
         )
         if unidade_produtiva_id:
             stmt = stmt.where(AreaRural.unidade_produtiva_id == unidade_produtiva_id)
+        
         result = await self.session.execute(stmt)
-        return list(result.scalars().all())
+        rows = result.all()
+        
+        areas = []
+        for row in rows:
+            area = row.AreaRural
+            area.tipo_solo_nome = row.tipo_solo_nome
+            area.tipo_irrigacao_nome = row.tipo_irrigacao_nome
+            areas.append(area)
+        return areas
 
     async def obter_com_filhos(self, area_id: uuid.UUID) -> AreaRural:
         """Carrega a área com todos os filhos diretos."""
@@ -152,6 +179,20 @@ class AreaRuralService(BaseService[AreaRural]):
             raise BusinessRuleError("Não é possível inativar uma área que possui subáreas ativas")
         obj.ativo = False
         await self.session.commit()
+
+    async def listar_tipos_solo(self, apenas_ativos: bool = True) -> list[TipoSolo]:
+        stmt = select(TipoSolo)
+        if apenas_ativos:
+            stmt = stmt.where(TipoSolo.ativo == True)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def listar_tipos_irrigacao(self, apenas_ativos: bool = True) -> list[TipoIrrigacao]:
+        stmt = select(TipoIrrigacao)
+        if apenas_ativos:
+            stmt = stmt.where(TipoIrrigacao.ativo == True)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
 
 class MatriculaService:

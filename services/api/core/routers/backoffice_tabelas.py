@@ -14,7 +14,14 @@ from pydantic import BaseModel
 
 from core.dependencies import get_session, get_current_admin
 from core.exceptions import EntityNotFoundError
-from core.cadastros.produtos.models import Marca, ModeloProduto, CategoriaProduto, ProdutoCultura
+from core.cadastros.produtos.models import Marca, ModeloProduto, CategoriaProduto, ProdutoCultura, SoloParametroCultura
+from core.cadastros.produtos.schemas import (
+    MarcaSistemaCreate, MarcaSistemaUpdate,
+    ModeloSistemaCreate, ModeloSistemaUpdate,
+    CategoriaSistemaCreate, CategoriaSistemaUpdate,
+    CulturaSistemaCreate, CulturaSistemaUpdate,
+    SoloParametroCulturaCreate, SoloParametroCulturaUpdate
+)
 from core.cadastros.commodities.models import Commodity
 from agricola.checklist.models import ChecklistTemplate
 from agricola.monitoramento.catalogo_model import MonitoramentoCatalogo
@@ -589,4 +596,64 @@ async def remover_monitoramento_catalogo_sistema(catalogo_id: uuid.UUID, session
     obj = (await session.execute(select(MonitoramentoCatalogo).where(MonitoramentoCatalogo.id == catalogo_id, MonitoramentoCatalogo.tenant_id.is_(None)))).scalar_one_or_none()
     if not obj:
         raise EntityNotFoundError("Entrada do catálogo não encontrada")
+    await session.delete(obj); await session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Parâmetros de Solo (Sistema)
+# ---------------------------------------------------------------------------
+
+@router.get("/culturas/{cultura_id}/parametros-solo")
+async def listar_solo_params_sistema(cultura_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    stmt = select(SoloParametroCultura).where(
+        SoloParametroCultura.cultura_id == cultura_id,
+        SoloParametroCultura.tenant_id.is_(None)
+    ).order_by(SoloParametroCultura.parametro, SoloParametroCultura.faixa_min)
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+@router.post("/culturas/{cultura_id}/parametros-solo", status_code=201)
+async def criar_solo_param_sistema(
+    cultura_id: uuid.UUID, data: SoloParametroCulturaCreate, session: AsyncSession = Depends(get_session)
+):
+    obj = SoloParametroCultura(cultura_id=cultura_id, tenant_id=None, **data.model_dump())
+    session.add(obj)
+    await session.commit()
+    await session.refresh(obj)
+    return obj
+
+
+@router.patch("/culturas/{cultura_id}/parametros-solo/{param_id}")
+async def atualizar_solo_param_sistema(
+    cultura_id: uuid.UUID, param_id: uuid.UUID, data: SoloParametroCulturaUpdate, session: AsyncSession = Depends(get_session)
+):
+    obj = (await session.execute(
+        select(SoloParametroCultura).where(
+            SoloParametroCultura.id == param_id, 
+            SoloParametroCultura.cultura_id == cultura_id,
+            SoloParametroCultura.tenant_id.is_(None)
+        )
+    )).scalar_one_or_none()
+    if not obj:
+        raise EntityNotFoundError("Parâmetro não encontrado")
+    for k, v in data.model_dump(exclude_none=True).items():
+        setattr(obj, k, v)
+    await session.commit(); await session.refresh(obj)
+    return obj
+
+
+@router.delete("/culturas/{cultura_id}/parametros-solo/{param_id}", status_code=204)
+async def remover_solo_param_sistema(
+    cultura_id: uuid.UUID, param_id: uuid.UUID, session: AsyncSession = Depends(get_session)
+):
+    obj = (await session.execute(
+        select(SoloParametroCultura).where(
+            SoloParametroCultura.id == param_id, 
+            SoloParametroCultura.cultura_id == cultura_id,
+            SoloParametroCultura.tenant_id.is_(None)
+        )
+    )).scalar_one_or_none()
+    if not obj:
+        raise EntityNotFoundError("Parâmetro não encontrado")
     await session.delete(obj); await session.commit()

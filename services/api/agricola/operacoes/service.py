@@ -238,6 +238,15 @@ class OperacaoService(BaseService[OperacaoAgricola]):
                     entrada_id=str(entrada.id),
                 )
 
+            # 7. Conclui a tarefa vinculada automaticamente
+            if dados.tarefa_id:
+                from agricola.tarefas.models import SafraTarefa
+                tarefa = await self.session.get(SafraTarefa, dados.tarefa_id)
+                if tarefa and tarefa.tenant_id == self.tenant_id:
+                    tarefa.status = "CONCLUIDA"
+                    tarefa.operacao_id = operacao.id
+                    tarefa.concluida_em = datetime.now(timezone.utc)
+
             await self.session.commit()
 
         except BusinessRuleError as e:

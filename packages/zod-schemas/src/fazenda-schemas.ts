@@ -6,8 +6,9 @@ import { z } from "zod";
 export const createUnidadeProdutivaSchema = z.object({
     nome: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(150, "Nome muito longo"),
     tipo_propriedade: z.enum(["fazenda", "sitio", "chacara", "arrendamento", "parceria"]).default("fazenda"),
-    cpf_cnpj: z.string().max(20, "CPF/CNPJ inválido").optional().or(z.literal("")),
-    inscricao_estadual: z.string().max(50, "Inscrição estadual muito longa").optional().or(z.literal("")),
+    cpf_cnpj: z.string().max(18, "CPF/CNPJ inválido").optional().or(z.literal("")),
+    inscricao_estadual: z.string().max(50).optional().or(z.literal("")),
+    grupo_id: z.string().uuid("Grupo inválido").optional().nullable().or(z.literal("")),
     // Áreas
     area_total_ha: z.coerce.number().gt(0, "Área deve ser maior que zero").optional().or(z.literal(0)),
     area_app_ha: z.coerce.number().gte(0).optional().or(z.literal(0)),
@@ -20,7 +21,7 @@ export const createUnidadeProdutivaSchema = z.object({
     logradouro: z.string().max(255).optional().or(z.literal("")),
     bairro: z.string().max(100).optional().or(z.literal("")),
     municipio: z.string().max(100).optional().or(z.literal("")),
-    uf: z.string().length(2).optional().or(z.literal("")),
+    uf: z.string().max(2).optional().or(z.literal("")),
     ibge_municipio_codigo: z.string().max(7).optional().or(z.literal("")),
     // Regulatório
     codigo_car: z.string().max(80).optional().or(z.literal("")),

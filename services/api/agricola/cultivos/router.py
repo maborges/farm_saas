@@ -10,6 +10,9 @@ from agricola.cultivos.schemas import (
     CultivoUpdate,
     CultivoResponse,
     CultivoAreaCreate,
+    CultivoAreaAnalisePatch,
+    CultivoAreaResponse,
+    TarefaSoloGerada,
 )
 
 router = APIRouter(prefix="/safras", tags=["Cultivos"])
@@ -46,12 +49,19 @@ async def get_cultivo(
     tenant_id: UUID = Depends(get_tenant_id),
     session: AsyncSession = Depends(get_session),
 ):
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    from agricola.cultivos.models import Cultivo
     service = CultivoService(session, tenant_id)
-    try:
-        cultivo = await service.get_or_fail(cultivo_id)
-        return CultivoResponse.model_validate(cultivo)
-    except EntityNotFoundError:
+    stmt = (
+        select(Cultivo)
+        .where(Cultivo.id == cultivo_id, Cultivo.tenant_id == tenant_id)
+        .options(selectinload(Cultivo.areas))
+    )
+    cultivo = (await session.execute(stmt)).scalars().first()
+    if not cultivo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cultivo não encontrado.")
+    return CultivoResponse.model_validate(cultivo)
 
 
 @router.patch("/{safra_id}/cultivos/{cultivo_id}", response_model=CultivoResponse)
@@ -63,10 +73,20 @@ async def atualizar_cultivo(
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_tenant_permission("agricola:cultivo:editar")),
 ):
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    from agricola.cultivos.models import Cultivo
     service = CultivoService(session, tenant_id)
     try:
         updates = cultivo_in.model_dump(exclude_unset=True)
-        cultivo = await service.update(cultivo_id, updates)
+        await service.update(cultivo_id, updates)
+        await session.commit()
+        stmt = (
+            select(Cultivo)
+            .where(Cultivo.id == cultivo_id, Cultivo.tenant_id == tenant_id)
+            .options(selectinload(Cultivo.areas))
+        )
+        cultivo = (await session.execute(stmt)).scalars().first()
         return CultivoResponse.model_validate(cultivo)
     except EntityNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cultivo não encontrado.")
@@ -83,8 +103,56 @@ async def deletar_cultivo(
     service = CultivoService(session, tenant_id)
     try:
         await service.hard_delete(cultivo_id)
+        await session.commit()
     except EntityNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cultivo não encontrado.")
+
+
+@router.patch(
+    "/{safra_id}/cultivos/{cultivo_id}/areas/{area_id}/analise",
+    response_model=CultivoAreaResponse,
+    tags=["Análise Solo"],
+)
+async def vincular_analise_area(
+    safra_id: UUID,
+    cultivo_id: UUID,
+    area_id: UUID,
+    dados: CultivoAreaAnalisePatch,
+    tenant_id: UUID = Depends(get_tenant_id),
+    session: AsyncSession = Depends(get_session),
+):
+    """Vincula ou rejeita uma análise de solo para este talhão/cultivo."""
+    service = CultivoService(session, tenant_id)
+    try:
+        area = await service.vincular_analise(area_id, dados)
+        return CultivoAreaResponse.model_validate(area)
+    except EntityNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CultivoArea não encontrado.")
+
+
+@router.get(
+    "/{safra_id}/cultivos/{cultivo_id}/areas/{area_id}/tarefas-solo",
+    response_model=list[TarefaSoloGerada],
+    tags=["Análise Solo"],
+)
+async def preview_tarefas_solo(
+    safra_id: UUID,
+    cultivo_id: UUID,
+    area_id: UUID,
+    analise_id: UUID | None = None,
+    regiao: str | None = None,
+    tenant_id: UUID = Depends(get_tenant_id),
+    session: AsyncSession = Depends(get_session),
+):
+    """Retorna preview das tarefas. analise_id e regiao sobrepõem o vínculo salvo no banco."""
+    from core.exceptions import BusinessRuleError
+    service = CultivoService(session, tenant_id)
+    try:
+        return await service.gerar_tarefas_solo(area_id, analise_id=analise_id, regiao=regiao)
+    except EntityNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CultivoArea não encontrado.")
+    except BusinessRuleError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
 
 @router.put("/{safra_id}/cultivos/{cultivo_id}/areas")

@@ -135,7 +135,7 @@ async def obter_pii(
     current_user=Depends(get_current_user),
 ):
     pii = await _svc(session, tenant_id).obter_pii(
-        pessoa_id, current_user.get("sub"), motivo
+        pessoa_id, current_user.id, motivo
     )
     if not pii:
         raise HTTPException(status_code=404, detail="PII não encontrada")

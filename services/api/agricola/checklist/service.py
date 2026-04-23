@@ -89,7 +89,8 @@ class SafraChecklistService(BaseService[SafraChecklistItem]):
         itens = await self.listar_por_fase(safra_id, fase)
         total = len(itens)
         concluidos = sum(1 for i in itens if i.concluido)
-        obrigatorios_pendentes = sum(1 for i in itens if i.obrigatorio and not i.concluido)
+        # Itens cancelados não são considerados pendentes (unblock phase)
+        obrigatorios_pendentes = sum(1 for i in itens if i.obrigatorio and not i.concluido and not i.cancelado)
         return ChecklistFaseStatus(
             fase=fase,
             total=total,
@@ -99,11 +100,24 @@ class SafraChecklistService(BaseService[SafraChecklistItem]):
             itens=itens,
         )
 
-    async def marcar_item(self, item_id: UUID, concluido: bool, usuario_id: UUID | None) -> SafraChecklistItem:
+    async def marcar_item(self, item_id: UUID, concluido: bool | None, cancelado: bool | None, motivo: str | None, usuario_id: UUID | None) -> SafraChecklistItem:
         item = await self.get_or_fail(item_id)
-        item.concluido = concluido
-        item.usuario_id = usuario_id if concluido else None
-        item.concluido_em = datetime.utcnow() if concluido else None
+        
+        if concluido is not None:
+            item.concluido = concluido
+            item.usuario_id = usuario_id if concluido else None
+            item.concluido_em = datetime.utcnow() if concluido else None
+            if concluido:
+                item.cancelado = False # Não pode ser ambos
+        
+        if cancelado is not None:
+            item.cancelado = cancelado
+            item.usuario_cancelamento_id = usuario_id if cancelado else None
+            item.cancelado_em = datetime.utcnow() if cancelado else None
+            item.motivo_cancelamento = motivo if cancelado else None
+            if cancelado:
+                item.concluido = False # Não pode ser ambos
+
         await self.session.flush()
         return item
 

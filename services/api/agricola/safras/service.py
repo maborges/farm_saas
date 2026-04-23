@@ -3,7 +3,8 @@ from datetime import date, datetime
 from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import update, func
+from sqlalchemy import update, func, and_
+from sqlalchemy.orm import selectinload
 from core.exceptions import BusinessRuleError
 from core.base_service import BaseService
 
@@ -37,14 +38,19 @@ class SafraService(BaseService[Safra]):
         if not talhao_principal_id:
             raise BusinessRuleError("Informe pelo menos um talhão (via cultivos ou talhao_ids)")
 
-        # Valida duplicatas: safra com mesmo ano para este talhão
-        stmt = select(Safra).filter_by(
-            tenant_id=self.tenant_id,
-            talhao_id=talhao_principal_id,
-            ano_safra=dados.ano_safra,
-        ).where(Safra.status != 'CANCELADA')
-        result = await self.session.execute(stmt)
-        if result.scalars().first():
+        # Valida duplicatas via CultivoArea (fonte de verdade)
+        dup_stmt = (
+            select(func.count(Safra.id))
+            .join(Cultivo, Cultivo.safra_id == Safra.id)
+            .join(CultivoArea, CultivoArea.cultivo_id == Cultivo.id)
+            .where(
+                Safra.tenant_id == self.tenant_id,
+                Safra.ano_safra == dados.ano_safra,
+                Safra.status != 'CANCELADA',
+                CultivoArea.area_id == talhao_principal_id,
+            )
+        )
+        if (await self.session.execute(dup_stmt)).scalar() or 0 > 0:
             raise BusinessRuleError(f"Já existe safra ativa para {dados.ano_safra} neste talhão.")
 
         # Cultura principal (legado): pega do primeiro cultivo ou do campo raiz
@@ -57,7 +63,6 @@ class SafraService(BaseService[Safra]):
         # Cria a Safra
         safra = Safra(
             tenant_id=self.tenant_id,
-            talhao_id=talhao_principal_id,
             ano_safra=dados.ano_safra,
             cultura=cultura_principal,
             status='PLANEJADA',
@@ -80,8 +85,11 @@ class SafraService(BaseService[Safra]):
                     populacao_prevista=cult_data.populacao_prevista,
                     espacamento_cm=cult_data.espacamento_cm,
                     data_plantio_prevista=cult_data.data_plantio_prevista,
+                    data_inicio=cult_data.data_inicio,
+                    data_fim=cult_data.data_fim,
                     produtividade_meta_sc_ha=cult_data.produtividade_meta_sc_ha,
                     preco_venda_previsto=cult_data.preco_venda_previsto,
+                    consorciado=cult_data.consorciado,
                     observacoes=cult_data.observacoes,
                 )
                 self.session.add(cultivo)
@@ -121,24 +129,49 @@ class SafraService(BaseService[Safra]):
                     populacao_prevista=dados.populacao_prevista,
                     espacamento_cm=dados.espacamento_cm,
                     data_plantio_prevista=dados.data_plantio_prevista,
+                    data_inicio=getattr(dados, "data_inicio", None),
+                    data_fim=getattr(dados, "data_fim", None),
                     produtividade_meta_sc_ha=dados.produtividade_meta_sc_ha,
                     preco_venda_previsto=dados.preco_venda_previsto,
                 )
                 self.session.add(cultivo)
                 await self.session.flush()
-                # Cria CultivoAreas para cada talhão
-                for talhao_id in dados.talhao_ids:
-                    area = CultivoArea(
-                        tenant_id=self.tenant_id,
-                        cultivo_id=cultivo.id,
-                        area_id=talhao_id,
-                        area_ha=dados.area_plantada_ha or 0.0,
-                    )
-                    self.session.add(area)
+                # Cria CultivoAreas para cada talhão (fluxo legado)
+                if dados.talhao_ids:
+                    for talhao_id in dados.talhao_ids:
+                        area = CultivoArea(
+                            tenant_id=self.tenant_id,
+                            cultivo_id=cultivo.id,
+                            area_id=talhao_id,
+                            area_ha=0.0,  # Área é definida no fluxo novo via cultivos
+                        )
+                        self.session.add(area)
 
         await self.session.commit()
         await self.session.refresh(safra, ["cultivos"])
         return safra
+
+    async def list_with_cultivos(self, **filters) -> list[Safra]:
+        """Lista safras com cultivos eager-loaded."""
+        stmt = select(Safra).options(
+            selectinload(Safra.cultivos)
+        ).where(Safra.tenant_id == self.tenant_id)
+
+        # Aplicar filtros
+        if "talhao_id" in filters:
+            stmt = stmt.join(SafraTalhao, SafraTalhao.safra_id == Safra.id).where(
+                SafraTalhao.area_id == filters["talhao_id"],
+                SafraTalhao.tenant_id == self.tenant_id,
+            )
+        if "ano_safra" in filters:
+            stmt = stmt.where(Safra.ano_safra == filters["ano_safra"])
+        if "cultura" in filters:
+            stmt = stmt.where(Safra.cultura == filters["cultura"])
+        if "status" in filters:
+            stmt = stmt.where(Safra.status == filters["status"])
+
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def avancar_fase(
         self,
@@ -147,6 +180,8 @@ class SafraService(BaseService[Safra]):
         usuario_id: UUID | None = None,
         observacao: str | None = None,
         dados_fase: dict | None = None,
+        forcar_avanco: bool = False,
+        justificativa_forcar_avanco: str | None = None,
     ) -> Safra:
         safra = await self.get_or_fail(safra_id)
         permitidas = SAFRA_TRANSICOES.get(safra.status, [])
@@ -155,6 +190,37 @@ class SafraService(BaseService[Safra]):
                 f"Transição inválida: {safra.status} → {novo_status}. "
                 f"Permitidas: {permitidas or 'nenhuma'}"
             )
+
+        # Validação de checklist obrigatório da fase ATUAL antes de avançar
+        from agricola.checklist.service import SafraChecklistService
+        from agricola.tarefas.models import SafraTarefa
+        
+        checklist_svc = SafraChecklistService(self.session, self.tenant_id)
+        status_checklist = await checklist_svc.status_fase(safra_id, safra.status)
+        
+        # Validação de tarefas críticas pendentes na fase atual
+        stmt_tarefas = select(func.count(SafraTarefa.id)).where(
+            SafraTarefa.safra_id == safra_id,
+            SafraTarefa.tenant_id == self.tenant_id,
+            SafraTarefa.fase == safra.status,
+            SafraTarefa.criticidade == "CRITICA",
+            SafraTarefa.status.notin_(["CONCLUIDA", "CANCELADA"])
+        )
+        tarefas_criticas_pendentes = (await self.session.execute(stmt_tarefas)).scalar() or 0
+        
+        if not forcar_avanco:
+            if not status_checklist.pode_avancar:
+                raise BusinessRuleError(
+                    f"Bloqueio de fase: Existem {status_checklist.obrigatorios_pendentes} "
+                    "atividades obrigatórias pendentes no checklist desta fase."
+                )
+            if tarefas_criticas_pendentes > 0:
+                raise BusinessRuleError(
+                    f"Bloqueio de fase: Existem {tarefas_criticas_pendentes} tarefas críticas pendentes nesta fase."
+                )
+        else:
+            if not justificativa_forcar_avanco:
+                raise BusinessRuleError("Para forçar o avanço de fase (bypass), é obrigatório informar uma justificativa.")
 
         fase_anterior = safra.status
         upd: dict = {"status": novo_status}
@@ -176,6 +242,8 @@ class SafraService(BaseService[Safra]):
             usuario_id=usuario_id,
             observacao=observacao,
             dados_fase=dados_fase,
+            forcou_avanco=forcar_avanco,
+            justificativa_avanco=justificativa_forcar_avanco if forcar_avanco else None,
         )
         self.session.add(historico)
         await self.session.flush()
@@ -225,7 +293,18 @@ class SafraService(BaseService[Safra]):
         )
         custo_realizado_total = (await self.session.execute(stmt_custo)).scalar() or 0.0
 
-        area = float(safra.area_plantada_ha or 0)
+        # Calcula área total da safra (soma das áreas dos cultivos)
+        from sqlalchemy import and_
+        stmt_area = select(func.sum(CultivoArea.area_ha)).join(
+            Cultivo, CultivoArea.cultivo_id == Cultivo.id
+        ).where(
+            and_(
+                Cultivo.safra_id == safra_id,
+                Cultivo.tenant_id == self.tenant_id,
+                CultivoArea.tenant_id == self.tenant_id,
+            )
+        )
+        area = float((await self.session.execute(stmt_area)).scalar() or 0)
         custo_realizado_ha = (custo_realizado_total / area) if area > 0 else 0.0
 
         # Produtividade e receita realizadas via romaneios
@@ -353,11 +432,6 @@ class SafraService(BaseService[Safra]):
             novos.append(st)
 
         await self.session.flush()
-
-        # Atualiza talhao_id principal na safra para manter compat. legado
-        if talhao_ids:
-            safra = await self.get_or_fail(safra_id)
-            safra.talhao_id = talhao_ids[0]
 
         return novos
 

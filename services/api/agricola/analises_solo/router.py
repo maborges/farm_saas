@@ -10,6 +10,28 @@ from agricola.analises_solo.service import AnaliseSoloService
 
 router = APIRouter(prefix="/analises-solo", tags=["Análises de Solo"])
 
+
+@router.get("/culturas-disponiveis")
+async def listar_culturas_disponiveis(
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
+):
+    """Lista culturas do sistema + do tenant para uso no seletor do laudo."""
+    svc = AnaliseSoloService(session, tenant_id)
+    culturas = await svc.listar_culturas_disponiveis()
+    return [
+        {
+            "id": str(c.id),
+            "nome": c.nome,
+            "grupo": c.grupo,
+            "sistema": c.sistema,
+            "v_meta_pct_padrao": float(c.v_meta_pct_padrao) if c.v_meta_pct_padrao else None,
+        }
+        for c in culturas
+    ]
+
+
 @router.post("/", response_model=AnaliseSoloResponse, status_code=status.HTTP_201_CREATED)
 async def registrar_analise(
     dados: AnaliseSoloCreate,
@@ -24,19 +46,22 @@ async def registrar_analise(
     await session.refresh(analise)
     return AnaliseSoloResponse.model_validate(analise)
 
+
 @router.get("/", response_model=List[AnaliseSoloResponse])
 async def listar_analises(
     talhao_id: UUID | None = None,
+    limit: int = Query(100, ge=1, le=100, description="Máximo de registros retornados"),
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
     svc = AnaliseSoloService(session, tenant_id)
     filters = {}
-    if talhao_id: filters["talhao_id"] = talhao_id
-    
-    analises = await svc.list_all(**filters)
+    if talhao_id:
+        filters["talhao_id"] = talhao_id
+    analises = await svc.list_all(limit=limit, **filters)
     return [AnaliseSoloResponse.model_validate(a) for a in analises]
+
 
 @router.get("/{id}", response_model=AnaliseSoloResponse)
 async def detalhar_analise(
@@ -82,13 +107,47 @@ async def deletar_analise(
 @router.get("/{id}/recomendacoes")
 async def recomendacoes_analise(
     id: UUID,
-    cultura: Optional[str] = Query("SOJA", description="SOJA | MILHO | TRIGO | ALGODAO"),
-    v_meta: Optional[float] = Query(60.0, description="Saturação por bases alvo (%)"),
+    cultura_id: Optional[UUID] = Query(None, description="UUID da cultura (preferencial)"),
+    cultura: Optional[str] = Query("SOJA", description="Nome da cultura (fallback se cultura_id não informado)"),
+    regiao: Optional[str] = Query(None, description="CERRADO | SUL | NORDESTE | SUDESTE | NORTE"),
+    v_meta: Optional[float] = Query(None, description="Saturação por bases alvo (%) — usa padrão da cultura se omitido"),
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A1_PLANEJAMENTO")),
 ):
-    """Gera recomendações de calagem (método V% Embrapa) e adubação NPK para a análise."""
+    """Gera recomendações usando parâmetros cadastrados (com fallback Embrapa)."""
     svc = AnaliseSoloService(session, tenant_id)
     analise = await svc.get_or_fail(id)
-    return svc.gerar_recomendacoes(analise, cultura=cultura or "SOJA", v_meta=v_meta or 60.0)
+    return await svc.gerar_recomendacoes(
+        analise,
+        cultura_id=cultura_id,
+        cultura_nome=cultura or "SOJA",
+        regiao=regiao,
+        v_meta=v_meta,
+    )
+
+@router.get("/{id}/inteligencia")
+async def analise_inteligente(
+    id: UUID,
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
+):
+    """Gera recomendações usando o motor de regras agronômicas (RegraAgronomica)."""
+    svc = AnaliseSoloService(session, tenant_id)
+    return await svc.aplicar_regras(id)
+
+@router.post("/{id}/gerar-tarefas", status_code=status.HTTP_201_CREATED)
+async def gerar_tarefas_analise(
+    id: UUID,
+    safra_id: UUID = Query(..., description="ID da safra para vincular as tarefas"),
+    session: AsyncSession = Depends(get_session_with_tenant),
+    tenant_id: UUID = Depends(get_tenant_id),
+    user: dict = Depends(require_role(["agronomo", "admin"])),
+    _: None = Depends(require_module("A1_PLANEJAMENTO")),
+):
+    """Transforma as recomendações da análise em tarefas reais na safra."""
+    svc = AnaliseSoloService(session, tenant_id)
+    tarefas_ids = await svc.vincular_e_gerar_tarefas(id, safra_id, user_id=UUID(user["id"]) if "id" in user else None)
+    await session.commit()
+    return {"tarefas_geradas": [str(tid) for tid in tarefas_ids]}

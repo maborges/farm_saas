@@ -8,13 +8,14 @@ from sqlalchemy.exc import IntegrityError
 
 from core.dependencies import get_session, get_tenant_id
 from core.exceptions import EntityNotFoundError
-from .models import Marca, ModeloProduto, CategoriaProduto, Produto, ProdutoAgricola, ProdutoEstoque, ProdutoEPI, ProdutoCultura
+from .models import Marca, ModeloProduto, CategoriaProduto, Produto, ProdutoAgricola, ProdutoEstoque, ProdutoEPI, ProdutoCultura, SoloParametroCultura
 from .schemas import (
     MarcaCreate, MarcaUpdate, MarcaResponse,
     ModeloProdutoCreate, ModeloProdutoUpdate, ModeloProdutoResponse, ModeloProdutoComMarcaResponse,
     CategoriaProdutoCreate, CategoriaProdutoUpdate, CategoriaProdutoResponse,
     ProdutoCreate, ProdutoUpdate, ProdutoResponse,
     ProdutoCulturaCreate, ProdutoCulturaUpdate, ProdutoCulturaResponse,
+    SoloParametroCulturaCreate, SoloParametroCulturaUpdate, SoloParametroCulturaResponse,
 )
 
 router = APIRouter(tags=["Cadastros — Produtos"])
@@ -603,4 +604,100 @@ async def remover_cultura(
     if not obj:
         raise EntityNotFoundError("Cultura não encontrada ou não editável")
     obj.ativa = False
+    await session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Solo — Parâmetros de interpretação por cultura
+# ---------------------------------------------------------------------------
+
+@router.get("/cadastros/culturas/{cultura_id}/parametros-solo", response_model=list[SoloParametroCulturaResponse])
+async def listar_parametros_solo(
+    cultura_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    """Lista parâmetros do sistema (tenant_id NULL) + parâmetros do tenant para esta cultura."""
+    result = await session.execute(
+        select(SoloParametroCultura)
+        .where(
+            SoloParametroCultura.cultura_id == cultura_id,
+            or_(
+                SoloParametroCultura.tenant_id.is_(None),
+                SoloParametroCultura.tenant_id == tenant_id,
+            ),
+        )
+        .order_by(SoloParametroCultura.parametro, SoloParametroCultura.faixa_min)
+    )
+    return result.scalars().all()
+
+
+@router.post("/cadastros/culturas/{cultura_id}/parametros-solo", response_model=SoloParametroCulturaResponse, status_code=201)
+async def criar_parametro_solo(
+    cultura_id: uuid.UUID,
+    data: SoloParametroCulturaCreate,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    """Cria parâmetro de solo do tenant para esta cultura."""
+    cultura = await session.get(ProdutoCultura, cultura_id)
+    if not cultura:
+        raise EntityNotFoundError("Cultura não encontrada")
+
+    obj = SoloParametroCultura(
+        cultura_id=cultura_id,
+        tenant_id=tenant_id,
+        **data.model_dump(),
+    )
+    session.add(obj)
+    await session.commit()
+    await session.refresh(obj)
+    return obj
+
+
+@router.patch("/cadastros/culturas/{cultura_id}/parametros-solo/{param_id}", response_model=SoloParametroCulturaResponse)
+async def atualizar_parametro_solo(
+    cultura_id: uuid.UUID,
+    param_id: uuid.UUID,
+    data: SoloParametroCulturaUpdate,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    """Atualiza parâmetro de solo — apenas do tenant."""
+    result = await session.execute(
+        select(SoloParametroCultura).where(
+            SoloParametroCultura.id == param_id,
+            SoloParametroCultura.cultura_id == cultura_id,
+            SoloParametroCultura.tenant_id == tenant_id,
+        )
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise EntityNotFoundError("Parâmetro não encontrado ou não editável")
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(obj, field, value)
+    await session.commit()
+    await session.refresh(obj)
+    return obj
+
+
+@router.delete("/cadastros/culturas/{cultura_id}/parametros-solo/{param_id}", status_code=204)
+async def deletar_parametro_solo(
+    cultura_id: uuid.UUID,
+    param_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+    tenant_id: uuid.UUID = Depends(get_tenant_id),
+):
+    """Remove parâmetro de solo — apenas do tenant."""
+    result = await session.execute(
+        select(SoloParametroCultura).where(
+            SoloParametroCultura.id == param_id,
+            SoloParametroCultura.cultura_id == cultura_id,
+            SoloParametroCultura.tenant_id == tenant_id,
+        )
+    )
+    obj = result.scalar_one_or_none()
+    if not obj:
+        raise EntityNotFoundError("Parâmetro não encontrado ou não editável")
+    await session.delete(obj)
     await session.commit()

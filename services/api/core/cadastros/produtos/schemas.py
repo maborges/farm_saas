@@ -43,6 +43,14 @@ class MarcaResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class MarcaSistemaCreate(MarcaCreate):
+    pass
+
+
+class MarcaSistemaUpdate(MarcaUpdate):
+    pass
+
+
 # ---------------------------------------------------------------------------
 # ModeloProduto
 # ---------------------------------------------------------------------------
@@ -76,6 +84,14 @@ class ModeloProdutoResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ModeloSistemaCreate(ModeloProdutoCreate):
+    pass
+
+
+class ModeloSistemaUpdate(ModeloProdutoUpdate):
+    pass
 
 
 class ModeloProdutoComMarcaResponse(ModeloProdutoResponse):
@@ -126,6 +142,14 @@ class CategoriaProdutoResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class CategoriaSistemaCreate(CategoriaProdutoCreate):
+    pass
+
+
+class CategoriaSistemaUpdate(CategoriaProdutoUpdate):
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -316,8 +340,53 @@ class ProdutoCulturaResponse(BaseModel):
     espacamento_cm: Optional[float]
     populacao_plantas_ha: Optional[int]
     produtividade_media_sc_ha: Optional[float]
+    v_meta_pct_padrao: Optional[float]
     dados_extras: Optional[dict]
     ativa: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CulturaSistemaCreate(ProdutoCulturaCreate):
+    pass
+
+
+class CulturaSistemaUpdate(ProdutoCulturaUpdate):
+    pass
+
+
+class SoloParametroCulturaCreate(BaseModel):
+    regiao: Optional[str] = None
+    parametro: str  # FOSFORO | POTASSIO | PH | NITROGENIO | CALCARIO
+    faixa_min: float
+    faixa_max: Optional[float] = None
+    classificacao: str  # MUITO_BAIXO | BAIXO | MEDIO | ALTO | MUITO_ALTO | PADRAO
+    rec_dose_kg_ha: Optional[float] = None
+    obs: Optional[str] = None
+
+
+class SoloParametroCulturaUpdate(BaseModel):
+    regiao: Optional[str] = None
+    faixa_min: Optional[float] = None
+    faixa_max: Optional[float] = None
+    classificacao: Optional[str] = None
+    rec_dose_kg_ha: Optional[float] = None
+    obs: Optional[str] = None
+
+
+class SoloParametroCulturaResponse(BaseModel):
+    id: uuid.UUID
+    cultura_id: uuid.UUID
+    tenant_id: Optional[uuid.UUID]
+    regiao: Optional[str]
+    parametro: str
+    faixa_min: float
+    faixa_max: Optional[float]
+    classificacao: str
+    rec_dose_kg_ha: Optional[float]
+    obs: Optional[str]
     created_at: datetime
     updated_at: datetime
 

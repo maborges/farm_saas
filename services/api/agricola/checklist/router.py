@@ -153,7 +153,15 @@ async def marcar_item_checklist(
 ):
     svc = SafraChecklistService(session, tenant_id)
     usuario_id = UUID(user["sub"]) if user.get("sub") else None
-    return await svc.marcar_item(item_id, dados.concluido, usuario_id)
+    item = await svc.marcar_item(
+        item_id, 
+        concluido=dados.concluido, 
+        cancelado=dados.cancelado, 
+        motivo=dados.motivo_cancelamento,
+        usuario_id=usuario_id
+    )
+    await session.commit()
+    return item
 
 
 @router.post(
@@ -172,4 +180,6 @@ async def adicionar_item_checklist(
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = SafraChecklistService(session, tenant_id)
-    return await svc.adicionar_item(safra_id, fase.upper(), dados)
+    item = await svc.adicionar_item(safra_id, fase.upper(), dados)
+    await session.commit()
+    return item
