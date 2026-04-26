@@ -13,6 +13,9 @@ from sqlalchemy import text
 from core.database import Base
 from core.models import Tenant
 from core.models.billing import AssinaturaTenant, PlanoAssinatura
+# Garante que Cultivo é importado antes do mapper Safra ser inicializado,
+# evitando InvalidRequestError: 'Cultivo' failed to locate a name.
+import agricola.cultivos.models  # noqa: F401
 from core.config import settings
 
 # UUIDs fixos para garantir consistência entre importações do módulo

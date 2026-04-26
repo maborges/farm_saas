@@ -82,75 +82,98 @@ class TestCTCAutoCalculo:
 
 
 class TestClassificacaoPH:
-    """Testes síncronos — sem asyncio."""
+    """Testes síncronos do helper _fallback_nivel_ph."""
     def test_muito_acido(self):
         svc = make_service()
-        r = svc._nivel_ph(4.0)
+        r = svc._fallback_nivel_ph(4.0)
         assert r["nivel"] == "MUITO_BAIXO"
 
     def test_acido(self):
         svc = make_service()
-        r = svc._nivel_ph(5.0)
+        r = svc._fallback_nivel_ph(5.0)
         assert r["nivel"] == "BAIXO"
 
     def test_ideal(self):
         svc = make_service()
-        r = svc._nivel_ph(6.0)
+        r = svc._fallback_nivel_ph(6.0)
         assert r["nivel"] == "IDEAL"
 
     def test_alcalino(self):
         svc = make_service()
-        r = svc._nivel_ph(7.0)
+        r = svc._fallback_nivel_ph(7.0)
         assert r["nivel"] == "ALTO"
 
     def test_muito_alcalino(self):
         svc = make_service()
-        r = svc._nivel_ph(8.0)
+        r = svc._fallback_nivel_ph(8.0)
         assert r["nivel"] == "MUITO_ALTO"
 
 
-class TestRecomendacoes:
-    def _analise_completa(self, v_pct=45.0, ctc=8.5, p=8.0, k=120.0, ph=5.0) -> AnaliseSolo:
-        a = AnaliseSolo()
-        a.v_pct = Decimal(str(v_pct))
-        a.ctc = Decimal(str(ctc))
-        a.fosforo_p = Decimal(str(p))
-        a.potassio_k = Decimal(str(k))
-        a.ph_agua = Decimal(str(ph))
-        a.materia_organica_pct = Decimal("2.5")
-        return a
+def _make_service_sem_db() -> AnaliseSoloService:
+    """Service com sessão e helpers mockados (sem banco)."""
+    session = AsyncMock()
+    # scalar_one_or_none() retorna None (sem talhão) — síncrono
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+    session.execute.return_value = mock_result
 
-    def test_calagem_necessaria_quando_v_atual_menor_que_meta(self):
-        svc = make_service()
-        analise = self._analise_completa(v_pct=45.0, ctc=8.5)
-        rec = svc.gerar_recomendacoes(analise, cultura="SOJA", v_meta=60.0)
+    svc = AnaliseSoloService(session=session, tenant_id=TENANT_ID)
+    svc._get_cultura = AsyncMock(return_value=None)
+    svc._get_parametros = AsyncMock(return_value=[])
+    return svc
+
+
+def _analise_completa(v_pct=45.0, ctc=8.5, p=8.0, k=120.0, ph=5.0) -> AnaliseSolo:
+    from datetime import date
+    a = AnaliseSolo()
+    a.talhao_id = uuid.uuid4()
+    a.v_pct = Decimal(str(v_pct))
+    a.ctc = Decimal(str(ctc))
+    a.fosforo_p = Decimal(str(p))
+    a.potassio_k = Decimal(str(k))
+    a.ph_agua = Decimal(str(ph))
+    a.materia_organica_pct = Decimal("2.5")
+    a.cultura_nome = None
+    a.tipo_irrigacao = None
+    a.cultura_anterior = None
+    a.sistema_manejo = None
+    a.data_coleta = date.today()
+    a.validade_meses = 12
+    return a
+
+
+class TestRecomendacoes:
+    async def test_calagem_necessaria_quando_v_atual_menor_que_meta(self):
+        svc = _make_service_sem_db()
+        analise = _analise_completa(v_pct=45.0, ctc=8.5)
+        rec = await svc.gerar_recomendacoes(analise, cultura_nome="SOJA", v_meta=60.0)
         assert rec["calagem"]["necessaria"] is True
         assert rec["calagem"]["dose_t_ha"] > 0
 
-    def test_calagem_desnecessaria_quando_v_atual_maior_que_meta(self):
-        svc = make_service()
-        analise = self._analise_completa(v_pct=70.0, ctc=8.5)
-        rec = svc.gerar_recomendacoes(analise, cultura="SOJA", v_meta=60.0)
+    async def test_calagem_desnecessaria_quando_v_atual_maior_que_meta(self):
+        svc = _make_service_sem_db()
+        analise = _analise_completa(v_pct=70.0, ctc=8.5)
+        rec = await svc.gerar_recomendacoes(analise, cultura_nome="SOJA", v_meta=60.0)
         assert rec["calagem"]["necessaria"] is False
         assert rec["calagem"]["dose_t_ha"] == 0.0
 
-    def test_fosforo_baixo_tem_recomendacao_alta(self):
-        svc = make_service()
-        analise = self._analise_completa(p=5.0)  # < 6 = MUITO_BAIXO
-        rec = svc.gerar_recomendacoes(analise)
+    async def test_fosforo_baixo_tem_recomendacao_alta(self):
+        svc = _make_service_sem_db()
+        analise = _analise_completa(p=5.0)  # < 6 = MUITO_BAIXO
+        rec = await svc.gerar_recomendacoes(analise)
         assert rec["fosforo"]["nivel"] == "MUITO_BAIXO"
         assert rec["fosforo"]["rec_p2o5_kg_ha"] == 130
 
-    def test_potassio_alto_tem_recomendacao_menor(self):
-        svc = make_service()
-        analise = self._analise_completa(k=200.0)  # > 150 = ALTO
-        rec = svc.gerar_recomendacoes(analise)
+    async def test_potassio_alto_tem_recomendacao_menor(self):
+        svc = _make_service_sem_db()
+        analise = _analise_completa(k=200.0)  # > 150 = ALTO
+        rec = await svc.gerar_recomendacoes(analise)
         assert rec["potassio"]["nivel"] == "ALTO"
         assert rec["potassio"]["rec_k2o_kg_ha"] == 45
 
-    def test_nitrogenio_soja_menor_que_milho(self):
-        svc = make_service()
-        analise = self._analise_completa()
-        rec_soja = svc.gerar_recomendacoes(analise, cultura="SOJA")
-        rec_milho = svc.gerar_recomendacoes(analise, cultura="MILHO")
+    async def test_nitrogenio_soja_menor_que_milho(self):
+        svc = _make_service_sem_db()
+        analise = _analise_completa()
+        rec_soja = await svc.gerar_recomendacoes(analise, cultura_nome="SOJA")
+        rec_milho = await svc.gerar_recomendacoes(analise, cultura_nome="MILHO")
         assert rec_soja["nitrogenio"]["rec_n_kg_ha"] < rec_milho["nitrogenio"]["rec_n_kg_ha"]
