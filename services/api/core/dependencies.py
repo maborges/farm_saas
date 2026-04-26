@@ -45,9 +45,17 @@ if TYPE_CHECKING:
 # CORE DEPENDENCIES (Top-level)
 # ==============================================================================
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency para injeção comum de Sessão (sem forçar tenant, ex: login livre)"""
+async def get_session(request: Request = None) -> AsyncGenerator[AsyncSession, None]:
+    """
+    Dependency de sessão. Se o middleware TenantRLSMiddleware tiver extraído
+    um tenant_id do JWT, ativa RLS automaticamente — mesmo em routers que
+    usam get_session em vez de get_session_with_tenant (fail-safe).
+    """
     async with async_session_maker() as session:
+        tenant_id = getattr(request.state, "rls_tenant_id", None) if request else None
+        if tenant_id and "postgresql" in DB_URL:
+            await session.execute(text(f"SET LOCAL app.current_tenant_id = '{tenant_id}';"))
+            session.info["tenant_id"] = tenant_id
         yield session
 
 def get_token(request: Request) -> str:
@@ -217,6 +225,19 @@ async def _resolve_grupo_id(
     return None
 
 
+def _assinatura_ativa_filter():
+    """
+    Retorna a cláusula de status para assinaturas consideradas ativas.
+
+    PENDENTE_PAGAMENTO é excluído intencionalmente: inadimplentes não passam nos
+    feature gates. A carência (grace_period_days) é verificada separadamente pelo
+    job de suspensão — não abre acesso a recursos durante a carência.
+    """
+    from core.models.billing import AssinaturaTenant
+    from datetime import datetime, timezone
+    return AssinaturaTenant.status.in_(["ATIVA", "TRIAL"])
+
+
 async def _get_modulos_do_grupo(
     tenant_id: uuid.UUID,
     grupo_id: uuid.UUID | None,
@@ -233,7 +254,7 @@ async def _get_modulos_do_grupo(
         .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
         .where(
             AssinaturaTenant.tenant_id == tenant_id,
-            AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
+            _assinatura_ativa_filter(),
             AssinaturaTenant.tipo_assinatura == "TENANT",
         )
     )
@@ -323,7 +344,7 @@ def require_tier(minimum_tier: "PlanTier"):
                 .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
                 .where(
                     AssinaturaTenant.tenant_id == tenant_id,
-                    AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
+                    _assinatura_ativa_filter(),
                     AssinaturaTenant.tipo_assinatura == "TENANT",
                 )
             )
@@ -600,7 +621,7 @@ def require_limit(limit_type: str):
             .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
             .where(
                 AssinaturaTenant.tenant_id == effective_tenant_id,
-                AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
+                _assinatura_ativa_filter(),
                 AssinaturaTenant.tipo_assinatura.in_(["GRUPO", "PRINCIPAL", "TENANT"]),
             )
         )
@@ -734,7 +755,7 @@ def check_limit_soft(limit_type: str) -> dict:
             .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
             .where(
                 AssinaturaTenant.tenant_id == tenant_id,
-                AssinaturaTenant.status.in_(["ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"]),
+                _assinatura_ativa_filter(),
                 AssinaturaTenant.tipo_assinatura == "TENANT",
             )
         )

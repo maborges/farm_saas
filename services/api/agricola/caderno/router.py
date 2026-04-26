@@ -295,6 +295,11 @@ async def upload_foto_entrada(
         longitude=longitude,
         data_captura=_dt.now(),
     )
+
+    # Rastreia uso de storage do tenant
+    from core.services.storage_service import increment_storage
+    await increment_storage(session, tenant_id, len(content))
+
     await session.commit()
     return FotoResponse.model_validate(foto)
 

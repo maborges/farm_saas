@@ -75,10 +75,43 @@ logger.configure(handlers=[{
     "serialize": False,  # No config final pode ser True para export JSON real
 }])
 
+import asyncio
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def lifespan(app):
+    """Startup/shutdown: inicia job periódico de suspensão de tenants vencidos."""
+    async def _job_suspender_vencidos():
+        from core.database import async_session_maker
+        from core.services.assinatura_service import suspender_vencidos, suspender_trials_expirados
+        while True:
+            try:
+                await asyncio.sleep(3600)  # roda a cada hora
+                async with async_session_maker() as session:
+                    n1 = await suspender_vencidos(session)
+                    n2 = await suspender_trials_expirados(session)
+                    if n1 or n2:
+                        logger.info(f"[job] suspendidos: {n1} vencidos, {n2} trials")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"[job] suspender_vencidos erro: {e}")
+
+    task = asyncio.create_task(_job_suspender_vencidos())
+    yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+
 app = FastAPI(
     title="AgroSaaS API",
     description="Motor principal do AgroSaaS - The Modular Monolith",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Monta diretório de avatares como static files
@@ -142,8 +175,42 @@ class SessionHeartbeatMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class TenantRLSMiddleware(BaseHTTPMiddleware):
+    """
+    Extrai tenant_id do JWT (sem verificar exp) e grava em request.state.rls_tenant_id.
+    get_session() usa esse valor para ativar RLS automaticamente em PostgreSQL,
+    garantindo isolamento mesmo em routers que usam get_session em vez de
+    get_session_with_tenant.
+    """
+    _SKIP_PATHS = ("/api/v1/auth/", "/docs", "/openapi", "/health", "/static")
+
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+        if not any(path.startswith(p) for p in self._SKIP_PATHS):
+            auth = request.headers.get("Authorization", "")
+            if auth.startswith("Bearer "):
+                token = auth[7:]
+                try:
+                    from jose import jwt as _jwt
+                    from core.config import settings as _settings
+                    payload = _jwt.decode(
+                        token,
+                        _settings.jwt_secret_key,
+                        algorithms=[_settings.jwt_algorithm],
+                        options={"verify_exp": False},
+                    )
+                    tenant_id = payload.get("tenant_id")
+                    if tenant_id:
+                        request.state.rls_tenant_id = tenant_id
+                except Exception:
+                    pass
+        return await call_next(request)
+
+
 # Adicionar middlewares na ordem INVERSA (último adicionado = primeiro executado)
-# SessionHeartbeatMiddleware PRIMEIRO
+# TenantRLSMiddleware PRIMEIRO (define rls_tenant_id antes de tudo)
+app.add_middleware(TenantRLSMiddleware)
+# SessionHeartbeatMiddleware SEGUNDO
 app.add_middleware(SessionHeartbeatMiddleware)
 
 # CORS ÚLTIMO (será executado PRIMEIRO em tempo de execução)

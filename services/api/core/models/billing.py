@@ -118,6 +118,15 @@ class AssinaturaTenant(Base):
     # Stripe
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
 
+    grace_period_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=3,
+        comment="Dias de carência após vencimento antes de suspender. Default: 3."
+    )
+    trial_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+        comment="Data de expiração do trial. NULL = sem trial ou já convertido."
+    )
+
     data_inicio: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     data_proxima_renovacao: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     data_bloqueio: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, comment="Data do último bloqueio")
