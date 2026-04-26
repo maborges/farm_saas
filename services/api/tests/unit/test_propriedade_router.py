@@ -37,7 +37,7 @@ class TestPropriedadeEndpoints:
             "core.cadastros.propriedades.propriedade_router.get_tenant_id",
             return_value=mock_tenant_id
         ), patch(
-            "core.cadastros.propriedades.propriedade_router.get_session",
+            "core.cadastros.propriedades.propriedade_router.get_session_with_tenant",
             return_value=AsyncMock()
         ):
             from core.cadastros.propriedades.propriedade_service import PropriedadeService
@@ -80,7 +80,7 @@ class TestPropriedadeEndpoints:
             "core.cadastros.propriedades.propriedade_router.get_tenant_id",
             return_value=mock_tenant_id
         ), patch(
-            "core.cadastros.propriedades.propriedade_router.get_session",
+            "core.cadastros.propriedades.propriedade_router.get_session_with_tenant",
             return_value=AsyncMock()
         ):
             # Teste estrutural
@@ -94,7 +94,7 @@ class TestPropriedadeEndpoints:
             "core.cadastros.propriedades.propriedade_router.get_tenant_id",
             return_value=mock_tenant_id
         ), patch(
-            "core.cadastros.propriedades.propriedade_router.get_session",
+            "core.cadastros.propriedades.propriedade_router.get_session_with_tenant",
             return_value=AsyncMock()
         ):
             response = client.get(f"/cadastros/propriedades/{propriedade_id}")
@@ -107,7 +107,7 @@ class TestPropriedadeEndpoints:
             "core.cadastros.propriedades.propriedade_router.get_tenant_id",
             return_value=mock_tenant_id
         ), patch(
-            "core.cadastros.propriedades.propriedade_router.get_session",
+            "core.cadastros.propriedades.propriedade_router.get_session_with_tenant",
             return_value=AsyncMock()
         ):
             response = client.patch(
@@ -123,7 +123,7 @@ class TestPropriedadeEndpoints:
             "core.cadastros.propriedades.propriedade_router.get_tenant_id",
             return_value=mock_tenant_id
         ), patch(
-            "core.cadastros.propriedades.propriedade_router.get_session",
+            "core.cadastros.propriedades.propriedade_router.get_session_with_tenant",
             return_value=AsyncMock()
         ):
             response = client.delete(f"/cadastros/propriedades/{propriedade_id}")
@@ -140,7 +140,7 @@ class TestExploracaoEndpoints:
             "core.cadastros.propriedades.propriedade_router.get_tenant_id",
             return_value=mock_tenant_id
         ), patch(
-            "core.cadastros.propriedades.propriedade_router.get_session",
+            "core.cadastros.propriedades.propriedade_router.get_session_with_tenant",
             return_value=AsyncMock()
         ):
             response = client.get(f"/cadastros/propriedades/{propriedade_id}/exploracoes")
@@ -153,7 +153,7 @@ class TestExploracaoEndpoints:
             "core.cadastros.propriedades.propriedade_router.get_tenant_id",
             return_value=mock_tenant_id
         ), patch(
-            "core.cadastros.propriedades.propriedade_router.get_session",
+            "core.cadastros.propriedades.propriedade_router.get_session_with_tenant",
             return_value=AsyncMock()
         ):
             response = client.post(
@@ -173,7 +173,7 @@ class TestExploracaoEndpoints:
             "core.cadastros.propriedades.propriedade_router.get_tenant_id",
             return_value=mock_tenant_id
         ), patch(
-            "core.cadastros.propriedades.propriedade_router.get_session",
+            "core.cadastros.propriedades.propriedade_router.get_session_with_tenant",
             return_value=AsyncMock()
         ):
             response = client.patch(
@@ -189,7 +189,7 @@ class TestExploracaoEndpoints:
             "core.cadastros.propriedades.propriedade_router.get_tenant_id",
             return_value=mock_tenant_id
         ), patch(
-            "core.cadastros.propriedades.propriedade_router.get_session",
+            "core.cadastros.propriedades.propriedade_router.get_session_with_tenant",
             return_value=AsyncMock()
         ):
             response = client.delete(f"/cadastros/exploracoes/{exploracao_id}")
@@ -206,7 +206,7 @@ class TestFazendaExploracaoEndpoints:
             "core.cadastros.propriedades.propriedade_router.get_tenant_id",
             return_value=mock_tenant_id
         ), patch(
-            "core.cadastros.propriedades.propriedade_router.get_session",
+            "core.cadastros.propriedades.propriedade_router.get_session_with_tenant",
             return_value=AsyncMock()
         ):
             response = client.get(f"/cadastros/fazendas/{unidade_produtiva_id}/exploracoes")
@@ -219,7 +219,7 @@ class TestFazendaExploracaoEndpoints:
             "core.cadastros.propriedades.propriedade_router.get_tenant_id",
             return_value=mock_tenant_id
         ), patch(
-            "core.cadastros.propriedades.propriedade_router.get_session",
+            "core.cadastros.propriedades.propriedade_router.get_session_with_tenant",
             return_value=AsyncMock()
         ):
             response = client.get(f"/cadastros/fazendas/{unidade_produtiva_id}/exploracoes/vigentes")

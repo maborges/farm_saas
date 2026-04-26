@@ -10,7 +10,7 @@ from financeiro.comercializacao.schemas import (
     ComercializacaoCreate, ComercializacaoUpdate,
     STATUS_VALIDOS,
 )
-from financeiro.comercializacao.router import TRANSICOES
+from financeiro.comercializacao.service import TRANSICOES
 
 
 # ===========================================================================
