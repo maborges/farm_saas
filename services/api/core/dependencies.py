@@ -544,6 +544,38 @@ def require_tenant_permission(permission: str):
 
 
 # ==============================================================================
+# DECORATOR COMPOSTO — módulo + permissão em uma só chamada
+# ==============================================================================
+
+def require_module_and_permission(module: str, permission: str):
+    """
+    Decorator que combina require_module + require_tenant_permission em uma única
+    dependência — impossível usar um sem o outro.
+
+    Substitui o padrão propenso a erro:
+        @require_module("AGRICOLA")
+        @require_tenant_permission("agricola:safra:criar")
+
+    Uso:
+        @router.post("/")
+        async def create(
+            _=Depends(require_module_and_permission("AGRICOLA", "agricola:safra:criar")),
+            ...
+        ):
+    """
+    _mod_dep = require_module(module)
+    _perm_dep = require_tenant_permission(permission)
+
+    async def _combined(
+        _mod=Depends(_mod_dep),
+        _perm=Depends(_perm_dep),
+    ):
+        return True
+
+    return _combined
+
+
+# ==============================================================================
 # LIMIT VALIDATION GATES
 # ==============================================================================
 

@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: tenant-safety-lint
+        name: "Tenant Safety Lint (R1-R3)"
+        language: python
+        entry: python scripts/lint_tenant_safety.py
+        files: \.(py)$
+        pass_filenames: false
+        additional_dependencies: []

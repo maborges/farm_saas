@@ -149,3 +149,42 @@ async def decrement_storage(
         )
     )
     logger.debug(f"storage -{size_mb:.3f}MB tenant={tenant_id}")
+
+
+async def save_and_track(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    content: bytes,
+    area_rural_id: str,
+    filename: str,
+) -> str:
+    """
+    Wrapper obrigatório para upload com rastreamento automático de quota.
+
+    Substitui o uso direto de StorageService.save() — garante que
+    storage_usado_mb é sempre atualizado após o upload.
+
+    Retorna o storage_path do arquivo salvo.
+    Chame commit() na camada acima após este método.
+    """
+    path = StorageService.save(content, str(tenant_id), area_rural_id, filename)
+    await increment_storage(session, tenant_id, len(content))
+    return path
+
+
+async def delete_and_track(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    storage_path: str,
+    size_bytes: int,
+) -> None:
+    """
+    Wrapper obrigatório para deleção com rastreamento automático de quota.
+
+    Substitui o uso direto de StorageService.delete() — garante que
+    storage_usado_mb é decrementado após a remoção.
+
+    Chame commit() na camada acima após este método.
+    """
+    StorageService.delete(storage_path)
+    await decrement_storage(session, tenant_id, size_bytes)
