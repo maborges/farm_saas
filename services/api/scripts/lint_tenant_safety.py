@@ -30,26 +30,12 @@ WARNINGS: list[str] = []
 # Não remova daqui sem corrigir o arquivo correspondente.
 # Adicionar novos arquivos aqui é PROIBIDO — corrija antes de commitar.
 # ---------------------------------------------------------------------------
-_R1_LEGACY_FILES = {
-    "agricola/cultivos/router.py",
-    "agricola/a1_planejamento/router.py",
-    "agricola/colheita/router.py",
-    "financeiro/comercializacao/router.py",
+_R1_LEGACY_FILES: set[str] = {
+    # Todos os R1 corrigidos em 2026-04-26
 }
 
 _R2_LEGACY_FILES = {
-    "agricola/caderno/router.py",
     "agricola/cultivos/router.py",
-    "agricola/colheita/router.py",
-    "agricola/rastreabilidade/public_router.py",
-    "agricola/rastreabilidade/router.py",
-    "core/cadastros/propriedades/propriedade_router.py",
-    "core/cadastros/propriedades/propriedade_hierarquia_router.py",
-    "core/cadastros/commodities/router.py",
-    "core/cadastros/produtos/router.py",
-    "core/cadastros/equipamentos/router.py",
-    "ambiental/router.py",
-    "financeiro/comercializacao/router.py",
 }
 
 _R3_LEGACY_FILES: set[str] = {

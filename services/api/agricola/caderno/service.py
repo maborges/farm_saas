@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func
 
 from core.base_service import BaseService
 from core.exceptions import BusinessRuleError
@@ -173,6 +173,48 @@ class CadernoCampoService(BaseService[CadernoCampoEntrada]):
         # Ordena tudo por data desc
         items.sort(key=lambda x: x.data_registro, reverse=True)
         return items
+
+    async def listar_safras_ativas(self, safra_id: UUID | None = None):
+        from agricola.safras.models import Safra
+        if safra_id:
+            stmt = select(Safra).where(Safra.id == safra_id, Safra.tenant_id == self.tenant_id)
+        else:
+            stmt = select(Safra).where(
+                Safra.tenant_id == self.tenant_id,
+                Safra.status.notin_(["ENCERRADA", "CANCELADA"]),
+            )
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def listar_alertas(self, safra_id: UUID | None = None, dias_sem_registro: int = 7) -> list[dict]:
+        from datetime import date, timedelta
+        from agricola.operacoes.models import OperacaoAgricola
+        safras = await self.listar_safras_ativas(safra_id)
+        alertas = []
+        limite = date.today() - timedelta(days=dias_sem_registro)
+        for safra in safras:
+            ultima_entrada_stmt = select(func.max(CadernoCampoEntrada.data_registro)).where(
+                CadernoCampoEntrada.tenant_id == self.tenant_id,
+                CadernoCampoEntrada.safra_id == safra.id,
+                CadernoCampoEntrada.excluida == False,
+            )
+            ultima_data = (await self.session.execute(ultima_entrada_stmt)).scalar_one_or_none()
+            ultima_op_stmt = select(func.max(OperacaoAgricola.data_realizada)).where(
+                OperacaoAgricola.tenant_id == self.tenant_id,
+                OperacaoAgricola.safra_id == safra.id,
+                OperacaoAgricola.status == "REALIZADA",
+            )
+            ultima_op = (await self.session.execute(ultima_op_stmt)).scalar_one_or_none()
+            if ultima_data and ultima_op:
+                ultima_registro = max(ultima_data, ultima_op) if isinstance(ultima_data, date) and isinstance(ultima_op, date) else (ultima_data or ultima_op)
+            else:
+                ultima_registro = ultima_data or ultima_op
+            if ultima_registro and isinstance(ultima_registro, date):
+                if ultima_registro < limite:
+                    dias_desatualizada = (date.today() - ultima_registro).days
+                    alertas.append({"safra_id": str(safra.id), "safra_nome": f"{safra.cultura} {safra.ano_safra}", "ultima_registro": ultima_registro.isoformat(), "dias_desatualizada": dias_desatualizada, "mensagem": f"Sem registros há {dias_desatualizada} dias (último: {ultima_registro.strftime('%d/%m/%Y')})."})
+            elif not ultima_registro:
+                alertas.append({"safra_id": str(safra.id), "safra_nome": f"{safra.cultura} {safra.ano_safra}", "ultima_registro": None, "dias_desatualizada": None, "mensagem": "Nenhum registro encontrado para esta safra."})
+        return alertas
 
 
 class VisitaTecnicaService(BaseService[VisitaTecnica]):
@@ -738,5 +780,11 @@ class CadernoExportacaoService(BaseService[CadernoExportacao]):
         stmt = select(CadernoExportacao).where(
             CadernoExportacao.tenant_id == self.tenant_id,
             CadernoExportacao.safra_id == safra_id,
+        ).order_by(CadernoExportacao.data_geracao.desc())
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def listar_todas(self) -> list[CadernoExportacao]:
+        stmt = select(CadernoExportacao).where(
+            CadernoExportacao.tenant_id == self.tenant_id,
         ).order_by(CadernoExportacao.data_geracao.desc())
         return list((await self.session.execute(stmt)).scalars().all())

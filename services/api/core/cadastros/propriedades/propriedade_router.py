@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_session, get_tenant_id
+from core.dependencies import get_session_with_tenant, get_tenant_id
 from core.base_service import BaseService
 from .propriedade_models import Propriedade, ExploracaoRural, DocumentoExploracao
 from .propriedade_schemas import (
@@ -33,7 +33,7 @@ router = APIRouter(prefix="/cadastros", tags=["Cadastros — Produtores"])
 @router.post("/propriedades", response_model=PropriedadeResponse, status_code=201)
 async def criar_propriedade(
     data: PropriedadeCreate,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     """Cria uma nova propriedade."""
@@ -47,7 +47,7 @@ async def criar_propriedade(
 @router.get("/propriedades", response_model=list[PropriedadeResponse])
 async def listar_propriedades(
     ativo: Optional[bool] = Query(True, description="Filtrar por status ativo"),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     """Lista todas as propriedades do tenant."""
@@ -58,7 +58,7 @@ async def listar_propriedades(
 @router.get("/propriedades/{propriedade_id}", response_model=PropriedadeResponse)
 async def obter_propriedade(
     propriedade_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     """Obtém uma propriedade por ID."""
@@ -70,7 +70,7 @@ async def obter_propriedade(
 async def atualizar_propriedade(
     propriedade_id: uuid.UUID,
     data: PropriedadeUpdate,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     """Atualiza uma propriedade."""
@@ -84,7 +84,7 @@ async def atualizar_propriedade(
 @router.delete("/propriedades/{propriedade_id}", status_code=204)
 async def remover_propriedade(
     propriedade_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     """Remove uma propriedade."""
@@ -102,7 +102,7 @@ async def remover_propriedade(
 )
 async def listar_exploracoes_por_propriedade(
     propriedade_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     """Lista todas as explorações de uma propriedade."""
@@ -122,7 +122,7 @@ async def listar_exploracoes_por_propriedade(
 async def criar_exploracao(
     propriedade_id: uuid.UUID,
     data: ExploracaoCreate,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     """Cria uma nova exploração para uma propriedade."""
@@ -144,7 +144,7 @@ async def criar_exploracao(
 async def atualizar_exploracao(
     exploracao_id: uuid.UUID,
     data: ExploracaoUpdate,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     """Atualiza uma exploração."""
@@ -158,7 +158,7 @@ async def atualizar_exploracao(
 @router.delete("/exploracoes/{exploracao_id}", status_code=204)
 async def remover_exploracao(
     exploracao_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     """Remove uma exploração (soft delete)."""
@@ -176,23 +176,12 @@ async def remover_exploracao(
 )
 async def listar_exploracoes_por_fazenda(
     unidade_produtiva_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     """Lista todas as explorações de uma fazenda."""
     expl_service = ExploracaoRuralService(session, tenant_id)
-    # Filtrar manualmente por unidade_produtiva_id
-    from sqlalchemy import select, and_
-    
-    stmt = select(ExploracaoRural).where(
-        and_(
-            ExploracaoRural.unidade_produtiva_id == unidade_produtiva_id,
-            ExploracaoRural.tenant_id == tenant_id,
-        )
-    ).order_by(ExploracaoRural.data_inicio.desc())
-    
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
+    return await expl_service.listar_por_fazenda(unidade_produtiva_id)
 
 
 @router.get(
@@ -201,7 +190,7 @@ async def listar_exploracoes_por_fazenda(
 )
 async def listar_exploracoes_vigentes_por_fazenda(
     unidade_produtiva_id: uuid.UUID,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: uuid.UUID = Depends(get_tenant_id),
 ):
     """Lista explorações vigentes (ativas) de uma fazenda."""

@@ -1,8 +1,7 @@
 from fastapi import APIRouter, HTTPException
-from sqlalchemy.future import select
 
 from core.database import async_session_maker
-from agricola.rastreabilidade.models import LoteRastreabilidade
+from agricola.rastreabilidade.service import RastreabilidadeService
 
 router = APIRouter(prefix="/public", tags=["Rastreabilidade Pública"])
 
@@ -11,11 +10,7 @@ router = APIRouter(prefix="/public", tags=["Rastreabilidade Pública"])
 async def track_lote_publico(codigo_lote: str):
     """Endpoint público para rastreamento de lote via QR code. Sem autenticação."""
     async with async_session_maker() as session:
-        stmt = select(LoteRastreabilidade).where(
-            LoteRastreabilidade.codigo_lote == codigo_lote
-        )
-        result = await session.execute(stmt)
-        lote = result.scalar_one_or_none()
+        lote = await RastreabilidadeService.buscar_por_codigo(session, codigo_lote)
 
     if not lote:
         raise HTTPException(status_code=404, detail="Lote não encontrado.")

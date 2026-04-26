@@ -27,6 +27,65 @@ class ComercializacaoService:
         self.session = session
         self.tenant_id = tenant_id
 
+    async def listar(
+        self,
+        status: Optional[str] = None,
+        commodity_id: Optional[uuid.UUID] = None,
+        comprador_id: Optional[uuid.UUID] = None,
+    ) -> list[ComercializacaoCommodity]:
+        stmt = select(ComercializacaoCommodity).where(
+            ComercializacaoCommodity.tenant_id == self.tenant_id,
+        )
+        if status:
+            stmt = stmt.where(ComercializacaoCommodity.status == status)
+        if commodity_id:
+            stmt = stmt.where(ComercializacaoCommodity.commodity_id == commodity_id)
+        if comprador_id:
+            stmt = stmt.where(ComercializacaoCommodity.comprador_id == comprador_id)
+        return list((await self.session.execute(stmt.order_by(ComercializacaoCommodity.created_at.desc()))).scalars().all())
+
+    async def criar(self, data) -> ComercializacaoCommodity:
+        from sqlalchemy import or_
+        from core.cadastros.commodities.models import Commodity
+        from core.cadastros.pessoas.models import Pessoa
+        from core.exceptions import EntityNotFoundError
+
+        stmt_c = select(Commodity).where(
+            Commodity.id == data.commodity_id,
+            or_(Commodity.tenant_id == self.tenant_id, Commodity.sistema == True),
+        )
+        if not (await self.session.execute(stmt_c)).scalar_one_or_none():
+            raise EntityNotFoundError("Commodity não encontrada")
+
+        stmt_p = select(Pessoa).where(Pessoa.id == data.comprador_id, Pessoa.tenant_id == self.tenant_id)
+        if not (await self.session.execute(stmt_p)).scalar_one_or_none():
+            raise EntityNotFoundError("Comprador não encontrado")
+
+        valor_total = round(data.quantidade * data.preco_unitario, 2)
+        obj = ComercializacaoCommodity(tenant_id=self.tenant_id, valor_total=valor_total, **data.model_dump())
+        self.session.add(obj)
+        await self.session.flush()
+        await self.session.refresh(obj)
+        return obj
+
+    async def obter(self, comercializacao_id: uuid.UUID) -> ComercializacaoCommodity:
+        from core.exceptions import EntityNotFoundError
+        stmt = select(ComercializacaoCommodity).where(
+            ComercializacaoCommodity.id == comercializacao_id,
+            ComercializacaoCommodity.tenant_id == self.tenant_id,
+        )
+        obj = (await self.session.execute(stmt)).scalar_one_or_none()
+        if not obj:
+            raise EntityNotFoundError("Comercialização não encontrada")
+        return obj
+
+    async def remover(self, comercializacao_id: uuid.UUID) -> None:
+        from core.exceptions import BusinessRuleError
+        obj = await self.obter(comercializacao_id)
+        if obj.status not in ("RASCUNHO", "CANCELADO"):
+            raise BusinessRuleError("Só é possível excluir comercializações em RASCUNHO ou CANCELADO")
+        await self.session.delete(obj)
+
     async def transicionar_status(
         self,
         comercializacao: ComercializacaoCommodity,

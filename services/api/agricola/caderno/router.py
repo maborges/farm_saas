@@ -7,8 +7,7 @@ from datetime import date
 from pathlib import Path
 
 from core.dependencies import get_tenant_id, require_module, require_role, get_session_with_tenant
-from agricola.caderno.models import CadernoExportacao, CadernoCampoEntrada
-from agricola.operacoes.models import OperacaoAgricola
+from agricola.caderno.models import CadernoExportacao
 from agricola.caderno.schemas import (
     EntradaCreate,
     EntradaUpdate,
@@ -90,12 +89,8 @@ async def timeline_global(
         )
 
     # Cross-safras: busca todas as safras ativas do tenant
-    from sqlalchemy import select as _select
-    safras_stmt = _select(Safra).where(
-        Safra.tenant_id == tenant_id,
-        Safra.status.notin_(["ENCERRADA", "CANCELADA"]),
-    )
-    safras = list((await session.execute(safras_stmt)).scalars().all())
+    svc = CadernoCampoService(session, tenant_id)
+    safras = await svc.listar_safras_ativas()
 
     if not safras:
         return []
@@ -130,68 +125,8 @@ async def caderno_alertas(
     _: None = Depends(_MODULE),
 ):
     """Retorna safras ativas sem registros há X dias (padrão: 7 dias, configurável)."""
-    from datetime import date, timedelta
-    from agricola.safras.models import Safra
-
-    # Determina quais safras verificar
-    if safra_id:
-        stmt = select(Safra).where(Safra.id == safra_id, Safra.tenant_id == tenant_id)
-    else:
-        stmt = select(Safra).where(
-            Safra.tenant_id == tenant_id,
-            Safra.status.notin_(["ENCERRADA", "CANCELADA"]),
-        )
-    safras = list((await session.execute(stmt)).scalars().all())
-
-    alertas = []
-    limite = date.today() - timedelta(days=dias_sem_registro)
-
-    for safra in safras:
-        # Verifica última entrada do caderno
-        from sqlalchemy import func
-        ultima_entrada_stmt = select(func.max(CadernoCampoEntrada.data_registro)).where(
-            CadernoCampoEntrada.tenant_id == tenant_id,
-            CadernoCampoEntrada.safra_id == safra.id,
-            CadernoCampoEntrada.excluida == False,
-        )
-        ultima_data = (await session.execute(ultima_entrada_stmt)).scalar_one_or_none()
-
-        # Verifica última operação automática
-        ultima_op_stmt = select(func.max(OperacaoAgricola.data_realizada)).where(
-            OperacaoAgricola.tenant_id == tenant_id,
-            OperacaoAgricola.safra_id == safra.id,
-            OperacaoAgricola.status == "REALIZADA",
-        )
-        ultima_op = (await session.execute(ultima_op_stmt)).scalar_one_or_none()
-
-        # Pega a mais recente entre entrada e operação
-        ultima_registro = None
-        if ultima_data and ultima_op:
-            ultima_registro = max(ultima_data, ultima_op) if isinstance(ultima_data, date) and isinstance(ultima_op, date) else (ultima_data or ultima_op)
-        else:
-            ultima_registro = ultima_data or ultima_op
-
-        if ultima_registro and isinstance(ultima_registro, date):
-            if ultima_registro < limite:
-                dias_desatualizada = (date.today() - ultima_registro).days
-                alertas.append({
-                    "safra_id": str(safra.id),
-                    "safra_nome": f"{safra.cultura} {safra.ano_safra}",
-                    "ultima_registro": ultima_registro.isoformat(),
-                    "dias_desatualizada": dias_desatualizada,
-                    "mensagem": f"Sem registros há {dias_desatualizada} dias (último: {ultima_registro.strftime('%d/%m/%Y')}).",
-                })
-        elif not ultima_registro:
-            # Safra sem nenhum registro
-            alertas.append({
-                "safra_id": str(safra.id),
-                "safra_nome": f"{safra.cultura} {safra.ano_safra}",
-                "ultima_registro": None,
-                "dias_desatualizada": None,
-                "mensagem": "Nenhum registro encontrado para esta safra.",
-            })
-
-    return alertas
+    svc = CadernoCampoService(session, tenant_id)
+    return await svc.listar_alertas(safra_id=safra_id, dias_sem_registro=dias_sem_registro)
 
 
 # ─── Entradas ─────────────────────────────────────────────────────────────────
@@ -411,12 +346,8 @@ async def listar_exportacoes_global(
     _: None = Depends(_MODULE),
 ):
     """Lista todas as exportações do tenant, cross-safras."""
-    from sqlalchemy import select as _select
-    stmt = _select(CadernoExportacao).where(
-        CadernoExportacao.tenant_id == tenant_id,
-    ).order_by(CadernoExportacao.data_geracao.desc())
-    exportacoes = list((await session.execute(stmt)).scalars().all())
-    return [ExportacaoResponse.model_validate(e) for e in exportacoes]
+    svc = CadernoExportacaoService(session, tenant_id)
+    return [ExportacaoResponse.model_validate(e) for e in await svc.listar_todas()]
 
 
 @router.get("/exportacoes/{exportacao_id}/download")

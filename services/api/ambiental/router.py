@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import List, Optional
 from uuid import UUID
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 from pydantic import BaseModel, ConfigDict
 
 from core.dependencies import get_tenant_id, get_session_with_tenant, require_module
-from ambiental.models import RegistroCAR, AlertaAmbiental, OutorgaHidrica, StatusCAR, StatusAlerta, StatusOutorga
+from core.exceptions import EntityNotFoundError
+from ambiental.service import AmbientalService
 
 router = APIRouter(prefix="/ambiental", tags=["Ambiental — Compliance"])
 
@@ -160,7 +160,7 @@ class DashboardAmbientalResponse(BaseModel):
     total_alertas_abertos: int
     alertas_criticos: int
     total_outorgas: int
-    outorgas_vencendo: int  # vencendo em 90 dias
+    outorgas_vencendo: int
 
 
 # ── CAR ───────────────────────────────────────────────────────────────────────
@@ -171,21 +171,8 @@ async def dashboard_ambiental(
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module(MODULE)),
 ):
-    from datetime import timedelta
-    cars = list((await session.execute(select(RegistroCAR).where(RegistroCAR.tenant_id == tenant_id))).scalars().all())
-    alertas = list((await session.execute(select(AlertaAmbiental).where(AlertaAmbiental.tenant_id == tenant_id))).scalars().all())
-    outorgas = list((await session.execute(select(OutorgaHidrica).where(OutorgaHidrica.tenant_id == tenant_id, OutorgaHidrica.ativo == True))).scalars().all())
-    hoje = date.today()
-    prazo = hoje + timedelta(days=90)
-    return {
-        "total_cars": len(cars),
-        "cars_ativos": sum(1 for c in cars if c.status == StatusCAR.ATIVO),
-        "cars_pendentes": sum(1 for c in cars if c.status == StatusCAR.PENDENTE),
-        "total_alertas_abertos": sum(1 for a in alertas if a.status in (StatusAlerta.NOVO, StatusAlerta.EM_ANALISE)),
-        "alertas_criticos": sum(1 for a in alertas if a.severidade == "CRITICA" and a.status != StatusAlerta.RESOLVIDO),
-        "total_outorgas": len(outorgas),
-        "outorgas_vencendo": sum(1 for o in outorgas if o.data_vencimento and hoje <= o.data_vencimento <= prazo),
-    }
+    svc = AmbientalService(session, tenant_id)
+    return await svc.dashboard()
 
 
 @router.get("/car", response_model=List[CARResponse])
@@ -195,10 +182,8 @@ async def listar_cars(
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module(MODULE)),
 ):
-    stmt = select(RegistroCAR).where(RegistroCAR.tenant_id == tenant_id).order_by(RegistroCAR.created_at.desc())
-    if status_filter:
-        stmt = stmt.where(RegistroCAR.status == status_filter)
-    return list((await session.execute(stmt)).scalars().all())
+    svc = AmbientalService(session, tenant_id)
+    return await svc.listar_cars(status_filter=status_filter)
 
 
 @router.post("/car", response_model=CARResponse, status_code=status.HTTP_201_CREATED)
@@ -208,8 +193,8 @@ async def criar_car(
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module(MODULE)),
 ):
-    car = RegistroCAR(tenant_id=tenant_id, **dados.model_dump(exclude_none=True))
-    session.add(car)
+    svc = AmbientalService(session, tenant_id)
+    car = await svc.criar_car(dados.model_dump(exclude_none=True))
     await session.commit()
     await session.refresh(car)
     return car
@@ -223,18 +208,14 @@ async def atualizar_car(
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module(MODULE)),
 ):
-    car = (await session.execute(
-        select(RegistroCAR).where(RegistroCAR.id == car_id, RegistroCAR.tenant_id == tenant_id)
-    )).scalar_one_or_none()
-    if not car:
-        from fastapi import HTTPException
-        raise HTTPException(404, "CAR não encontrado.")
-    for k, v in dados.model_dump(exclude_none=True).items():
-        setattr(car, k, v)
-    session.add(car)
-    await session.commit()
-    await session.refresh(car)
-    return car
+    svc = AmbientalService(session, tenant_id)
+    try:
+        car = await svc.atualizar_car(car_id, dados.model_dump(exclude_none=True))
+        await session.commit()
+        await session.refresh(car)
+        return car
+    except EntityNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "CAR não encontrado.")
 
 
 @router.delete("/car/{car_id}", status_code=200)
@@ -244,15 +225,13 @@ async def excluir_car(
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module(MODULE)),
 ):
-    car = (await session.execute(
-        select(RegistroCAR).where(RegistroCAR.id == car_id, RegistroCAR.tenant_id == tenant_id)
-    )).scalar_one_or_none()
-    if not car:
-        from fastapi import HTTPException
-        raise HTTPException(404, "CAR não encontrado.")
-    await session.delete(car)
-    await session.commit()
-    return {"message": "CAR excluído."}
+    svc = AmbientalService(session, tenant_id)
+    try:
+        await svc.excluir_car(car_id)
+        await session.commit()
+        return {"message": "CAR excluído."}
+    except EntityNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "CAR não encontrado.")
 
 
 # ── Alertas ───────────────────────────────────────────────────────────────────
@@ -266,14 +245,8 @@ async def listar_alertas(
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module(MODULE)),
 ):
-    stmt = select(AlertaAmbiental).where(AlertaAmbiental.tenant_id == tenant_id).order_by(AlertaAmbiental.data_deteccao.desc())
-    if status_filter:
-        stmt = stmt.where(AlertaAmbiental.status == status_filter)
-    if severidade:
-        stmt = stmt.where(AlertaAmbiental.severidade == severidade)
-    if tipo:
-        stmt = stmt.where(AlertaAmbiental.tipo == tipo)
-    return list((await session.execute(stmt)).scalars().all())
+    svc = AmbientalService(session, tenant_id)
+    return await svc.listar_alertas(status_filter=status_filter, severidade=severidade, tipo=tipo)
 
 
 @router.post("/alertas", response_model=AlertaResponse, status_code=status.HTTP_201_CREATED)
@@ -283,11 +256,8 @@ async def criar_alerta(
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module(MODULE)),
 ):
-    payload = dados.model_dump(exclude_none=True)
-    if "data_deteccao" not in payload:
-        payload["data_deteccao"] = date.today()
-    alerta = AlertaAmbiental(tenant_id=tenant_id, **payload)
-    session.add(alerta)
+    svc = AmbientalService(session, tenant_id)
+    alerta = await svc.criar_alerta(dados.model_dump(exclude_none=True))
     await session.commit()
     await session.refresh(alerta)
     return alerta
@@ -301,18 +271,14 @@ async def atualizar_alerta(
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module(MODULE)),
 ):
-    alerta = (await session.execute(
-        select(AlertaAmbiental).where(AlertaAmbiental.id == alerta_id, AlertaAmbiental.tenant_id == tenant_id)
-    )).scalar_one_or_none()
-    if not alerta:
-        from fastapi import HTTPException
-        raise HTTPException(404, "Alerta não encontrado.")
-    for k, v in dados.model_dump(exclude_none=True).items():
-        setattr(alerta, k, v)
-    session.add(alerta)
-    await session.commit()
-    await session.refresh(alerta)
-    return alerta
+    svc = AmbientalService(session, tenant_id)
+    try:
+        alerta = await svc.atualizar_alerta(alerta_id, dados.model_dump(exclude_none=True))
+        await session.commit()
+        await session.refresh(alerta)
+        return alerta
+    except EntityNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Alerta não encontrado.")
 
 
 # ── Outorgas ──────────────────────────────────────────────────────────────────
@@ -324,14 +290,8 @@ async def listar_outorgas(
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module(MODULE)),
 ):
-    stmt = (
-        select(OutorgaHidrica)
-        .where(OutorgaHidrica.tenant_id == tenant_id, OutorgaHidrica.ativo == True)
-        .order_by(OutorgaHidrica.data_vencimento.asc())
-    )
-    if status_filter:
-        stmt = stmt.where(OutorgaHidrica.status == status_filter)
-    return list((await session.execute(stmt)).scalars().all())
+    svc = AmbientalService(session, tenant_id)
+    return await svc.listar_outorgas(status_filter=status_filter)
 
 
 @router.post("/outorgas", response_model=OutorgaResponse, status_code=status.HTTP_201_CREATED)
@@ -341,8 +301,8 @@ async def criar_outorga(
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module(MODULE)),
 ):
-    outorga = OutorgaHidrica(tenant_id=tenant_id, **dados.model_dump(exclude_none=True))
-    session.add(outorga)
+    svc = AmbientalService(session, tenant_id)
+    outorga = await svc.criar_outorga(dados.model_dump(exclude_none=True))
     await session.commit()
     await session.refresh(outorga)
     return outorga
@@ -356,15 +316,11 @@ async def atualizar_outorga(
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module(MODULE)),
 ):
-    outorga = (await session.execute(
-        select(OutorgaHidrica).where(OutorgaHidrica.id == outorga_id, OutorgaHidrica.tenant_id == tenant_id)
-    )).scalar_one_or_none()
-    if not outorga:
-        from fastapi import HTTPException
-        raise HTTPException(404, "Outorga não encontrada.")
-    for k, v in dados.model_dump(exclude_none=True).items():
-        setattr(outorga, k, v)
-    session.add(outorga)
-    await session.commit()
-    await session.refresh(outorga)
-    return outorga
+    svc = AmbientalService(session, tenant_id)
+    try:
+        outorga = await svc.atualizar_outorga(outorga_id, dados.model_dump(exclude_none=True))
+        await session.commit()
+        await session.refresh(outorga)
+        return outorga
+    except EntityNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Outorga não encontrada.")

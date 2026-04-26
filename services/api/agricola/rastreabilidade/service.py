@@ -11,6 +11,12 @@ class RastreabilidadeService(BaseService[LoteRastreabilidade]):
     def __init__(self, session: AsyncSession, tenant_id: UUID):
         super().__init__(LoteRastreabilidade, session, tenant_id)
 
+    @staticmethod
+    async def buscar_por_codigo(session: AsyncSession, codigo_lote: str):
+        """Busca pública por código de lote — sem filtro de tenant."""
+        stmt = select(LoteRastreabilidade).where(LoteRastreabilidade.codigo_lote == codigo_lote)
+        return (await session.execute(stmt)).scalar_one_or_none()
+
     async def criar_lote(self, dados: LoteRastreabilidadeCreate) -> LoteRastreabilidade:
         dados_dict = dados.model_dump()
         dados_dict["qr_code_url"] = f"https://api.agrosaas.com/v1/public/track/{dados.codigo_lote}"

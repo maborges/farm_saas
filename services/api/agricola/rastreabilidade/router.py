@@ -62,8 +62,6 @@ async def rastreabilidade_produto_colhido(
     """
     from agricola.colheita.models import ProdutoColhido
     from core.exceptions import EntityNotFoundError, BusinessRuleError
-    from sqlalchemy import select
-
     pc = await session.get(ProdutoColhido, produto_colhido_id)
     if not pc or pc.tenant_id != tenant_id:
         raise EntityNotFoundError("Produto colhido não encontrado")

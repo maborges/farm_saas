@@ -219,6 +219,16 @@ class ExploracaoRuralService:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def listar_por_fazenda(self, unidade_produtiva_id: uuid.UUID) -> list[ExploracaoRural]:
+        """Lista todas as explorações de uma unidade produtiva."""
+        stmt = select(ExploracaoRural).where(
+            and_(
+                ExploracaoRural.unidade_produtiva_id == unidade_produtiva_id,
+                ExploracaoRural.tenant_id == self.tenant_id,
+            )
+        ).order_by(ExploracaoRural.data_inicio.desc())
+        return list((await self.session.execute(stmt)).scalars().all())
+
     async def listar_vigentes_por_fazenda(self, unidade_produtiva_id: uuid.UUID) -> list[ExploracaoRural]:
         """
         Retorna explorações ativas agora (data_fim NULL ou >= hoje).
