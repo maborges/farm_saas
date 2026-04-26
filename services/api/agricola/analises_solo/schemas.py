@@ -9,6 +9,7 @@ SistemaManejo = Literal["PLANTIO_DIRETO", "CONVENCIONAL", "MINIMO"]
 
 class AnaliseSoloCreate(BaseModel):
     talhao_id: UUID
+    production_unit_id: UUID | None = None
     data_coleta: date
     laboratorio: str | None = None
     codigo_amostra: str | None = None
@@ -56,6 +57,7 @@ class AnaliseSoloCreate(BaseModel):
 
 
 class AnaliseSoloUpdate(BaseModel):
+    production_unit_id: UUID | None = None
     data_coleta: date | None = None
     laboratorio: str | None = None
     codigo_amostra: str | None = None
@@ -91,6 +93,7 @@ class AnaliseSoloUpdate(BaseModel):
 class AnaliseSoloResponse(AnaliseSoloCreate):
     id: UUID
     tenant_id: UUID
+    production_unit_id: UUID | None = None
     talhao_nome: str | None = None
     created_at: datetime
     updated_at: datetime

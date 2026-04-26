@@ -6,7 +6,7 @@ import asyncio
 from sqlalchemy import select, text
 from core.database import async_session_maker
 from core.models import Tenant  # noqa: F401
-from agricola.checklist.models import ChecklistTemplate
+from agricola.models.templates import PhaseTemplate, PhaseTemplateChecklistItem
 
 # (fase, cultura, titulo, obrigatorio)
 TEMPLATES = [
@@ -79,13 +79,13 @@ async def seed():
             return
         tenant_id = row[0]
 
-        # Busca títulos existentes para evitar duplicatas
-        existing = set(
+        # Busca títulos existentes para evitar duplicatas nos itens
+        existing_items = set(
             r[0]
             for r in (
                 await session.execute(
-                    select(ChecklistTemplate.titulo).where(
-                        ChecklistTemplate.is_system == True
+                    select(PhaseTemplateChecklistItem.titulo).join(PhaseTemplate).where(
+                        PhaseTemplate.is_system_default == True
                     )
                 )
             ).all()
@@ -93,22 +93,41 @@ async def seed():
 
         inseridos = 0
         for fase, cultura, titulo, obrigatorio in TEMPLATES:
-            if titulo in existing:
+            if titulo in existing_items:
                 continue
-            session.add(ChecklistTemplate(
-                tenant_id=tenant_id,
-                is_system=True,
-                ativo=True,
-                fase=fase,
-                cultura=cultura,
+            
+            # Busca ou cria o container para a fase
+            stmt_container = select(PhaseTemplate).where(
+                PhaseTemplate.tenant_id == None,
+                PhaseTemplate.cultura == cultura,
+                PhaseTemplate.fase == fase
+            )
+            container = (await session.execute(stmt_container)).scalar_one_or_none()
+            
+            if not container:
+                container = PhaseTemplate(
+                    tenant_id=None,
+                    cultura=cultura,
+                    fase=fase,
+                    titulo=f"Template {fase}" + (f" - {cultura}" if cultura else ""),
+                    is_system_default=True,
+                    ativo=True
+                )
+                session.add(container)
+                await session.flush()
+
+            session.add(PhaseTemplateChecklistItem(
+                phase_template_id=container.id,
                 titulo=titulo,
+                descricao=None,
                 obrigatorio=obrigatorio,
                 ordem=0,
+                ativo=True
             ))
             inseridos += 1
 
         await session.commit()
-        print(f"Seed concluído: {inseridos} templates inseridos ({len(existing)} já existiam).")
+        print(f"Seed concluído: {inseridos} templates inseridos ({len(existing_items)} já existiam).")
 
 
 if __name__ == "__main__":

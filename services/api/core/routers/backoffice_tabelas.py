@@ -23,7 +23,7 @@ from core.cadastros.produtos.schemas import (
     SoloParametroCulturaCreate, SoloParametroCulturaUpdate
 )
 from core.cadastros.commodities.models import Commodity
-from agricola.checklist.models import ChecklistTemplate
+from agricola.models.templates import PhaseTemplate, PhaseTemplateChecklistItem
 from agricola.monitoramento.catalogo_model import MonitoramentoCatalogo
 
 router = APIRouter(
@@ -487,43 +487,110 @@ async def listar_checklist_templates_sistema(
     fase: Optional[str] = Query(None),
     session: AsyncSession = Depends(get_session),
 ):
-    stmt = select(ChecklistTemplate).where(ChecklistTemplate.tenant_id.is_(None)).order_by(ChecklistTemplate.fase, ChecklistTemplate.ordem)
+    stmt = select(
+        PhaseTemplateChecklistItem.id,
+        PhaseTemplate.tenant_id,
+        PhaseTemplate.cultura,
+        PhaseTemplate.fase,
+        PhaseTemplateChecklistItem.titulo,
+        PhaseTemplateChecklistItem.descricao,
+        PhaseTemplateChecklistItem.obrigatorio,
+        PhaseTemplateChecklistItem.ordem,
+        PhaseTemplateChecklistItem.ativo,
+        PhaseTemplate.is_system_default.label("is_system"),
+        PhaseTemplate.created_at
+    ).join(PhaseTemplate).where(
+        PhaseTemplate.tenant_id.is_(None)
+    ).order_by(PhaseTemplate.fase, PhaseTemplateChecklistItem.ordem)
+
     if cultura:
-        stmt = stmt.where(ChecklistTemplate.cultura == cultura)
+        stmt = stmt.where(PhaseTemplate.cultura == cultura)
     if fase:
-        stmt = stmt.where(ChecklistTemplate.fase == fase)
+        stmt = stmt.where(PhaseTemplate.fase == fase)
+    
     result = await session.execute(stmt)
-    return list(result.scalars().all())
+    # Convertendo rows para dicts para compatibilidade com o schema esperado
+    return [dict(r._mapping) for r in result.all()]
 
 
 @router.post("/checklist-templates", status_code=201)
 async def criar_checklist_template_sistema(data: ChecklistTemplateSistemaCreate, session: AsyncSession = Depends(get_session)):
-    obj = ChecklistTemplate(tenant_id=None, is_system=True, ativo=True, **data.model_dump())
+    # Busca ou cria o container PhaseTemplate do sistema
+    stmt = select(PhaseTemplate).where(
+        PhaseTemplate.tenant_id.is_(None),
+        PhaseTemplate.cultura == data.cultura,
+        PhaseTemplate.fase == data.fase
+    )
+    container = (await session.execute(stmt)).scalar_one_or_none()
+    
+    if not container:
+        container = PhaseTemplate(
+            tenant_id=None,
+            cultura=data.cultura,
+            fase=data.fase,
+            titulo=f"Template Sistema {data.fase}" + (f" - {data.cultura}" if data.cultura else ""),
+            ativo=True,
+            is_system_default=True
+        )
+        session.add(container)
+        await session.flush()
+
+    obj = PhaseTemplateChecklistItem(
+        phase_template_id=container.id,
+        titulo=data.titulo,
+        descricao=data.descricao,
+        obrigatorio=data.obrigatorio,
+        ordem=data.ordem,
+        ativo=True
+    )
     session.add(obj)
     await session.commit()
     await session.refresh(obj)
-    return obj
+    
+    # Retorna objeto enriquecido para o frontend
+    return {
+        **obj.__dict__,
+        "tenant_id": None,
+        "cultura": container.cultura,
+        "fase": container.fase,
+        "is_system": True
+    }
 
 
 @router.patch("/checklist-templates/{template_id}")
 async def atualizar_checklist_template_sistema(
     template_id: uuid.UUID, data: ChecklistTemplateSistemaUpdate, session: AsyncSession = Depends(get_session),
 ):
-    obj = (await session.execute(select(ChecklistTemplate).where(ChecklistTemplate.id == template_id, ChecklistTemplate.tenant_id.is_(None)))).scalar_one_or_none()
+    stmt = select(PhaseTemplateChecklistItem).join(PhaseTemplate).where(
+        PhaseTemplateChecklistItem.id == template_id,
+        PhaseTemplate.tenant_id.is_(None)
+    )
+    result = await session.execute(stmt)
+    obj = result.scalar_one_or_none()
     if not obj:
         raise EntityNotFoundError("Template não encontrado")
+    
     for k, v in data.model_dump(exclude_none=True).items():
-        setattr(obj, k, v)
-    await session.commit(); await session.refresh(obj)
+        if hasattr(obj, k):
+            setattr(obj, k, v)
+    
+    await session.commit()
+    await session.refresh(obj)
     return obj
 
 
 @router.delete("/checklist-templates/{template_id}", status_code=204)
 async def remover_checklist_template_sistema(template_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
-    obj = (await session.execute(select(ChecklistTemplate).where(ChecklistTemplate.id == template_id, ChecklistTemplate.tenant_id.is_(None)))).scalar_one_or_none()
+    stmt = select(PhaseTemplateChecklistItem).join(PhaseTemplate).where(
+        PhaseTemplateChecklistItem.id == template_id,
+        PhaseTemplate.tenant_id.is_(None)
+    )
+    result = await session.execute(stmt)
+    obj = result.scalar_one_or_none()
     if not obj:
         raise EntityNotFoundError("Template não encontrado")
-    await session.delete(obj); await session.commit()
+    await session.delete(obj)
+    await session.commit()
 
 
 # ===========================================================================

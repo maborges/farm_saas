@@ -40,6 +40,7 @@ from core.routers import sessions
 from core.routers import backoffice_crm
 from core.routers import backoffice_crm_ofertas
 from core.routers import backoffice_tabelas
+from core.routers import backoffice_uom
 from core.routers import stripe_webhooks
 from operacional.routers import frota
 from operacional.routers import estoque
@@ -181,6 +182,7 @@ app.include_router(sessions.router, prefix="/api/v1")
 app.include_router(backoffice_crm.router, prefix="/api/v1")
 app.include_router(backoffice_crm_ofertas.router, prefix="/api/v1")
 app.include_router(backoffice_tabelas.router, prefix="/api/v1")
+app.include_router(backoffice_uom.router, prefix="/api/v1")
 app.include_router(stripe_webhooks.router, prefix="/api/v1")
 app.include_router(billing.router, prefix="/api/v1")
 app.include_router(plan_changes.router, prefix="/api/v1")
@@ -230,6 +232,7 @@ from agricola.climatico.router import router as router_climatico
 from agricola.agronomo.router import router as router_agronomo
 from agricola.analises_solo.router import router as router_analises_solo
 from agricola.custos.router import router as router_custos
+from agricola.cenarios.router import router as router_cenarios
 from agricola.cadastros.router import router as router_cadastros
 from agricola.rastreabilidade.router import router as router_rastreabilidade
 from agricola.rastreabilidade.public_router import router as router_rastreabilidade_publica
@@ -305,6 +308,7 @@ app.include_router(router_climatico, prefix="/api/v1")
 app.include_router(router_agronomo, prefix="/api/v1")
 app.include_router(router_analises_solo, prefix="/api/v1")
 app.include_router(router_custos, prefix="/api/v1")
+app.include_router(router_cenarios, prefix="/api/v1")
 app.include_router(router_cadastros, prefix="/api/v1")
 app.include_router(router_rastreabilidade, prefix="/api/v1")
 app.include_router(router_rastreabilidade_publica, prefix="/api/v1")
@@ -412,6 +416,20 @@ async def tenant_violation_handler(request: Request, exc: TenantViolationError):
 @app.exception_handler(ModuleNotContractedError)
 async def module_not_contracted_handler(request: Request, exc: ModuleNotContractedError):
     return JSONResponse(status_code=402, content={"detail": str(exc), "code": "PAYMENT_REQUIRED"})
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    error_msg = f"Unhandled Exception: {type(exc).__name__}: {str(exc)}\n{traceback.format_exc()}"
+    logger.error(error_msg)
+    # Log to a temporary file in the workspace
+    with open("error_debug.log", "a") as f:
+        f.write(f"\n--- {datetime.now()} ---\n{error_msg}\n")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "error": str(exc)},
+        headers={"Access-Control-Allow-Origin": "*"} # Force CORS for error
+    )
 
 @app.exception_handler(BusinessRuleError)
 async def business_rule_handler(request: Request, exc: BusinessRuleError):

@@ -4,8 +4,11 @@ from sqlalchemy.future import select
 from sqlalchemy import func
 from core.exceptions import BusinessRuleError
 
-from agricola.safras.models import Safra
+from agricola.cultivos.models import Cultivo  # noqa: F401 - registers relationship target
+from agricola.safras.models import Safra, SafraTalhao
 from agricola.operacoes.models import OperacaoAgricola
+from agricola.production_units.models import ProductionUnit
+from agricola.custos.models import CostAllocation
 from agricola.custos.schemas import ReumoCustosSafraResponse, CustoBreakdown
 
 class CustosService:
@@ -22,29 +25,53 @@ class CustosService:
         if not safra:
             raise BusinessRuleError("Safra não encontrada.")
             
-        area_ha = safra.area_plantada_ha or 1.0 # fallback prevention division by zero
-        
-        # Consolida custos das operações
-        stmt_ops = select(
-            OperacaoAgricola.tipo, 
-            func.sum(OperacaoAgricola.custo_total).label("total")
-        ).filter_by(
-            safra_id=safra_id, 
-            tenant_id=self.tenant_id
-        ).group_by(OperacaoAgricola.tipo)
-        
-        result_ops = await self.session.execute(stmt_ops)
+        area_pu = (await self.session.execute(
+            select(func.coalesce(func.sum(ProductionUnit.area_ha), 0)).where(
+                ProductionUnit.tenant_id == self.tenant_id,
+                ProductionUnit.safra_id == safra_id,
+                ProductionUnit.status != "CANCELADA",
+            )
+        )).scalar_one()
+        area_talhoes = (await self.session.execute(
+            select(func.coalesce(func.sum(SafraTalhao.area_ha), 0)).where(
+                SafraTalhao.tenant_id == self.tenant_id,
+                SafraTalhao.safra_id == safra_id,
+            )
+        )).scalar_one()
+        area_ha = float(area_pu or area_talhoes or 1.0)
         
         breakdowns = []
         custo_total = 0.0
-        
-        items = result_ops.all()
-        
+
+        stmt_alloc = (
+            select(
+                CostAllocation.cost_category.label("categoria"),
+                func.sum(CostAllocation.amount).label("total"),
+            )
+            .join(ProductionUnit, ProductionUnit.id == CostAllocation.production_unit_id)
+            .where(
+                CostAllocation.tenant_id == self.tenant_id,
+                ProductionUnit.safra_id == safra_id,
+            )
+            .group_by(CostAllocation.cost_category)
+        )
+        items = (await self.session.execute(stmt_alloc)).all()
+
+        if not items:
+            stmt_ops = select(
+                OperacaoAgricola.tipo.label("categoria"),
+                func.sum(OperacaoAgricola.custo_total).label("total"),
+            ).filter_by(
+                safra_id=safra_id,
+                tenant_id=self.tenant_id,
+            ).group_by(OperacaoAgricola.tipo)
+            items = (await self.session.execute(stmt_ops)).all()
+
         for row in items:
             valor = float(row.total or 0)
             custo_total += valor
             breakdowns.append({
-                "categoria": row.tipo,
+                "categoria": row.categoria,
                 "valor_total": valor,
                 "valor_por_ha": valor / float(area_ha),
                 "percentual": 0 # calculado no proximo step
@@ -57,8 +84,9 @@ class CustosService:
             
         orcamento = None
         desvio = None
-        if safra.custo_previsto_ha:
-            orcamento = float(safra.custo_previsto_ha * area_ha)
+        custo_previsto_ha = getattr(safra, "custo_previsto_ha", None)
+        if custo_previsto_ha:
+            orcamento = float(custo_previsto_ha * area_ha)
             if orcamento > 0:
                 desvio = round(((custo_total - orcamento) / orcamento) * 100, 2)
                 

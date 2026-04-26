@@ -57,7 +57,6 @@ class Safra(Base):
 
     # Relacionamentos
     cultivos: Mapped[list["Cultivo"]] = relationship(
-        foreign_keys="[Cultivo.safra_id]",
         back_populates="safra",
         lazy="noload",
         cascade="all, delete-orphan"

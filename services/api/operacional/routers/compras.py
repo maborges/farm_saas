@@ -19,6 +19,7 @@ from operacional.schemas.compras import (
 )
 from core.cadastros.models import ProdutoCatalogo as Produto
 from operacional.services.estoque_service import EstoqueService
+from operacional.services.estoque_ledger import registrar_ledger_estoque
 from operacional.schemas.estoque import EntradaEstoqueRequest, LoteCreate
 from operacional.models.estoque import LoteEstoque, MovimentacaoEstoque, SaldoEstoque
 from pydantic import BaseModel, Field
@@ -786,6 +787,20 @@ async def atualizar_status_devolucao(
                     origem_tipo="DEVOLUCAO_FORNECEDOR",
                 )
                 session.add(mov_reversa)
+                await registrar_ledger_estoque(
+                    session,
+                    tenant_id=tenant.id,
+                    produto_id=item_dev.produto_id,
+                    deposito_id=item_dev.deposito_origem_id,
+                    lote_id=item_dev.lote_id,
+                    tipo_movimento="AJUSTE",
+                    quantidade=item_dev.quantidade,
+                    custo_unitario=item_dev.custo_unitario,
+                    custo_total=item_dev.quantidade * item_dev.custo_unitario if item_dev.custo_unitario else 0.0,
+                    origem="AJUSTE",
+                    origem_id=dev.id,
+                    observacoes=f"Devolução aprovada ({dev.motivo})",
+                )
 
                 # Update SaldoEstoque
                 saldo_stmt = select(SaldoEstoque).where(

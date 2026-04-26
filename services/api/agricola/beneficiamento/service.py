@@ -133,6 +133,7 @@ class BeneficiamentoService(BaseService[LoteBeneficiamento]):
         dados = LoteBeneficiamentoCreate(
             safra_id=romaneio.safra_id,
             talhao_id=romaneio.talhao_id,
+            production_unit_id=romaneio.production_unit_id,
             romaneio_id=romaneio_id,
             numero_lote=numero_lote,
             metodo="NATURAL",  # Padrão: NATURAL (cereja), usuário pode alterar depois
@@ -176,6 +177,7 @@ class BeneficiamentoService(BaseService[LoteBeneficiamento]):
         dados = LoteBeneficiamentoCreate(
             safra_id=safra_id,
             talhao_id=primeiro.talhao_id,
+            production_unit_id=primeiro.production_unit_id,
             romaneio_id=primeiro.id,  # Registra primeiro romaneio como principal
             numero_lote=numero_lote,
             metodo=req.metodo,

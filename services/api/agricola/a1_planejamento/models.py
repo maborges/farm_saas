@@ -36,6 +36,9 @@ class ItemOrcamentoSafra(Base):
     cultivo_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("cultivos.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    production_unit_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("production_units.id", ondelete="SET NULL"), nullable=True
+    )
 
     # SEMENTE, FERTILIZANTE, DEFENSIVO, COMBUSTIVEL, MAO_DE_OBRA, SERVICO, SEGURO, OUTROS
     categoria: Mapped[str] = mapped_column(String(20), nullable=False, index=True)

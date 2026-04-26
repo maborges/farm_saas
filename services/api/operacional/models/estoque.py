@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, date, timezone
-from sqlalchemy import String, Boolean, DateTime, Date, ForeignKey, JSON, Float, Integer
+from sqlalchemy import String, Boolean, DateTime, Date, ForeignKey, JSON, Float, Integer, Numeric, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Uuid as UUID
 from core.database import Base
@@ -126,3 +126,37 @@ class MovimentacaoEstoque(Base):
     motivo: Mapped[str | None] = mapped_column(String(255))
     origem_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True)) # ID do Pedido ou OS
     origem_tipo: Mapped[str | None] = mapped_column(String(50)) # "ORDEM_SERVICO", "PEDIDO_COMPRA", "MANUAL"
+
+
+class EstoqueMovimento(Base):
+    """Ledger append-only de estoque. Correções são novos movimentos via ajuste_de."""
+    __tablename__ = "estoque_movimentos"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    data_movimento: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    tipo_movimento: Mapped[str] = mapped_column(String(24), nullable=False)
+
+    produto_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cadastros_produtos.id", ondelete="RESTRICT"), nullable=False, index=True)
+    deposito_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("estoque_depositos.id", ondelete="SET NULL"), nullable=True, index=True)
+    lote_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("estoque_lotes.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    quantidade: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
+    unidade_medida_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("unidades_medida.id", ondelete="RESTRICT"), nullable=False)
+    custo_unitario: Mapped[float | None] = mapped_column(Numeric(15, 6), nullable=True)
+    custo_total: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)
+
+    origem: Mapped[str] = mapped_column(String(32), nullable=False)
+    origem_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    operacao_execucao_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("operacoes_execucoes.id", ondelete="SET NULL"), nullable=True
+    )
+    production_unit_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("production_units.id", ondelete="SET NULL"), nullable=True
+    )
+    numero_lote: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    ajuste_de: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("estoque_movimentos.id", ondelete="SET NULL"), nullable=True
+    )
+    observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

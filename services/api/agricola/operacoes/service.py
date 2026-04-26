@@ -3,12 +3,12 @@ import uuid
 from datetime import date, datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import func, text
 from loguru import logger
 from core.exceptions import BusinessRuleError, EntityNotFoundError
 from core.base_service import BaseService
 
-from agricola.operacoes.models import OperacaoAgricola, InsumoOperacao
+from agricola.operacoes.models import OperacaoAgricola, OperacaoExecucao, InsumoOperacao
 from agricola.operacoes.schemas import OperacaoAgricolaCreate, OperacaoAgricolaUpdate, OperacaoPorFaseKPI, SafraOperacoesPorFaseResponse
 from agricola.safras.models import SAFRA_FASES_ORDEM
 from core.cadastros.propriedades.models import AreaRural
@@ -18,6 +18,8 @@ from core.cadastros.produtos.models import Produto
 from operacional.services import EstoqueService
 from operacional.models.estoque import MovimentacaoEstoque
 from operacional.services.estoque_fifo import consumir_lotes_fifo, atualizar_saldo_apos_consumo
+from operacional.services.estoque_ledger import registrar_ledger_estoque
+from agricola.custos.allocation_service import registrar_cost_allocation
 from financeiro.models.despesa import Despesa
 from agricola.caderno.models import CadernoCampoEntrada
 
@@ -81,11 +83,10 @@ class OperacaoService(BaseService[OperacaoAgricola]):
             **dados_dict
         )
         self.session.add(operacao)
+        await self.session.flush()
 
-        # IMPORTANT: Do NOT flush operacao here. Process insumos first.
-        # If FIFO fails, entire transaction will be rolled back.
-
-        # 3. Processa insumos e baixa estoque (FIFO) - BEFORE flushing operacao
+        # 3. Processa insumos e baixa estoque (FIFO). Se falhar, a transação inteira é revertida.
+        ledger_consumos = []
         try:
             for insumo in insumos_data:
                 quantidade_total = insumo.dose_por_ha * (insumo.area_aplicada or dados.area_aplicada_ha or 1.0)
@@ -128,6 +129,15 @@ class OperacaoService(BaseService[OperacaoAgricola]):
                         origem_tipo="OPERACAO_AGRICOLA",
                     )
                     self.session.add(mov)
+                    ledger_consumos.append({
+                        "produto_id": insumo.insumo_id,
+                        "deposito_id": lote_consumido["deposito_id"],
+                        "lote_id": lote_consumido["lote_id"],
+                        "quantidade": lote_consumido["quantidade"],
+                        "custo_unitario": lote_consumido["custo_unitario"],
+                        "custo_total": lote_consumido["custo"],
+                        "observacoes": f"Aplicação em operação agrícola ({operacao.tipo})",
+                    })
                     logger.info(
                         f"Batch consumed via FIFO: {lote_consumido['numero_lote']} × {lote_consumido['quantidade']}",
                         lote_id=str(lote_consumido["lote_id"]),
@@ -166,6 +176,62 @@ class OperacaoService(BaseService[OperacaoAgricola]):
             operacao.custo_total = custo_total_operacao
             if operacao.area_aplicada_ha and operacao.area_aplicada_ha > 0:
                 operacao.custo_por_ha = custo_total_operacao / operacao.area_aplicada_ha
+
+            operacao_execucao = None
+            if operacao.status == "REALIZADA":
+                unidade_ha_id = (await self.session.execute(text("""
+                    SELECT id
+                      FROM unidades_medida
+                     WHERE tenant_id IS NULL
+                       AND codigo = 'HA'
+                       AND ativo = true
+                     LIMIT 1
+                """))).scalar_one()
+                operacao_execucao = OperacaoExecucao(
+                    tenant_id=self.tenant_id,
+                    operacao_id=operacao.id,
+                    production_unit_id=operacao.production_unit_id,
+                    data_execucao=operacao.data_realizada,
+                    hora_execucao=operacao.hora_inicio,
+                    quantidade_planejada=operacao.area_aplicada_ha,
+                    quantidade_executada=operacao.area_aplicada_ha or 1,
+                    quantidade_devolvida=0,
+                    unidade_medida_id=unidade_ha_id,
+                    custo_real=custo_total_operacao,
+                    area_ha_executada=operacao.area_aplicada_ha,
+                    status="REALIZADA",
+                    operador_id=operacao.operador_id,
+                    observacoes=operacao.observacoes,
+                )
+                self.session.add(operacao_execucao)
+                await self.session.flush()
+
+                for consumo_ledger in ledger_consumos:
+                    await registrar_ledger_estoque(
+                        self.session,
+                        tenant_id=self.tenant_id,
+                        tipo_movimento="SAIDA",
+                        origem="OPERACAO_EXECUCAO",
+                        origem_id=operacao_execucao.id,
+                        operacao_execucao_id=operacao_execucao.id,
+                        production_unit_id=operacao.production_unit_id,
+                        **consumo_ledger,
+                    )
+
+                if custo_total_operacao and operacao.production_unit_id:
+                    await registrar_cost_allocation(
+                        self.session,
+                        tenant_id=self.tenant_id,
+                        production_unit_id=operacao.production_unit_id,
+                        source="OPERATION_EXECUTION",
+                        source_id=operacao_execucao.id,
+                        operation_execution_id=operacao_execucao.id,
+                        cost_category="OUTROS",
+                        amount=custo_total_operacao,
+                        allocation_date=operacao_execucao.data_execucao,
+                        allocation_method="DIRECT",
+                        allocation_basis=operacao_execucao.area_ha_executada,
+                    )
 
             # 4. Sincroniza custo na Safra
             safra = await self.session.get(Safra, operacao.safra_id)

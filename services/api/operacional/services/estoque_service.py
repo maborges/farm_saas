@@ -24,6 +24,7 @@ from operacional.schemas.estoque import (
     RequisicaoCreate, RequisicaoAprovarRequest, RequisicaoEntregarRequest,
     ReservaCreate, ReservaCancelarRequest, ReservaConsumirRequest,
 )
+from operacional.services.estoque_ledger import registrar_ledger_estoque
 
 
 class EstoqueService(BaseService[SaldoEstoque]):
@@ -286,6 +287,19 @@ class EstoqueService(BaseService[SaldoEstoque]):
             origem_tipo=data.origem_tipo or "MANUAL",
             lote_id=data.lote_id,
         )
+        await registrar_ledger_estoque(
+            self.session,
+            tenant_id=self.tenant_id,
+            produto_id=data.produto_id,
+            deposito_id=data.deposito_id,
+            lote_id=data.lote_id,
+            tipo_movimento="ENTRADA",
+            quantidade=data.quantidade,
+            custo_unitario=data.custo_unitario or (prod.preco_medio if prod else None),
+            origem=data.origem_tipo or "MANUAL",
+            origem_id=data.origem_id,
+            observacoes=data.motivo or "Entrada manual",
+        )
         await self.session.flush()
         await self.session.refresh(mov)
         return mov
@@ -340,6 +354,18 @@ class EstoqueService(BaseService[SaldoEstoque]):
             motivo=motivo,
             origem_id=origem_id,
             origem_tipo=origem_tipo,
+        )
+        await registrar_ledger_estoque(
+            self.session,
+            tenant_id=self.tenant_id,
+            produto_id=produto_id,
+            deposito_id=saldo_sel.deposito_id,
+            tipo_movimento="SAIDA",
+            quantidade=quantidade,
+            custo_unitario=prod.preco_medio if prod else None,
+            origem=origem_tipo,
+            origem_id=origem_id,
+            observacoes=motivo,
         )
         await self.session.flush()
         await self.session.refresh(mov)
@@ -400,6 +426,19 @@ class EstoqueService(BaseService[SaldoEstoque]):
                 origem_tipo=data.origem_tipo or "MANUAL",
                 lote_id=data.lote_id,
             )
+            await registrar_ledger_estoque(
+                self.session,
+                tenant_id=self.tenant_id,
+                produto_id=data.produto_id,
+                deposito_id=data.deposito_id,
+                lote_id=data.lote_id,
+                tipo_movimento="SAIDA",
+                quantidade=data.quantidade,
+                custo_unitario=prod.preco_medio if prod else None,
+                origem=data.origem_tipo or "MANUAL",
+                origem_id=data.origem_id,
+                observacoes=data.motivo,
+            )
             await self.session.flush()
             await self.session.refresh(mov)
             return mov
@@ -422,6 +461,17 @@ class EstoqueService(BaseService[SaldoEstoque]):
             tipo="AJUSTE", quantidade=abs(diff),
             motivo=data.motivo, origem_tipo="AJUSTE",
         )
+        if diff != 0:
+            await registrar_ledger_estoque(
+                self.session,
+                tenant_id=self.tenant_id,
+                produto_id=data.produto_id,
+                deposito_id=data.deposito_id,
+                tipo_movimento="AJUSTE",
+                quantidade=diff,
+                origem="AJUSTE",
+                observacoes=data.motivo,
+            )
         await self.session.flush()
         await self.session.refresh(mov)
         return mov
@@ -452,6 +502,30 @@ class EstoqueService(BaseService[SaldoEstoque]):
             tipo="TRANSFERENCIA", quantidade=data.quantidade,
             custo_unitario=prod.preco_medio if prod else None,
             motivo=motivo, origem_tipo="TRANSFERENCIA",
+        )
+        await registrar_ledger_estoque(
+            self.session,
+            tenant_id=self.tenant_id,
+            produto_id=data.produto_id,
+            deposito_id=data.deposito_origem_id,
+            tipo_movimento="TRANSFERENCIA",
+            quantidade=-data.quantidade,
+            custo_unitario=prod.preco_medio if prod else None,
+            origem="TRANSFERENCIA",
+            origem_id=mov_saida.id,
+            observacoes=motivo,
+        )
+        await registrar_ledger_estoque(
+            self.session,
+            tenant_id=self.tenant_id,
+            produto_id=data.produto_id,
+            deposito_id=data.deposito_destino_id,
+            tipo_movimento="TRANSFERENCIA",
+            quantidade=data.quantidade,
+            custo_unitario=prod.preco_medio if prod else None,
+            origem="TRANSFERENCIA",
+            origem_id=mov_entrada.id,
+            observacoes=motivo,
         )
         await self.session.flush()
         return [mov_saida, mov_entrada]

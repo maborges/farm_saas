@@ -2,36 +2,81 @@ from uuid import UUID
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import and_
-
+from sqlalchemy import and_, or_
 from core.base_service import BaseService
 from core.exceptions import BusinessRuleError
-from agricola.checklist.models import ChecklistTemplate, SafraChecklistItem
+from agricola.checklist.models import SafraChecklistItem
+from agricola.models.templates import PhaseTemplate, PhaseTemplateChecklistItem
 from agricola.checklist.schemas import (
     ChecklistTemplateCreate, ChecklistTemplateUpdate,
     ChecklistItemAdicionar, ChecklistFaseStatus,
 )
 
 
-class ChecklistTemplateService(BaseService[ChecklistTemplate]):
+class ChecklistTemplateService(BaseService[PhaseTemplateChecklistItem]):
     def __init__(self, session: AsyncSession, tenant_id: UUID):
-        super().__init__(ChecklistTemplate, session, tenant_id)
+        super().__init__(PhaseTemplateChecklistItem, session, tenant_id)
 
-    async def listar(self, cultura: str | None = None, fase: str | None = None) -> list[ChecklistTemplate]:
-        filters: dict = {"ativo": True}
+    async def listar(self, cultura: str | None = None, fase: str | None = None):
+        stmt = select(
+            PhaseTemplateChecklistItem.id,
+            PhaseTemplate.tenant_id,
+            PhaseTemplate.cultura,
+            PhaseTemplate.fase,
+            PhaseTemplateChecklistItem.titulo,
+            PhaseTemplateChecklistItem.descricao,
+            PhaseTemplateChecklistItem.obrigatorio,
+            PhaseTemplateChecklistItem.ordem,
+            PhaseTemplateChecklistItem.ativo,
+            PhaseTemplate.is_system_default.label("is_system"),
+            PhaseTemplate.created_at
+        ).join(PhaseTemplate).where(
+            or_(PhaseTemplate.tenant_id == self.tenant_id, PhaseTemplate.tenant_id == None),
+            PhaseTemplateChecklistItem.ativo == True
+        )
         if cultura:
-            filters["cultura"] = cultura
+            stmt = stmt.where(or_(PhaseTemplate.cultura == cultura, PhaseTemplate.cultura == None))
         if fase:
-            filters["fase"] = fase
-        return await self.list_all(**filters)
+            stmt = stmt.where(PhaseTemplate.fase == fase)
+        
+        result = await self.session.execute(stmt.order_by(PhaseTemplate.fase, PhaseTemplateChecklistItem.ordem))
+        return [dict(r._mapping) for r in result.all()]
 
-    async def criar(self, dados: ChecklistTemplateCreate) -> ChecklistTemplate:
-        d = dados.model_dump()
-        d["is_system"] = False
-        return await self.create(d)
+    async def criar(self, dados: ChecklistTemplateCreate) -> PhaseTemplateChecklistItem:
+        # Nota: A criação direta aqui ficou mais complexa pois precisa de um PhaseTemplate container.
+        # Por simplicidade, vamos buscar ou criar um PhaseTemplate para o tenant/cultura/fase.
+        stmt = select(PhaseTemplate).where(
+            PhaseTemplate.tenant_id == self.tenant_id,
+            PhaseTemplate.cultura == dados.cultura,
+            PhaseTemplate.fase == dados.fase
+        )
+        container = (await self.session.execute(stmt)).scalar_one_or_none()
+        
+        if not container:
+            container = PhaseTemplate(
+                tenant_id=self.tenant_id,
+                cultura=dados.cultura,
+                fase=dados.fase,
+                titulo=f"Template {dados.fase}" + (f" - {dados.cultura}" if dados.cultura else ""),
+                ativo=True
+            )
+            self.session.add(container)
+            await self.session.flush()
 
-    async def atualizar(self, template_id: UUID, dados: ChecklistTemplateUpdate) -> ChecklistTemplate:
-        return await self.update(template_id, dados.model_dump(exclude_unset=True))
+        item = PhaseTemplateChecklistItem(
+            phase_template_id=container.id,
+            titulo=dados.titulo,
+            descricao=dados.descricao,
+            obrigatorio=dados.obrigatorio,
+            ordem=dados.ordem,
+            ativo=True
+        )
+        self.session.add(item)
+        await self.session.flush()
+        return item
+
+    async def atualizar(self, item_id: UUID, dados: ChecklistTemplateUpdate) -> PhaseTemplateChecklistItem:
+        return await self.update(item_id, dados.model_dump(exclude_unset=True))
 
 
 class SafraChecklistService(BaseService[SafraChecklistItem]):
@@ -51,12 +96,13 @@ class SafraChecklistService(BaseService[SafraChecklistItem]):
             return list(existentes)
 
         # Busca templates: específicos da cultura + genéricos (cultura=None)
-        stmt_tmpl = select(ChecklistTemplate).where(
-            ChecklistTemplate.tenant_id == self.tenant_id,
-            ChecklistTemplate.fase == fase,
-            ChecklistTemplate.ativo == True,
-            (ChecklistTemplate.cultura == cultura) | (ChecklistTemplate.cultura == None),
-        ).order_by(ChecklistTemplate.ordem)
+        stmt_tmpl = select(PhaseTemplateChecklistItem).join(PhaseTemplate).where(
+            or_(PhaseTemplate.tenant_id == self.tenant_id, PhaseTemplate.tenant_id == None),
+            PhaseTemplate.fase == fase,
+            PhaseTemplate.ativo == True,
+            PhaseTemplateChecklistItem.ativo == True,
+            or_(PhaseTemplate.cultura == cultura, PhaseTemplate.cultura == None),
+        ).order_by(PhaseTemplateChecklistItem.ordem)
         templates = (await self.session.execute(stmt_tmpl)).scalars().all()
 
         itens: list[SafraChecklistItem] = []

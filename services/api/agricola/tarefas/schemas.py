@@ -6,6 +6,7 @@ from typing import Optional
 
 class TarefaCreate(BaseModel):
     talhao_id: Optional[UUID] = None
+    production_unit_id: Optional[UUID] = None
     cultivo_area_id: Optional[UUID] = None
     analise_solo_id: Optional[UUID] = None
     origem: str = "MANUAL"
@@ -29,6 +30,7 @@ class TarefaUpdate(BaseModel):
     obs: Optional[str] = None
     prioridade: Optional[str] = None
     talhao_id: Optional[UUID] = None
+    production_unit_id: Optional[UUID] = None
     tipo: Optional[str] = None
     custo_estimado: Optional[float] = None
     data_prevista: Optional[date] = None
@@ -41,6 +43,7 @@ class TarefaResponse(BaseModel):
     tenant_id: UUID
     safra_id: UUID
     talhao_id: Optional[UUID]
+    production_unit_id: Optional[UUID]
     cultivo_area_id: Optional[UUID]
     analise_solo_id: Optional[UUID]
     origem: str

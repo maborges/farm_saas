@@ -8,6 +8,7 @@ from sqlalchemy.future import select
 
 from core.base_service import BaseService
 from core.exceptions import BusinessRuleError
+from agricola.custos.allocation_service import registrar_allocations_fin_rateio
 from financeiro.models.despesa import Despesa
 from financeiro.models.rateio import Rateio
 from financeiro.models.plano_conta import PlanoConta
@@ -82,7 +83,10 @@ class DespesaService(BaseService[Despesa]):
                     rateio_dict = rateio_req.model_dump()
                     rateio_dict["tenant_id"] = self.tenant_id
                     rateio_dict["despesa_id"] = db_despesa.id
-                    self.session.add(Rateio(**rateio_dict))
+                    rateio = Rateio(**rateio_dict)
+                    self.session.add(rateio)
+                    await self.session.flush()
+                    await registrar_allocations_fin_rateio(self.session, rateio)
 
             await self.session.flush()
             await self.session.refresh(db_despesa)

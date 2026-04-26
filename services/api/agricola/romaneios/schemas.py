@@ -6,6 +6,7 @@ from typing import Optional
 class RomaneioColheitaCreate(BaseModel):
     safra_id: UUID
     talhao_id: UUID
+    production_unit_id: UUID | None = None
     numero_romaneio: str | None = None
     data_colheita: date
     turno: str | None = None
@@ -29,6 +30,7 @@ class RomaneioColheitaUpdate(BaseModel):
     turno: str | None = None
     maquina_colhedora_id: UUID | None = None
     operador_id: UUID | None = None
+    production_unit_id: UUID | None = None
     peso_bruto_kg: float | None = Field(None, gt=0)
     tara_kg: float | None = Field(None, ge=0)
     umidade_pct: float | None = Field(None, ge=0, le=100)
@@ -51,6 +53,7 @@ class RomaneioColheitaResponse(BaseModel):
     tenant_id: UUID
     safra_id: UUID
     talhao_id: UUID
+    production_unit_id: UUID | None = None
     commodity_id: UUID | None
     numero_romaneio: str | None
     data_colheita: date

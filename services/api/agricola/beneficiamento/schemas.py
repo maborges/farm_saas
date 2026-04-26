@@ -7,6 +7,7 @@ from typing import Optional, List
 class LoteBeneficiamentoCreate(BaseModel):
     safra_id: UUID
     talhao_id: UUID | None = None
+    production_unit_id: UUID | None = None
     romaneio_id: UUID | None = None
     numero_lote: str
     metodo: str = Field(..., pattern="^(NATURAL|LAVADO|HONEY|DESCASCADO)$")
@@ -26,6 +27,7 @@ class LoteFromRomaneiosRequest(BaseModel):
 
 class LoteBeneficiamentoUpdate(BaseModel):
     status: str | None = None
+    production_unit_id: UUID | None = None
     local_secagem: str | None = None
     data_inicio_secagem: date | None = None
     data_fim_secagem: date | None = None
@@ -51,6 +53,7 @@ class LoteBeneficiamentoResponse(BaseModel):
     tenant_id: UUID
     safra_id: UUID
     talhao_id: UUID | None
+    production_unit_id: UUID | None = None
     romaneio_id: UUID | None
     numero_lote: str
     metodo: str

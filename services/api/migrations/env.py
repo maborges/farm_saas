@@ -34,12 +34,13 @@ from core.models import (
 )
 from agricola.safras.models import Safra, SafraTalhao, SafraFaseHistorico
 from agricola.cultivos.models import Cultivo, CultivoArea
-from agricola.operacoes.models import OperacaoAgricola, InsumoOperacao
+from agricola.production_units.models import ProductionUnit, StatusConsorcioArea
+from agricola.operacoes.models import OperacaoAgricola, OperacaoExecucao, InsumoOperacao
 from agricola.monitoramento.models import MonitoramentoPragas
 from agricola.monitoramento.catalogo_model import MonitoramentoCatalogo
 from agricola.analises_solo.models import AnaliseSolo, RegraAgronomica
 from agricola.tarefas.models import SafraTarefa
-from agricola.checklist.models import ChecklistTemplate, SafraChecklistItem
+from agricola.checklist.models import SafraChecklistItem
 from agricola.models.templates import (
     PhaseTemplate, PhaseTemplateChecklistItem, PhaseTemplateTask,
     PhaseGateRule, OperationTemplate, OperationTemplateItem, OperationDependency
@@ -59,6 +60,7 @@ from agricola.colheita.models import ProdutoColhido
 
 # Cultura migrada para cadastros/produtos (verificar redundância)
 from agricola.a1_planejamento.models import ItemOrcamentoSafra
+from agricola.custos.models import CostAllocation
 
 # Pecuaria
 from pecuaria.animal.models import LoteAnimal, Animal, EventoAnimal
@@ -80,12 +82,14 @@ from core.cadastros.equipamentos.models import Equipamento
 from operacional.models.apontamento import ApontamentoUso
 from operacional.models.abastecimento import Abastecimento
 from operacional.models.checklist import ChecklistModelo, ChecklistRealizado
+from operacional.models.estoque import Deposito, SaldoEstoque, LoteEstoque, RequisicaoMaterial, ItemRequisicao, ReservaEstoque, MovimentacaoEstoque, EstoqueMovimento
 from operacional.models.documento_equipamento import DocumentoEquipamento
 
 # Produtos (insumos / almoxarifado)
 from core.cadastros.produtos.models import (
     Produto, ProdutoAgricola, ProdutoEstoque, ProdutoEPI, ProdutoCultura,
 )
+from core.measurements.models import UnidadeMedida, UnidadeMedidaConversao
 
 # Commodities (produtos de saída / receita)
 from core.cadastros.commodities.models import Commodity

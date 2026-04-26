@@ -55,6 +55,7 @@ class PlanejamentoService:
         item = ItemOrcamentoSafra(
             tenant_id=self.tenant_id,
             safra_id=safra_id,
+            production_unit_id=data.production_unit_id,
             categoria=data.categoria,
             descricao=data.descricao,
             quantidade=data.quantidade,

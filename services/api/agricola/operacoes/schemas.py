@@ -29,6 +29,7 @@ class InsumoOperacaoResponse(BaseModel):
 class OperacaoAgricolaCreate(BaseModel):
     safra_id: UUID
     talhao_id: UUID
+    production_unit_id: UUID | None = None
     tarefa_id: UUID | None = None
     tipo: str
     subtipo: str | None = None
@@ -60,6 +61,7 @@ class OperacaoAgricolaUpdate(BaseModel):
     maquina_id: UUID | None = None
     implemento: str | None = None
     operador_id: UUID | None = None
+    production_unit_id: UUID | None = None
     status: str | None = None
     observacoes: str | None = None
 
@@ -82,6 +84,7 @@ class OperacaoAgricolaResponse(BaseModel):
     tenant_id: UUID
     safra_id: UUID
     talhao_id: UUID
+    production_unit_id: UUID | None = None
     tarefa_id: UUID | None = None
     tipo: str
     subtipo: str | None

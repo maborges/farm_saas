@@ -12,6 +12,7 @@ CategoriaOrcamento = Literal[
 # ── Itens do Orçamento ────────────────────────────────────────────────────────
 
 class ItemOrcamentoCreate(BaseModel):
+    production_unit_id: Optional[uuid.UUID] = None
     categoria: CategoriaOrcamento
     descricao: str = Field(..., min_length=2, max_length=200)
     quantidade: float = Field(..., gt=0)
@@ -27,6 +28,7 @@ class ItemOrcamentoCreate(BaseModel):
 
 
 class ItemOrcamentoUpdate(BaseModel):
+    production_unit_id: Optional[uuid.UUID] = None
     categoria: Optional[CategoriaOrcamento] = None
     descricao: Optional[str] = Field(None, min_length=2, max_length=200)
     quantidade: Optional[float] = Field(None, gt=0)
@@ -39,6 +41,7 @@ class ItemOrcamentoUpdate(BaseModel):
 class ItemOrcamentoResponse(BaseModel):
     id: uuid.UUID
     safra_id: uuid.UUID
+    production_unit_id: Optional[uuid.UUID]
     categoria: str
     descricao: str
     quantidade: float

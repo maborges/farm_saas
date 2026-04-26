@@ -48,6 +48,7 @@ class TarefaService:
             tenant_id=self.tenant_id,
             safra_id=safra_id,
             talhao_id=dados.talhao_id,
+            production_unit_id=dados.production_unit_id,
             cultivo_area_id=dados.cultivo_area_id,
             analise_solo_id=dados.analise_solo_id,
             origem=dados.origem,

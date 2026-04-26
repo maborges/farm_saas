@@ -35,6 +35,10 @@ class LoteBeneficiamento(Base):
         nullable=True, index=True,
         comment="Cultivo específico processado neste lote (rastreamento de produção por cultura)"
     )
+    production_unit_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUIDCol(as_uuid=True), ForeignKey("production_units.id", ondelete="SET NULL"),
+        nullable=True
+    )
     talhao_id: Mapped[uuid.UUID | None] = mapped_column(
         UUIDCol(as_uuid=True), ForeignKey("cadastros_areas_rurais.id", ondelete="SET NULL"),
         nullable=True, index=True

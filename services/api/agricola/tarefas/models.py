@@ -26,6 +26,9 @@ class SafraTarefa(Base):
     safra_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("safras.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    production_unit_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUIDType, ForeignKey("production_units.id", ondelete="SET NULL"), nullable=True
+    )
     talhao_id: Mapped[uuid.UUID | None] = mapped_column(
         UUIDType, ForeignKey("cadastros_areas_rurais.id", ondelete="SET NULL"), nullable=True, index=True
     )
