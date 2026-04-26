@@ -20,31 +20,9 @@ from core.services.login_rate_limit_service import LoginRateLimitService
 from core.models.auth import Usuario, TenantUsuario, UnidadeProdutivaUsuario as FazendaUsuario
 from core.models.billing import AssinaturaTenant, PlanoAssinatura
 from core.models.unidade_produtiva import UnidadeProdutiva as Fazenda
-from pydantic import BaseModel, Field
 from typing import List, Optional
 
 router = APIRouter(prefix="/auth", tags=["SaaS — Identity & Auth"])
-
-# ==================== SCHEMAS ====================
-
-class AssinaturaInfo(BaseModel):
-    """Informações resumidas de uma assinatura/grupo para o frontend."""
-    grupo_id: str
-    grupo_nome: str
-    plano_nome: str
-    plano_tier: str
-    status: str
-    total_fazendas: int
-    fazendas: List[dict]
-    modulos: List[str]
-    is_ativa: bool
-
-class SwitchGrupoRequest(BaseModel):
-    grupo_id: str = Field(..., description="ID do grupo de fazendas para ativar")
-
-class SwitchGrupoResponse(BaseModel):
-    access_token: str
-    grupo_ativo: AssinaturaInfo
 
 @router.post("/register", response_model=UsuarioMeResponse, status_code=status.HTTP_201_CREATED, summary="Registra um novo usuário global (Produtor/Gestor)")
 async def register(dados: UserCreateRequest, session: AsyncSession = Depends(get_session)):
@@ -72,11 +50,26 @@ async def get_me(claims: dict = Depends(get_current_user_claims), session: Async
 
 @router.get("/my-tenants", summary="Lista os tenants acessíveis pelo usuário logado (sem validação de billing)")
 async def get_my_tenants(claims: dict = Depends(get_current_user_claims), session: AsyncSession = Depends(get_session)):
-    """Endpoint leve para o TenantSwitcher — retorna apenas tenant_id e nome_tenant."""
+    """Endpoint leve para o TenantSwitcher e contextos de tenant."""
     svc = AuthService(session)
     user_id = uuid.UUID(claims["sub"])
     me = await svc.get_user_me(user_id)
-    return {"tenants": [{"tenant_id": str(t.tenant_id), "nome_tenant": t.nome_tenant, "is_owner": t.is_owner, "fazendas": [{"unidade_produtiva_id": str(f.unidade_produtiva_id), "nome": f.nome} for f in t.fazendas]} for t in me.tenants]}
+    return {
+        "tenants": [
+            {
+                "tenant_id": str(t.tenant_id),
+                "nome_tenant": t.nome_tenant,
+                "is_owner": t.is_owner,
+                "perfil": t.perfil.model_dump() if t.perfil else None,
+                "plan_tier": t.plan_tier,
+                "max_fazendas": t.max_fazendas,
+                "max_usuarios": t.max_usuarios,
+                "modulos": t.modulos,
+                "fazendas": [{"unidade_produtiva_id": str(f.unidade_produtiva_id), "nome": f.nome} for f in t.fazendas],
+            }
+            for t in me.tenants
+        ]
+    }
 
 
 @router.post("/create-subscription", response_model=CreateSubscriptionResponse, summary="Cria nova assinatura (tenant) para usuário logado")
@@ -192,14 +185,14 @@ async def upload_avatar(
     return {"url": avatar_url}
 
 
-@router.post("/switch-tenant", response_model=TokenResponse, summary="Troca o contexto de tenant e gera novo JWT com grupos[]")
+@router.post("/switch-tenant", response_model=TokenResponse, summary="Troca o contexto de tenant e gera novo JWT com contexto tenant")
 async def switch_tenant(
     request: Request,
     claims: dict = Depends(get_current_user_claims),
     session: AsyncSession = Depends(get_session)
 ):
     """
-    Gera um novo JWT com os grupos[] do tenant selecionado via header X-Tenant-Id.
+    Gera um novo JWT com o contexto do tenant selecionado via header X-Tenant-Id.
     Usado pelo tenant-switcher no frontend.
     """
     target_tenant_id_str = request.headers.get("x-tenant-id")
@@ -230,136 +223,6 @@ async def switch_tenant(
     user_agent = request.headers.get("user-agent")
     token = await svc.generate_token_for_tenant(user_id, target_tenant_id, ip_address, user_agent)
     return TokenResponse(access_token=token)
-
-
-@router.get(
-    "/minhas-assinaturas",
-    response_model=List[AssinaturaInfo],
-    summary="Lista todas as assinaturas (grupos) que o usuário tem acesso no tenant atual"
-)
-async def listar_minhas_assinaturas(
-    claims: dict = Depends(get_current_user_claims),
-    session: AsyncSession = Depends(get_session)
-):
-    """
-    Retorna todas as assinaturas/grupos que o usuário pode acessar no tenant atual.
-    
-    Usado pelo frontend para permitir alternar entre diferentes assinaturas
-    (grupos de fazendas) do mesmo tenant.
-    """
-    user_id = uuid.UUID(claims["sub"])
-    tenant_id = uuid.UUID(claims["tenant_id"])
-
-    # Simplified: return tenant subscription info without grupos
-    assinaturas = []
-    stmt_assinatura = (
-        select(AssinaturaTenant, PlanoAssinatura)
-        .join(PlanoAssinatura, AssinaturaTenant.plano_id == PlanoAssinatura.id)
-        .where(AssinaturaTenant.tenant_id == tenant_id)
-        .limit(1)
-    )
-    row_ass = (await session.execute(stmt_assinatura)).first()
-
-    faz_rows = (await session.execute(
-        select(Fazenda.id, Fazenda.nome).where(Fazenda.tenant_id == tenant_id, Fazenda.ativo == True)
-    )).all()
-    fazendas_list = [{"id": str(f[0]), "nome": f[1]} for f in faz_rows]
-
-    if row_ass:
-        assinatura, plano = row_ass
-        assinaturas.append(AssinaturaInfo(
-            grupo_id=str(tenant_id),
-            grupo_nome="default",
-            plano_nome=plano.nome,
-            plano_tier=plano.plan_tier,
-            status=assinatura.status,
-            total_fazendas=len(fazendas_list),
-            fazendas=fazendas_list,
-            modulos=plano.modulos_inclusos,
-            is_ativa=assinatura.status == "ATIVA"
-        ))
-    else:
-        assinaturas.append(AssinaturaInfo(
-            grupo_id=str(tenant_id),
-            grupo_nome="default",
-            plano_nome="Sem assinatura",
-            plano_tier="BASICO",
-            status="PENDENTE",
-            total_fazendas=len(fazendas_list),
-            fazendas=fazendas_list,
-            modulos=["CORE"],
-                is_ativa=False
-            ))
-
-    return assinaturas
-
-
-@router.post(
-    "/switch-grupo",
-    response_model=SwitchGrupoResponse,
-    summary="Alterna o contexto para outro grupo de fazendas (assinatura)"
-)
-async def switch_grupo(
-    data: SwitchGrupoRequest,
-    request: Request,
-    claims: dict = Depends(get_current_user_claims),
-    session: AsyncSession = Depends(get_session)
-):
-    """
-    Gera um novo JWT com o grupo de fazendas selecionado como contexto ativo.
-    
-    Permite que um usuário alterne entre diferentes assinaturas (grupos)
-    do mesmo tenant sem precisar fazer logout/login.
-    """
-    # grupos removed — switch-grupo now delegates to switch-tenant
-    user_id = uuid.UUID(claims["sub"])
-    tenant_id = uuid.UUID(claims["tenant_id"])
-
-    svc = AuthService(session)
-    ip_address = request.client.host if request.client else None
-    user_agent = request.headers.get("user-agent")
-    token = await svc.generate_token_for_tenant(user_id, tenant_id, ip_address, user_agent)
-
-    faz_rows = (await session.execute(
-        select(Fazenda.id, Fazenda.nome).where(Fazenda.tenant_id == tenant_id, Fazenda.ativo == True)
-    )).all()
-    fazendas_list = [{"id": str(f[0]), "nome": f[1]} for f in faz_rows]
-
-    stmt_assinatura = (
-        select(AssinaturaTenant, PlanoAssinatura)
-        .join(PlanoAssinatura, AssinaturaTenant.plano_id == PlanoAssinatura.id)
-        .where(AssinaturaTenant.tenant_id == tenant_id)
-        .limit(1)
-    )
-    row_ass = (await session.execute(stmt_assinatura)).first()
-
-    if row_ass:
-        assinatura, plano = row_ass
-        grupo_ativo = AssinaturaInfo(
-            grupo_id=str(tenant_id),
-            grupo_nome="default",
-            plano_nome=plano.nome,
-            plano_tier=plano.plan_tier,
-            status=assinatura.status,
-            total_fazendas=len(fazendas_list),
-            fazendas=fazendas_list,
-            modulos=plano.modulos_inclusos,
-            is_ativa=assinatura.status == "ATIVA"
-        )
-    else:
-        grupo_ativo = AssinaturaInfo(
-            grupo_id=str(tenant_id),
-            grupo_nome="default",
-            plano_nome="Sem assinatura",
-            plano_tier="BASICO",
-            status="PENDENTE",
-            total_fazendas=len(fazendas_list),
-            fazendas=fazendas_list,
-            modulos=["CORE"],
-            is_ativa=False
-        )
-
-    return SwitchGrupoResponse(access_token=token, grupo_ativo=grupo_ativo)
 
 
 # ==================== GESTOR DE TENANT - DESBLOQUEIO DE USUÁRIOS ====================

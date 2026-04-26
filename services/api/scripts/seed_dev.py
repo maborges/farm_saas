@@ -257,34 +257,16 @@ async def seed() -> None:
                 {"tenant_id": tenant_id}
             )
             assinatura_existente = result.fetchone()
-            
+
+            from core.models.billing import AssinaturaTenant
+            from datetime import timedelta
+
             if assinatura_existente:
                 print("  ⚠️  Assinatura já existe")
-                # Buscar grupo existente do tenant
-                result = await session.execute(
-                    text("SELECT id FROM grupos_fazendas WHERE tenant_id = :tenant_id LIMIT 1"),
-                    {"tenant_id": tenant_id}
-                )
-                grupo_row = result.fetchone()
-                grupo_id = grupo_row[0] if grupo_row else None
             else:
-                from core.models.billing import AssinaturaTenant
-                # grupos_fazendas removed
-                from datetime import timedelta
-
-                # Criar grupo de fazendas (obrigatório)
-                    tenant_id=tenant_id,
-                    nome="Grupo Principal",
-                    descricao="Grupo criado pelo seed de desenvolvimento"
-                )
-                session.add(grupo)
-                await session.flush()
-                grupo_id = grupo.id
-
                 assinatura = AssinaturaTenant(
                     tenant_id=tenant_id,
                     plano_id=plano_id,
-                    ,
                     status="ATIVA",
                     tipo_assinatura="TENANT",
                     data_inicio=datetime.now(timezone.utc),
@@ -292,7 +274,7 @@ async def seed() -> None:
                 )
                 session.add(assinatura)
                 await session.commit()
-                print("  ✅ Grupo 'Grupo Principal' + Assinatura 'Plano Profissional' ativados")
+                print("  ✅ Assinatura 'Plano Profissional' ativada")
             
             # ==========================================================================
             # 5. CRIAR USUÁRIOS
@@ -396,7 +378,7 @@ async def seed() -> None:
             print("\n🚜 Criando fazenda...")
             
             result = await session.execute(
-                text("SELECT id FROM fazendas WHERE tenant_id = :tenant_id AND nome = :nome"),
+                text("SELECT id FROM unidades_produtivas WHERE tenant_id = :tenant_id AND nome = :nome"),
                 {"tenant_id": tenant_id, "nome": "Fazenda Santa Bárbara"}
             )
             fazenda_existente = result.fetchone()
@@ -408,8 +390,7 @@ async def seed() -> None:
                 fazenda = Fazenda(
                     tenant_id=tenant_id,
                     nome="Fazenda Santa Bárbara",
-                    grupo_id=grupo_id,
-                    cnpj="12345678000199",
+                    cpf_cnpj="12345678000199",
                     inscricao_estadual="123456789",
                     area_total_ha=1500.0,
                     coordenadas_sede="-15.7801,-47.9292",

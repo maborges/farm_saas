@@ -177,7 +177,7 @@ class AuthService:
         default_tenant_id = None
         modulos = ["CORE"]
         fazendas_auth = []
-        grupos_jwt = []
+        tenant_contexts = []
         perfil = None
 
         # Superadministradores não entram vinculados a nenhum tenant por padrão.
@@ -225,7 +225,7 @@ class AuthService:
             faz_rows = (await self.session.execute(faz_stmt)).all()
             all_fazendas = [{"id": str(r[0]), "nome": r[1]} for r in faz_rows]
 
-            grupos_jwt = [{
+            tenant_contexts = [{
                 "id": str(first_tu.tenant_id),
                 "nome": "default",
                 "modules": tenant_modules,
@@ -240,7 +240,7 @@ class AuthService:
                     fazendas_auth.append({"id": faz["id"], "role": role_name})
 
         # plan_tier do tenant (ou BASICO)
-        plan_tier = grupos_jwt[0]["plan_tier"] if grupos_jwt else "BASICO"
+        plan_tier = tenant_contexts[0]["plan_tier"] if tenant_contexts else "BASICO"
 
         # Role do tenant (owner/admin) para acesso implícito
         tenant_role = perfil.nome.lower() if (not user.is_superuser and perfil) else None
@@ -252,7 +252,7 @@ class AuthService:
             "role": tenant_role,
             "modules": modulos,
             "fazendas_auth": fazendas_auth,
-            "grupos": grupos_jwt,
+            "tenant_contexts": tenant_contexts,
             "is_superuser": user.is_superuser,
             "plan_tier": plan_tier,
         }
@@ -290,11 +290,9 @@ class AuthService:
         user_agent: str | None = None,
     ) -> str:
         """
-        Gera um novo JWT com grupos[] do tenant selecionado.
+        Gera um novo JWT com contexto do tenant selecionado.
         Usado pelo endpoint /auth/switch-tenant.
         """
-        # grupos_fazendas removed
-
         user = (await self.session.execute(select(Usuario).where(Usuario.id == user_id))).scalar_one_or_none()
         if not user or not user.ativo:
             raise HTTPException(status_code=403, detail="Usuário inativo")
@@ -316,10 +314,9 @@ class AuthService:
             )).scalar_one_or_none()
         role_name = perfil.nome.lower() if perfil else "operador"
 
-        grupos_auth = []
         modulos: list[str] = ["CORE"]
         fazendas_auth: list[dict] = []
-        grupos_jwt: list[dict] = []
+        tenant_contexts: list[dict] = []
 
         # Fetch subscription info for the tenant
         assin_row = (await self.session.execute(
@@ -346,7 +343,7 @@ class AuthService:
         )).all()
         all_fazendas = [{"id": str(r[0]), "nome": r[1]} for r in faz_rows]
 
-        grupos_jwt = [{
+        tenant_contexts = [{
             "id": str(tenant_id),
             "nome": "default",
             "modules": tenant_modules,
@@ -365,7 +362,7 @@ class AuthService:
             "tenant_id": str(tenant_id),
             "modules": modulos,
             "fazendas_auth": fazendas_auth,
-            "grupos": grupos_jwt,
+            "tenant_contexts": tenant_contexts,
             "is_superuser": user.is_superuser,
             "plan_tier": plan_tier,
         }
@@ -390,17 +387,6 @@ class AuthService:
         ))
         await self.session.commit()
         return access_token
-
-    async def generate_token_for_grupo(
-        self,
-        user_id: uuid.UUID,
-        tenant_id: uuid.UUID,
-        grupo_id: uuid.UUID,
-        ip_address: str | None = None,
-        user_agent: str | None = None,
-    ) -> str:
-        """Deprecated: grupos removed. Delegates to generate_token_for_tenant."""
-        return await self.generate_token_for_tenant(user_id, tenant_id, ip_address, user_agent)
 
     async def get_user_me(self, user_id: uuid.UUID) -> UsuarioMeResponse:
         stmt = select(Usuario).where(Usuario.id == user_id)
@@ -434,7 +420,7 @@ class AuthService:
                 if fazenda_obj:
                     fazendas_resp.append(FazendaAcessoResponse(unidade_produtiva_id=fazenda_obj.id, nome=fazenda_obj.nome))
                     
-            # Query plan info — agrega todos os grupos do tenant (union de módulos)
+            # Query plan info — agrega todas as assinaturas ativas do tenant (union de módulos)
             plan_stmt = (
                 select(
                     PlanoAssinatura.plan_tier,

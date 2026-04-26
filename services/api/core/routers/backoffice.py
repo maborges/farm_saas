@@ -803,67 +803,16 @@ async def get_tenant_details(tenant_id: uuid.UUID, session: AsyncSession = Depen
                 "created_at": usuario.created_at
             })
 
-        # Buscar grupos de fazendas com fazendas e usuários
-        stmt_grupos = (
-        )
-        result_grupos = await session.execute(stmt_grupos)
-        grupos_fazendas = result_grupos.scalars().all()
+        # Estrutura de grupos removida no modelo atual. Mantemos resposta estável
+        # para o frontend e concentramos as fazendas em "sem grupo".
+        grupos_tree: list[dict] = []
 
-        grupos_tree = []
-        for grupo in grupos_fazendas:
-            # Buscar fazendas do grupo
-            stmt_fazendas = (
-                select(Fazenda)
-                .where(Fazenda.unidade_produtiva_id == grupo.id)
-                .order_by(Fazenda.nome)
-            )
-            result_fazendas = await session.execute(stmt_fazendas)
-            fazendas = result_fazendas.scalars().all()
-
-            fazendas_data = []
-            for fazenda in fazendas:
-                # Buscar usuários da fazenda
-                stmt_usuarios_fazenda = (
-                    select(Usuario, FazendaUsuario, PerfilAcesso)
-                    .join(FazendaUsuario, Usuario.id == FazendaUsuario.usuario_id)
-                    .outerjoin(PerfilAcesso, FazendaUsuario.perfil_fazenda_id == PerfilAcesso.id)
-                    .where(FazendaUsuario.unidade_produtiva_id == fazenda.id)
-                    .order_by(Usuario.nome_completo)
-                )
-                result_usuarios_fazenda = await session.execute(stmt_usuarios_fazenda)
-
-                usuarios_fazenda = []
-                for usuario_f, fazenda_usuario, perfil_f in result_usuarios_fazenda:
-                    usuarios_fazenda.append({
-                        "id": usuario_f.id,
-                        "nome_completo": usuario_f.nome_completo,
-                        "email": usuario_f.email,
-                        "perfil_fazenda": {
-                            "id": perfil_f.id,
-                            "nome": perfil_f.nome
-                        } if perfil_f else None
-                    })
-
-                fazendas_data.append({
-                    "id": fazenda.id,
-                    "nome": fazenda.nome,
-                    "cpf_cnpj": fazenda.cpf_cnpj,
-                    "coordenadas_sede": fazenda.coordenadas_sede,
-                    "area_total_ha": float(fazenda.area_total_ha) if fazenda.area_total_ha else None,
-                    "usuarios": usuarios_fazenda
-                })
-
-            grupos_tree.append({
-                "id": grupo.id,
-                "nome": grupo.nome,
-                "descricao": grupo.descricao,
-                "fazendas": fazendas_data
-            })
-
-        # Buscar fazendas sem grupo
+        # O modelo atual não expõe a hierarquia antiga de grupos nesta rota.
+        # Para manter o contrato do frontend, consideramos todas as fazendas do tenant
+        # como parte de "fazendas_sem_grupo".
         stmt_fazendas_sem_grupo = (
             select(Fazenda)
-            .where(Fazenda.tenant_id == tenant_id, Fazenda.unidade_produtiva_id == None)
+            .where(Fazenda.tenant_id == tenant_id)
             .order_by(Fazenda.nome)
         )
         result_fazendas_sem_grupo = await session.execute(stmt_fazendas_sem_grupo)

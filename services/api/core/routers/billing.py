@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List
@@ -217,24 +217,21 @@ async def request_upgrade(
 
 @router.get("/limits")
 async def get_tenant_limits(
-    request: Request,
     claims: dict = Depends(get_current_user_claims),
     session: AsyncSession = Depends(get_session)
 ):
     """
-    Retorna status dos limites do grupo ativo (via X-Fazenda-Id ou X-Grupo-Id).
+    Retorna status dos limites do tenant ativo.
     """
     from core.models.billing import AssinaturaTenant, PlanoAssinatura
-    from core.dependencies import _resolve_grupo_id
 
     tenant_id_str = claims.get("tenant_id")
     if not tenant_id_str:
         raise HTTPException(status_code=403, detail="Contexto de tenant ausente")
 
     tenant_id = uuid.UUID(tenant_id_str)
-    grupo_id = await _resolve_grupo_id(request, tenant_id, session)
 
-    # Buscar assinatura ativa do grupo
+    # Buscar assinatura ativa do tenant
     stmt = (
         select(PlanoAssinatura)
         .join(AssinaturaTenant, AssinaturaTenant.plano_id == PlanoAssinatura.id)
@@ -244,8 +241,6 @@ async def get_tenant_limits(
             AssinaturaTenant.tipo_assinatura == "TENANT",
         )
     )
-    if grupo_id:
-        stmt = stmt.where(AssinaturaTenant.tenant_id == grupo_id)
     stmt = stmt.limit(1)
     result = await session.execute(stmt)
     plano = result.scalar_one_or_none()

@@ -31,14 +31,14 @@ async def main():
         if not tenants:
             print("  ❌ NENHUM tenant encontrado!")
 
-        # 2. Ver grupos de fazendas
-        print("\n🏘️ GRUPOS DE FAZENDAS:")
-        grupos = await conn.fetch("SELECT id, nome, tenant_id FROM grupos_fazendas LIMIT 10")
-        for g in grupos:
-            print(f"  Grupo: {g['id']} | Nome: {g['nome']} | Tenant: {g['tenant_id']}")
-        
-        if not grupos:
-            print("  ❌ NENHUM grupo encontrado!")
+        # 2. Ver unidades produtivas
+        print("\n🌾 UNIDADES PRODUTIVAS:")
+        unidades = await conn.fetch("SELECT id, nome, tenant_id FROM unidades_produtivas LIMIT 10")
+        for u in unidades:
+            print(f"  Unidade: {u['id']} | Nome: {u['nome']} | Tenant: {u['tenant_id']}")
+
+        if not unidades:
+            print("  ❌ NENHUMA unidade produtiva encontrada!")
 
         # 3. Ver planos de assinatura
         print("\n💳 PLANOS_ASSINATURA:")
@@ -53,7 +53,7 @@ async def main():
         # 4. Ver assinaturas
         print("\n📝 ASSINATURAS_TENANT:")
         assinaturas = await conn.fetch("""
-                   at.status, at.tipo_assinatura, pa.modulos_inclusos
+            SELECT at.id, at.tenant_id, at.plano_id, at.status, at.tipo_assinatura, pa.modulos_inclusos
             FROM assinaturas_tenant at
             JOIN planos_assinatura pa ON at.plano_id = pa.id
             LIMIT 10
@@ -71,10 +71,10 @@ async def main():
 
         # 5. Ver fazendas
         print("\n🌾 FAZENDAS:")
-        fazendas = await conn.fetch("SELECT id, nome, tenant_id, grupo_id FROM fazendas LIMIT 10")
+        fazendas = await conn.fetch("SELECT id, nome, tenant_id, ativo FROM unidades_produtivas LIMIT 10")
         for f in fazendas:
-            print(f"  Fazenda: {f['id']} | Nome: {f['nome']} | Tenant: {f['tenant_id']} | Grupo: {f['grupo_id']}")
-        
+            print(f"  Fazenda: {f['id']} | Nome: {f['nome']} | Tenant: {f['tenant_id']} | Ativa: {f['ativo']}")
+
         if not fazendas:
             print("  ❌ NENHUMA fazenda encontrada!")
 
@@ -96,8 +96,8 @@ async def main():
                 if a['status'] not in ("ATIVA", "PENDENTE_PAGAMENTO", "TRIAL"):
                     print(f"\n⚠️ Assinatura {a['id']}: Status '{a['status']}' inválido")
                 
-                if a['tipo_assinatura'] != "GRUPO":
-                    print(f"\n⚠️ Assinatura {a['id']}: Tipo '{a['tipo_assinatura']}' deveria ser 'GRUPO'")
+                if a['tipo_assinatura'] != "TENANT":
+                    print(f"\n⚠️ Assinatura {a['id']}: Tipo '{a['tipo_assinatura']}' deveria ser 'TENANT'")
                 
                 if "CORE" not in modulos:
                     print(f"\n❌ Plano {a['plano_id']} NÃO tem módulo CORE!")
