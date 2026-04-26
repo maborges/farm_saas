@@ -300,6 +300,7 @@ from agricola.agronomo.router import router as router_agronomo
 from agricola.analises_solo.router import router as router_analises_solo
 from agricola.custos.router import router as router_custos
 from agricola.cenarios.router import router as router_cenarios
+from agricola.production_units.router import router as router_production_units
 from agricola.cadastros.router import router as router_cadastros
 from agricola.rastreabilidade.router import router as router_rastreabilidade
 from agricola.rastreabilidade.public_router import router as router_rastreabilidade_publica
@@ -376,6 +377,7 @@ app.include_router(router_agronomo, prefix="/api/v1")
 app.include_router(router_analises_solo, prefix="/api/v1")
 app.include_router(router_custos, prefix="/api/v1")
 app.include_router(router_cenarios, prefix="/api/v1")
+app.include_router(router_production_units, prefix="/api/v1")
 app.include_router(router_cadastros, prefix="/api/v1")
 app.include_router(router_rastreabilidade, prefix="/api/v1")
 app.include_router(router_rastreabilidade_publica, prefix="/api/v1")
