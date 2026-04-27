@@ -73,7 +73,8 @@ async def simular_mudanca_plano(
     status_code=status.HTTP_201_CREATED,
     summary="Solicitar mudança de plano",
     description="Cria solicitação de mudança. Para upgrade, gera link de pagamento.",
-    dependencies=[Depends(require_tenant_permission("tenant:billing:manage"))]
+    # Intenção comercial do tenant: quem pode visualizar billing pode solicitar o upgrade.
+    dependencies=[Depends(require_tenant_permission("tenant:billing:view"))]
 )
 async def solicitar_mudanca_plano(
     request: SolicitarMudancaPlanoRequest,

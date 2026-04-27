@@ -8,6 +8,7 @@ Verifica que:
 """
 import pytest
 from fastapi import HTTPException
+from fastapi.routing import APIRoute
 from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy import select
 
@@ -98,3 +99,25 @@ class TestRequireTier:
         )
 
         assert result == PlanTier.PROFISSIONAL
+
+
+class TestBillingUpgradePermission:
+    def test_solicitar_mudanca_plano_exige_tenant_billing_view(self):
+        from core.routers.plan_changes import router as plan_changes_router
+
+        solicitar_route = next(
+            route
+            for route in plan_changes_router.routes
+            if isinstance(route, APIRoute) and route.path.endswith("/solicitar") and "POST" in route.methods
+        )
+
+        dependency_calls = [
+            dep.call
+            for dep in solicitar_route.dependant.dependencies
+            if getattr(dep.call, "__closure__", None)
+        ]
+
+        assert any(
+            any(cell.cell_contents == "tenant:billing:view" for cell in dep.__closure__)
+            for dep in dependency_calls
+        )
