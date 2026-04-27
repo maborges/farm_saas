@@ -25,11 +25,11 @@ class PlanoAssinatura(Base):
     preco_anual: Mapped[float] = mapped_column(Numeric(10,2), default=0.0)
     
     # Tier do plano — governa profundidade de funcionalidades em todos os módulos
-    # BASICO: funcionalidades simples | PROFISSIONAL: rateio/cenários | PREMIUM: IA/benchmarking
+    # BASICO: funcionalidades simples | PROFISSIONAL: rateio/cenários | ENTERPRISE: IA/benchmarking
     plan_tier: Mapped[str] = mapped_column(
         String(20),
         default="BASICO",
-        comment="BASICO, PROFISSIONAL ou PREMIUM — define profundidade financeira"
+        comment="BASICO, PROFISSIONAL ou ENTERPRISE — PREMIUM permanece como alias legado"
     )
 
     # Limites quantitativos (-1 = ilimitado)

@@ -10,7 +10,10 @@ class PlanTier(str, Enum):
     Tier do plano de assinatura. Governa a profundidade de funcionalidades
     financeiras em TODOS os módulos contratados.
 
-    Ordem crescente: BASICO < PROFISSIONAL < PREMIUM
+    Ordem crescente: BASICO < PROFISSIONAL < ENTERPRISE
+
+    ``PREMIUM`` permanece como alias legado para compatibilidade com dados
+    antigos e integrações já publicadas.
 
     Uso em router:
         @router.post("/rateio", dependencies=[Depends(require_tier(PlanTier.PROFISSIONAL))])
@@ -21,11 +24,18 @@ class PlanTier(str, Enum):
     """
     BASICO = "BASICO"
     PROFISSIONAL = "PROFISSIONAL"
-    PREMIUM = "PREMIUM"
+    ENTERPRISE = "ENTERPRISE"
+    PREMIUM = "ENTERPRISE"
+
+    @classmethod
+    def _missing_(cls, value):
+        if value == "PREMIUM":
+            return cls.ENTERPRISE
+        return None
 
     @property
     def level(self) -> int:
-        return {"BASICO": 1, "PROFISSIONAL": 2, "PREMIUM": 3}[self.value]
+        return {"BASICO": 1, "PROFISSIONAL": 2, "ENTERPRISE": 3}[self.value]
 
     def __ge__(self, other: "PlanTier") -> bool:  # type: ignore[override]
         return self.level >= other.level

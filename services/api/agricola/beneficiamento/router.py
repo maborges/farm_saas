@@ -3,7 +3,8 @@ from typing import List
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_tenant_id, require_module, require_role
+from core.constants import PlanTier
+from core.dependencies import get_tenant_id, require_module, require_role, require_tier
 from core.dependencies import get_session_with_tenant
 from agricola.beneficiamento.schemas import (
     LoteBeneficiamentoCreate,
@@ -15,7 +16,14 @@ from agricola.beneficiamento.schemas import (
 )
 from agricola.beneficiamento.service import BeneficiamentoService
 
-router = APIRouter(prefix="/beneficiamento", tags=["Beneficiamento de Café"])
+router = APIRouter(
+    prefix="/beneficiamento",
+    tags=["Beneficiamento de Café"],
+    dependencies=[
+        Depends(require_module("A5_COLHEITA")),
+        Depends(require_tier(PlanTier.PROFISSIONAL)),
+    ],
+)
 
 
 @router.post("/", response_model=LoteBeneficiamentoResponse, status_code=status.HTTP_201_CREATED)
@@ -23,7 +31,6 @@ async def criar_lote(
     dados: LoteBeneficiamentoCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
     user: dict = Depends(require_role(["agronomo", "admin", "operador"])),
 ):
     svc = BeneficiamentoService(session, tenant_id)
@@ -38,7 +45,6 @@ async def kpis_beneficiamento(
     safra_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = BeneficiamentoService(session, tenant_id)
     return await svc.kpis_safra(safra_id)
@@ -49,7 +55,6 @@ async def relatorio_rendimento(
     safra_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     """Gera relatório de rendimento por método de beneficiamento."""
     svc = BeneficiamentoService(session, tenant_id)
@@ -62,7 +67,6 @@ async def listar_lotes(
     status: str | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = BeneficiamentoService(session, tenant_id)
     filters = {}
@@ -79,7 +83,6 @@ async def criar_lote_from_romaneio(
     romaneio_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
     user: dict = Depends(require_role(["agronomo", "admin", "operador"])),
 ):
     """Cria um LoteBeneficiamento pré-populado a partir de um Romaneio."""
@@ -95,7 +98,6 @@ async def criar_lote_from_romaneios(
     req: LoteFromRomaneiosRequest,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
     user: dict = Depends(require_role(["agronomo", "admin", "operador"])),
 ):
     """Cria um LoteBeneficiamento agrupando múltiplos romaneios (blend/agrupamento)."""
@@ -109,7 +111,6 @@ async def gerar_venda_from_lote(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     """Gera uma Comercializacao (venda em rascunho) a partir de um lote ARMAZENADO."""
@@ -123,7 +124,6 @@ async def armazenar_lote(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     """Armazena lote beneficiado em estoque (cria LoteEstoque)."""
@@ -137,7 +137,6 @@ async def detalhar_lote(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = BeneficiamentoService(session, tenant_id)
     lote = await svc.get_or_fail(id)
@@ -150,7 +149,6 @@ async def atualizar_lote(
     dados: LoteBeneficiamentoUpdate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
     svc = BeneficiamentoService(session, tenant_id)
@@ -163,7 +161,6 @@ async def excluir_lote(
     id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
     user: dict = Depends(require_role(["admin"])),
 ):
     svc = BeneficiamentoService(session, tenant_id)

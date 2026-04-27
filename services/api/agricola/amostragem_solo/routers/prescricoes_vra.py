@@ -13,7 +13,7 @@ router = APIRouter(
     tags=["Prescricoes_Vra"],
     dependencies=[
         Depends(require_module("A4_PRECISAO")),
-        Depends(require_tier(PlanTier.PROFISSIONAL)),
+        Depends(require_tier(PlanTier.ENTERPRISE)),
     ],
 )
 

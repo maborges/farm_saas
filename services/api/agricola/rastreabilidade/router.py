@@ -1,23 +1,31 @@
 from fastapi import APIRouter, Depends, status
 from typing import List
 from uuid import UUID
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_tenant_id, require_module, require_role, get_session_with_tenant
+from core.constants import PlanTier
+from core.dependencies import get_tenant_id, require_module, require_role, require_tier, get_session_with_tenant
 from agricola.rastreabilidade.schemas import (
     LoteRastreabilidadeCreate, LoteRastreabilidadeResponse,
     CertificacaoCreate, CertificacaoResponse
 )
 from agricola.rastreabilidade.service import RastreabilidadeService, CertificacaoService
 
-router = APIRouter(prefix="/rastreabilidade", tags=["Rastreabilidade e Certificações"])
+router = APIRouter(
+    prefix="/rastreabilidade",
+    tags=["Rastreabilidade e Certificações"],
+    dependencies=[
+        Depends(require_module("A5_COLHEITA")),
+        Depends(require_tier(PlanTier.ENTERPRISE)),
+    ],
+)
 
 @router.post("/lotes", response_model=LoteRastreabilidadeResponse, status_code=status.HTTP_201_CREATED)
 async def criar_lote(
     dados: LoteRastreabilidadeCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = RastreabilidadeService(session, tenant_id)
     return await svc.criar_lote(dados)
@@ -27,7 +35,6 @@ async def cadeia_rastreabilidade(
     lote_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     """Retorna a cadeia completa: lote → safra → talhão → operações + insumos → romaneios."""
     svc = RastreabilidadeService(session, tenant_id)
@@ -39,7 +46,6 @@ async def listar_lotes(
     safra_id: UUID | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = RastreabilidadeService(session, tenant_id)
     filters = {}
@@ -52,7 +58,6 @@ async def rastreabilidade_produto_colhido(
     produto_colhido_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     """
     Rastreabilidade por ProdutoColhido — cadeia completa:
@@ -227,7 +232,6 @@ async def criar_certificacao(
     dados: CertificacaoCreate,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = CertificacaoService(session, tenant_id)
     return await svc.create(dados.model_dump())
@@ -237,7 +241,6 @@ async def listar_certificacoes(
     unidade_produtiva_id: UUID | None = None,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_module("A5_COLHEITA")),
 ):
     svc = CertificacaoService(session, tenant_id)
     filters = {}

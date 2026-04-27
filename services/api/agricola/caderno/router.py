@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import date
 from pathlib import Path
 
-from core.dependencies import get_tenant_id, require_module, require_role, get_session_with_tenant
+from core.constants import PlanTier
+from core.dependencies import get_tenant_id, require_module, require_role, require_tier, get_session_with_tenant
 from agricola.caderno.models import CadernoExportacao
 from agricola.caderno.schemas import (
     EntradaCreate,
@@ -319,6 +320,7 @@ async def exportar_caderno(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(_MODULE),
+    _tier: None = Depends(require_tier(PlanTier.ENTERPRISE)),
     user: dict = Depends(require_role(["admin", "agronomo", "gerente", "proprietario"])),
 ):
     svc = CadernoExportacaoService(session, tenant_id)
@@ -334,6 +336,7 @@ async def listar_exportacoes(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(_MODULE),
+    _tier: None = Depends(require_tier(PlanTier.ENTERPRISE)),
 ):
     svc = CadernoExportacaoService(session, tenant_id)
     return [ExportacaoResponse.model_validate(e) for e in await svc.listar_por_safra(safra_id)]
@@ -344,6 +347,7 @@ async def listar_exportacoes_global(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(_MODULE),
+    _tier: None = Depends(require_tier(PlanTier.ENTERPRISE)),
 ):
     """Lista todas as exportações do tenant, cross-safras."""
     svc = CadernoExportacaoService(session, tenant_id)
@@ -356,6 +360,7 @@ async def download_pdf(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(_MODULE),
+    _tier: None = Depends(require_tier(PlanTier.ENTERPRISE)),
 ):
     """Download do PDF do caderno de campo."""
     svc = CadernoExportacaoService(session, tenant_id)
@@ -382,6 +387,7 @@ async def assinar_exportacao(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(_MODULE),
+    _tier: None = Depends(require_tier(PlanTier.ENTERPRISE)),
     user: dict = Depends(require_role(["admin", "agronomo"])),
 ):
     """Registra assinatura do RT na exportação do caderno."""
@@ -418,6 +424,7 @@ async def assinar_ultima_exportacao(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(_MODULE),
+    _tier: None = Depends(require_tier(PlanTier.ENTERPRISE)),
     user: dict = Depends(require_role(["admin", "agronomo"])),
 ):
     """Assina a última exportação de uma safra. Cria uma nova se não existir."""

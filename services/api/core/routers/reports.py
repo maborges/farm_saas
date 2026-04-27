@@ -4,7 +4,8 @@ from sqlalchemy import select, func
 from typing import List, Dict, Any
 import uuid
 
-from core.dependencies import get_session, get_current_user
+from core.constants import PlanTier
+from core.dependencies import get_session, get_current_user, require_module, require_tier
 from core.models.tenant import Tenant
 
 router = APIRouter(prefix="/reports", tags=["Relatórios"])
@@ -12,7 +13,9 @@ router = APIRouter(prefix="/reports", tags=["Relatórios"])
 @router.get("/agricola/summary")
 async def get_agricola_summary_report(
     session: AsyncSession = Depends(get_session),
-    user = Depends(get_current_user)
+    user = Depends(get_current_user),
+    _module: None = Depends(require_module("A1_PLANEJAMENTO")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     """Consolidado de dados agrícolas para relatórios."""
     # Simulação de agregação de dados reais dos módulos (Safra, Operações, Talhões)
@@ -70,7 +73,9 @@ async def get_pecuaria_summary_report(
 @router.get("/agricola/talhoes")
 async def get_agricola_talhoes_report(
     session: AsyncSession = Depends(get_session),
-    user = Depends(get_current_user)
+    user = Depends(get_current_user),
+    _module: None = Depends(require_module("A1_PLANEJAMENTO")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     """Lista resumida de talhões para seleção no relatório."""
     return [
@@ -84,7 +89,9 @@ async def get_agricola_talhoes_report(
 @router.get("/agricola/profitability")
 async def get_agricola_profitability_report(
     session: AsyncSession = Depends(get_session),
-    user = Depends(get_current_user)
+    user = Depends(get_current_user),
+    _module: None = Depends(require_module("A1_PLANEJAMENTO")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     """Dados de rentabilidade e ROI por talhão/cultura."""
     return {

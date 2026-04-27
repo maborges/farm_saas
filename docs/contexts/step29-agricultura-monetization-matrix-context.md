@@ -61,7 +61,7 @@ Deve concentrar recursos de escala e governança:
 - APIs e bridges externos;
 - governança de dados e relatórios corporativos.
 
-Observação técnica: o backend atual define `PlanTier` como `BASICO`, `PROFISSIONAL` e `PREMIUM`. Para esta matriz, `ENTERPRISE` é o nome comercial esperado para o topo da oferta; há inconsistência de nomenclatura a resolver antes de implementar gates Enterprise.
+Observação técnica: o backend define `PlanTier` com `ENTERPRISE` como nome canônico do topo da oferta. `PREMIUM` permanece apenas como alias legado para compatibilidade com dados e integrações antigas.
 
 ---
 
@@ -180,19 +180,15 @@ Inclui capacidades que aumentam escala, governança ou dependem de integração:
 
 ## Inconsistências Identificadas
 
-### 1. `ENTERPRISE` não existe como `PlanTier`
+### 1. `ENTERPRISE` como nome canônico
 
-O código atual usa:
+O código passou a usar:
 
 - `BASICO`
 - `PROFISSIONAL`
-- `PREMIUM`
+- `ENTERPRISE`
 
-A matriz comercial pede `ENTERPRISE`. Antes de implementar gates Enterprise, é necessário decidir se:
-
-- `PREMIUM` será renomeado para `ENTERPRISE`;
-- `ENTERPRISE` será alias comercial de `PREMIUM`;
-- ou haverá novo tier técnico.
+`PREMIUM` ficou apenas como alias legado de compatibilidade, sem uso em novos gates ou textos de produto.
 
 ### 2. Recursos de inteligência ainda estão apenas em A1
 
@@ -242,12 +238,11 @@ O caderno básico é operacional A1. Porém exportações, downloads formais e a
 
 Ordem sugerida para implementação posterior, sem alterar este step:
 
-1. Resolver nomenclatura `PREMIUM` versus `ENTERPRISE`.
-2. Adicionar testes de contrato para `require_tier` no topo da oferta.
-3. Aplicar `PROFISSIONAL` em inteligência agrícola já existente que hoje está em A1.
-4. Validar routers avançados sem gate explícito.
-5. Aplicar `ENTERPRISE` em integrações, BI, auditoria e automações globais.
-6. Atualizar frontend para não disparar queries bloqueadas, espelhando os gates backend.
+1. Adicionar testes de contrato para `require_tier` no topo da oferta.
+2. Aplicar `PROFISSIONAL` em inteligência agrícola já existente que hoje está em A1.
+3. Validar routers avançados sem gate explícito.
+4. Aplicar `ENTERPRISE` em integrações, BI, auditoria e automações globais.
+5. Atualizar frontend para não disparar queries bloqueadas, espelhando os gates backend.
 
 ---
 

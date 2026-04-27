@@ -3,7 +3,8 @@ from typing import List
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_tenant_id, require_module, get_session_with_tenant
+from core.constants import PlanTier
+from core.dependencies import get_tenant_id, require_module, require_tier, get_session_with_tenant
 from agricola.prescricoes.schemas import PrescricaoVRACreate, PrescricaoVRAResponse
 from agricola.prescricoes.service import PrescricaoService
 
@@ -15,6 +16,7 @@ async def criar_prescricao(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A4_PRECISAO")),
+    _tier: None = Depends(require_tier(PlanTier.ENTERPRISE)),
 ):
     svc = PrescricaoService(session, tenant_id)
     obj = await svc.create(dados.model_dump())
@@ -27,6 +29,7 @@ async def listar_prescricoes(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A4_PRECISAO")),
+    _tier: None = Depends(require_tier(PlanTier.ENTERPRISE)),
 ):
     svc = PrescricaoService(session, tenant_id)
     filters = {}
@@ -39,6 +42,7 @@ async def detalhar_prescricao(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A4_PRECISAO")),
+    _tier: None = Depends(require_tier(PlanTier.ENTERPRISE)),
 ):
     svc = PrescricaoService(session, tenant_id)
     return await svc.get_or_fail(id)

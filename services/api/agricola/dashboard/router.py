@@ -85,6 +85,7 @@ async def verificar_alertas(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A1_PLANEJAMENTO")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     async def _run():
         svc = AlertasAgricolasService(session, tenant_id)

@@ -3,7 +3,8 @@ from typing import List
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_tenant_id, require_module, get_current_user_claims
+from core.constants import PlanTier
+from core.dependencies import get_tenant_id, require_module, get_current_user_claims, require_tier
 from core.dependencies import get_session_with_tenant
 from agricola.agronomo.schemas import MensagemCreate, RespostaIA, ConversaResponse
 from agricola.agronomo.service import AgronomoService
@@ -17,6 +18,7 @@ async def conversar_com_ia(
     tenant_id: UUID = Depends(get_tenant_id),
     claims: dict = Depends(get_current_user_claims),
     _: None = Depends(require_module("A2_CAMPO")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     svc = AgronomoService(session, tenant_id)
     usuario_id = UUID(claims.get("sub"))
@@ -29,6 +31,7 @@ async def listar_conversas(
     tenant_id: UUID = Depends(get_tenant_id),
     claims: dict = Depends(get_current_user_claims),
     _: None = Depends(require_module("A2_CAMPO")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     svc = AgronomoService(session, tenant_id)
     usuario_id = UUID(claims.get("sub"))
@@ -44,6 +47,7 @@ async def listar_rats(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A2_CAMPO")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     svc = RelatorioTecnicoService(session, tenant_id)
     if safra_id:
@@ -59,6 +63,7 @@ async def criar_rat(
     tenant_id: UUID = Depends(get_tenant_id),
     claims: dict = Depends(get_current_user_claims),
     _: None = Depends(require_module("A2_CAMPO")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     svc = RelatorioTecnicoService(session, tenant_id)
     usuario_id = UUID(claims.get("sub"))
@@ -71,6 +76,7 @@ async def obter_rat(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A2_CAMPO")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     svc = RelatorioTecnicoService(session, tenant_id)
     rat = await svc.get_or_fail(rat_id)
@@ -83,6 +89,7 @@ async def atualizar_rat(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A2_CAMPO")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     svc = RelatorioTecnicoService(session, tenant_id)
     rat = await svc.atualizar_rat(rat_id, dados)

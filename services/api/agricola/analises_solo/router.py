@@ -3,7 +3,8 @@ from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_tenant_id, require_module, require_role
+from core.constants import PlanTier
+from core.dependencies import get_tenant_id, require_module, require_role, require_tier
 from core.dependencies import get_session_with_tenant
 from agricola.analises_solo.schemas import AnaliseSoloCreate, AnaliseSoloUpdate, AnaliseSoloResponse
 from agricola.analises_solo.service import AnaliseSoloService
@@ -114,6 +115,7 @@ async def recomendacoes_analise(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A1_PLANEJAMENTO")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     """Gera recomendações usando parâmetros cadastrados (com fallback Embrapa)."""
     svc = AnaliseSoloService(session, tenant_id)
@@ -132,6 +134,7 @@ async def analise_inteligente(
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
     _: None = Depends(require_module("A1_PLANEJAMENTO")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     """Gera recomendações usando o motor de regras agronômicas (RegraAgronomica)."""
     svc = AnaliseSoloService(session, tenant_id)
@@ -145,6 +148,7 @@ async def gerar_tarefas_analise(
     tenant_id: UUID = Depends(get_tenant_id),
     user: dict = Depends(require_role(["agronomo", "admin"])),
     _: None = Depends(require_module("A1_PLANEJAMENTO")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     """Transforma as recomendações da análise em tarefas reais na safra."""
     svc = AnaliseSoloService(session, tenant_id)

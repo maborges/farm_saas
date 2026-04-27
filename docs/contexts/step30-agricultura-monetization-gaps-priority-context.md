@@ -65,17 +65,14 @@ Priorizar `require_tier(PlanTier.PROFISSIONAL)` para:
 - relatórios analíticos;
 - dashboards avançados.
 
-### ENTERPRISE depende de decisão técnica
+### ENTERPRISE está padronizado
 
-O código atual possui `PlanTier.PREMIUM`, não `PlanTier.ENTERPRISE`.
+O código usa `PlanTier.ENTERPRISE` como nome canônico do topo da oferta.
+`PlanTier.PREMIUM` permanece apenas como alias legado para compatibilidade
+com dados já persistidos e integrações antigas.
 
-Antes de implementar gates Enterprise, é necessário decidir se:
-
-- `PREMIUM` será usado como equivalente técnico de `ENTERPRISE`;
-- `ENTERPRISE` será adicionado ao enum;
-- ou haverá alias comercial sem mudança técnica.
-
-Enquanto isso não for decidido, itens Enterprise devem ser priorizados como "bloquear por módulo existente agora" ou "aguardar decisão de tier".
+Enquanto o alias existir, novas gates, UI e documentação devem preferir
+`ENTERPRISE` e tratar `PREMIUM` apenas como formato histórico.
 
 ---
 
@@ -98,7 +95,7 @@ Esses endpoints têm maior risco porque estão incluídos em `main.py` e os rout
 Recomendação P0:
 
 1. Adicionar gate de módulo mínimo imediatamente nos routers avançados.
-2. Quando a decisão `ENTERPRISE`/`PREMIUM` for tomada, adicionar o tier topo.
+2. Manter `PREMIUM` apenas como alias de leitura até a migração completa do legado.
 3. No frontend, impedir queries desses endpoints para tenants sem o tier/módulo.
 
 ---
@@ -237,8 +234,8 @@ Escopo:
 
 Objetivo:
 
-- resolver `PREMIUM` versus `ENTERPRISE`;
-- padronizar gates de topo;
+- padronizar `ENTERPRISE` como nome canônico;
+- manter `PREMIUM` apenas como alias legado;
 - evitar decisões ad hoc por endpoint.
 
 ---
@@ -273,6 +270,6 @@ Prioridade de implementação:
 1. **P0:** fechar routers avançados sem gate explícito (`templates`, `amostragem_solo`, `ndvi_avancado`).
 2. **P1:** aplicar `PROFISSIONAL` em inteligência já exposta dentro de A1 (`analises_solo`, `previsoes`, `alertas`, `reports`).
 3. **P2:** combinar módulos avançados com tier (`agronomo`, `monitoramento`, `NDVI`, `VRA`, `beneficiamento`, `rastreabilidade`, `caderno`).
-4. **P3:** resolver tecnicamente `ENTERPRISE` versus `PREMIUM`.
+4. **P3:** manter compatibilidade com o alias `PREMIUM` enquanto `ENTERPRISE` segue como nome canônico.
 
 O maior risco atual é exposição de endpoints avançados sem gate explícito. O maior risco comercial é manter automações e inteligência em A1, reduzindo a diferenciação do plano `PROFISSIONAL`.
