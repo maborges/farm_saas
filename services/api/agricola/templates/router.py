@@ -3,8 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from typing import List
 
+from core.constants import PlanTier
 from core.database import get_db
-from core.dependencies import get_current_user, get_tenant_id
+from core.dependencies import get_current_user, get_tenant_id, require_module, require_tier
 from agricola.templates.schemas import (
     PhaseTemplateRead, PhaseTemplateDetail, PhaseTemplateCreate, PhaseTemplateUpdate,
     OperationTemplateRead, OperationTemplateDetail, OperationTemplateCreate, OperationTemplateUpdate,
@@ -17,7 +18,14 @@ from agricola.templates.service import (
     PhaseTemplateService, OperationTemplateService, TemplateApplicationService
 )
 
-router = APIRouter(prefix="/templates", tags=["Templates Agrícolas"])
+router = APIRouter(
+    prefix="/templates",
+    tags=["Templates Agrícolas"],
+    dependencies=[
+        Depends(require_module("A1_PLANEJAMENTO")),
+        Depends(require_tier(PlanTier.PROFISSIONAL)),
+    ],
+)
 
 
 # --- Phase Templates ---

@@ -4,10 +4,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
+from core.constants import PlanTier
 from core.database import get_db
-from core.dependencies import get_current_tenant
+from core.dependencies import get_current_tenant, require_module, require_tier
 
-router = APIRouter(prefix="/meteorologia", tags=["Meteorologia"])
+router = APIRouter(
+    prefix="/meteorologia",
+    tags=["Meteorologia"],
+    dependencies=[
+        Depends(require_module("A4_PRECISAO")),
+        Depends(require_tier(PlanTier.PROFISSIONAL)),
+    ],
+)
 
 
 @router.get("/")
