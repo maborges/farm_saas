@@ -43,11 +43,6 @@ async def init_db():
 
         # 1b. Grupo de fazendas + plano + assinatura
         grupo_id = uuid.UUID("a1b2c3d4-0000-0000-0000-000000000001")
-            id=grupo_id,
-            tenant_id=tenant_id,
-            nome="Grupo Ouro Verde",
-        )
-        session.add(grupo)
 
         plano = PlanoAssinatura(
             nome="Plano Dev Seed",
@@ -68,7 +63,6 @@ async def init_db():
         assinatura = AssinaturaTenant(
             tenant_id=tenant_id,
             plano_id=plano.id,
-            ,
             tipo_assinatura="TENANT",
             status="ATIVA",
         )
