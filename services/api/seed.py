@@ -1,6 +1,8 @@
 import asyncio
+import os
 import uuid
 from datetime import date, datetime
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import create_async_engine
 from core.database import Base, DB_URL, async_session_maker
 from core.models import Tenant, Fazenda
@@ -19,20 +21,64 @@ from pecuaria.animal.models import LoteAnimal as LoteBovino
 # Engine para setup
 engine = create_async_engine(DB_URL, echo=False)
 
+SEED_TENANT_ID = uuid.UUID("f47ac10b-58cc-4372-a567-0e02b2c3d479")
+SEED_FORCE = os.getenv("SEED_FORCE", "").lower() in {"1", "true", "yes", "sim"}
+SEED_MODELS = (
+    Tenant,
+    PlanoAssinatura,
+    AssinaturaTenant,
+    Fazenda,
+    Cultura,
+    AreaRural,
+    Safra,
+    OperacaoAgricola,
+    PlanoConta,
+    Despesa,
+    Piquete,
+    LoteBovino,
+)
+
+
+async def prepare_schema(force_reset: bool) -> None:
+    async with engine.begin() as conn:
+        if force_reset:
+            print("⚠️  ATENÇÃO: SEED_FORCE=true habilitou reset destrutivo do banco.")
+            print("🗑️  Limpando tabelas...")
+            await conn.run_sync(Base.metadata.drop_all)
+
+        print("🏗️  Garantindo tabelas existentes...")
+        await conn.run_sync(Base.metadata.create_all)
+
+
+async def has_existing_seed_data(session) -> bool:
+    existing_tenant = await session.get(Tenant, SEED_TENANT_ID)
+    if existing_tenant:
+        print("ℹ️  Seed já aplicado para o tenant padrão; nada a inserir.")
+        return True
+
+    for model in SEED_MODELS:
+        count = await session.scalar(select(func.count()).select_from(model))
+        if count:
+            print("ℹ️  Banco já contém dados. Seed seguro não insere sobre banco populado.")
+            print("ℹ️  Para recriar dados explicitamente, execute com SEED_FORCE=true.")
+            return True
+
+    return False
+
+
 async def init_db():
     print(f"🔄 Conectando em: {DB_URL}")
-    
-    async with engine.begin() as conn:
-        print("🗑️  Limpando tabelas...")
-        await conn.run_sync(Base.metadata.drop_all)
-        print("🏗️  Recriando tabelas...")
-        await conn.run_sync(Base.metadata.create_all)
-    
+
+    await prepare_schema(SEED_FORCE)
+
     print("✅ Banco pronto!")
 
     async with async_session_maker() as session:
+        if not SEED_FORCE and await has_existing_seed_data(session):
+            return
+
         # 1. Tenant
-        tenant_id = uuid.UUID("f47ac10b-58cc-4372-a567-0e02b2c3d479")
+        tenant_id = SEED_TENANT_ID
         tenant = Tenant(
             id=tenant_id,
             nome="Fazendas Ouro Verde",
