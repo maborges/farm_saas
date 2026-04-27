@@ -260,6 +260,8 @@ def require_module(required_module: str):
             return
 
         tenant_id_str = claims.get("tenant_id")
+        request_path = str(getattr(getattr(request, "url", None), "path", "")) if request else ""
+        request_method = getattr(request, "method", "")
         if not tenant_id_str:
             raise HTTPException(status_code=403, detail="Contexto de tenant ausente")
 
@@ -303,6 +305,8 @@ def require_tier(minimum_tier: "PlanTier"):
         from core.constants import PlanTier
 
         tenant_id_str = claims.get("tenant_id")
+        request_path = str(getattr(getattr(request, "url", None), "path", "")) if request else ""
+        request_method = getattr(request, "method", "")
         if not tenant_id_str:
             raise HTTPException(status_code=403, detail="Contexto de tenant ausente")
 
@@ -324,14 +328,47 @@ def require_tier(minimum_tier: "PlanTier"):
             tier_str = result.scalar_one_or_none()
 
         if not tier_str:
+            logger.bind(
+                event="monetization_blocked",
+                surface="backend.require_tier",
+                feature="tier_gate",
+                tenant_id=str(tenant_id),
+                required_tier=minimum_tier.value,
+                current_tier=None,
+                path=request_path,
+                method=request_method,
+                reason="missing_active_subscription",
+            ).info("monetization_blocked")
             raise HTTPException(status_code=402, detail="Sem assinatura ativa. Contate o suporte.")
 
         try:
             tenant_tier = PlanTier(tier_str)
         except ValueError:
+            logger.bind(
+                event="monetization_blocked",
+                surface="backend.require_tier",
+                feature="tier_gate",
+                tenant_id=str(tenant_id),
+                required_tier=minimum_tier.value,
+                current_tier=tier_str,
+                path=request_path,
+                method=request_method,
+                reason="invalid_tier_configuration",
+            ).info("monetization_blocked")
             raise HTTPException(status_code=402, detail="Configuração de plano inválida.")
 
         if tenant_tier < minimum_tier:
+            logger.bind(
+                event="monetization_blocked",
+                surface="backend.require_tier",
+                feature="tier_gate",
+                tenant_id=str(tenant_id),
+                required_tier=minimum_tier.value,
+                current_tier=tenant_tier.value,
+                path=request_path,
+                method=request_method,
+                reason="insufficient_tier",
+            ).info("monetization_blocked")
             raise HTTPException(
                 status_code=402,
                 detail=f"Esta funcionalidade requer o plano {minimum_tier.value}. Faça upgrade.",
