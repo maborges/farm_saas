@@ -12,10 +12,13 @@ from sqlalchemy.pool import NullPool
 from sqlalchemy import text
 from core.database import Base
 from core.models import Tenant
-from core.models.billing import AssinaturaTenant, PlanoAssinatura
+from core.models.billing import PlanoAssinatura
 # Garante que Cultivo é importado antes do mapper Safra ser inicializado,
 # evitando InvalidRequestError: 'Cultivo' failed to locate a name.
 import agricola.cultivos.models  # noqa: F401
+import agricola.analises_solo.models  # noqa: F401
+import agricola.tarefas.models  # noqa: F401
+import agricola.production_units.models  # noqa: F401
 from core.config import settings
 
 # UUIDs fixos para garantir consistência entre importações do módulo
@@ -153,21 +156,33 @@ async def unidade_produtiva_id(session, tenant_id: uuid.UUID) -> uuid.UUID:
             "INSERT INTO planos_assinatura (id, nome, modulos_inclusos, limite_usuarios_minimo, limite_usuarios_maximo, "
             "preco_mensal, preco_anual, max_fazendas, max_categorias_plano, tem_trial, dias_trial, is_free, "
             "destaque, ordem, ativo, disponivel_site, disponivel_crm, created_at) "
-            "VALUES (:id, 'Plano Teste', CAST('[\"CORE\",\"A1\"]' AS json), 1, 5, 0, 0, -1, -1, false, 15, false, false, 0, true, false, true, now()) "
+            "VALUES (:id, 'Plano Teste', CAST('[\"CORE\",\"A1_PLANEJAMENTO\"]' AS json), 1, 5, 0, 0, -1, -1, false, 15, false, false, 0, true, false, true, now()) "
             "ON CONFLICT DO NOTHING"
         ),
         {"id": str(plano_id)},
     )
 
-    # Cria assinatura
-    assinatura = AssinaturaTenant(
-        tenant_id=tenant_id,
-        plano_id=plano_id,
-        tipo_assinatura="TENANT",
-        ciclo_pagamento="MENSAL",
-        status="ATIVA",
+    # Cria assinatura principal de forma idempotente para respeitar uq_assinatura_tenant_tipo.
+    await session.execute(
+        text(
+            "INSERT INTO assinaturas_tenant "
+            "(id, tenant_id, plano_id, tipo_assinatura, ciclo_pagamento, usuarios_contratados, "
+            "status, grace_period_days, created_at, updated_at) "
+            "VALUES (:assinatura_id, :tenant_id, :plano_id, 'TENANT', 'MENSAL', 5, "
+            "'ATIVA', 3, now(), now()) "
+            "ON CONFLICT (tenant_id, tipo_assinatura) DO UPDATE SET "
+            "plano_id = EXCLUDED.plano_id, "
+            "ciclo_pagamento = EXCLUDED.ciclo_pagamento, "
+            "usuarios_contratados = EXCLUDED.usuarios_contratados, "
+            "status = EXCLUDED.status, "
+            "updated_at = now()"
+        ),
+        {
+            "assinatura_id": str(uuid.uuid4()),
+            "tenant_id": str(tenant_id),
+            "plano_id": str(plano_id),
+        },
     )
-    session.add(assinatura)
 
     # Cria unidade produtiva (antiga fazenda)
     fazenda_id = uuid.uuid4()
@@ -182,15 +197,13 @@ async def unidade_produtiva_id(session, tenant_id: uuid.UUID) -> uuid.UUID:
 @pytest.fixture
 async def talhao_id(session, tenant_id: uuid.UUID, unidade_produtiva_id: uuid.UUID) -> uuid.UUID:
     """
-    Cria registros em cadastros_areas_rurais E talhoes.
-    - Safra usa ForeignKey para cadastros_areas_rurais
-    - OperacaoService usa modelo Talhao (tabela talhoes)
+    Cria registro de talhão em cadastros_areas_rurais.
+    Safra e OperacaoAgricola usam cadastros_areas_rurais.id como talhao_id.
     """
     from sqlalchemy import text
     
     area_id = uuid.uuid4()
     
-    # Cria em cadastros_areas_rurais (para Safra)
     await session.execute(text("""
         INSERT INTO cadastros_areas_rurais (id, tenant_id, unidade_produtiva_id, tipo, nome, area_hectares, ativo, created_at, updated_at)
         VALUES (:id, :tenant_id, :unidade_produtiva_id, :tipo, :nome, :area_hectares, :ativo, NOW(), NOW())
@@ -203,20 +216,6 @@ async def talhao_id(session, tenant_id: uuid.UUID, unidade_produtiva_id: uuid.UU
         "area_hectares": 100.0,
         "ativo": True
     })
-    
-    # Cria em talhoes (para OperacaoService)
-    await session.execute(text("""
-        INSERT INTO talhoes (id, tenant_id, unidade_produtiva_id, nome, area_ha, ativo, irrigado, historico_culturas, created_at, updated_at)
-        VALUES (:id, :tenant_id, :unidade_produtiva_id, :nome, :area_ha, :ativo, :irrigado, '[]'::json, NOW(), NOW())
-    """), {
-        "id": str(area_id),  # Mesmo ID para ambas tabelas
-        "tenant_id": str(tenant_id),
-        "unidade_produtiva_id": str(unidade_produtiva_id),
-        "nome": "Talhão Teste",
-        "area_ha": 100.0,
-        "ativo": True,
-        "irrigado": False
-    })
-    
+
     await session.commit()
     return area_id

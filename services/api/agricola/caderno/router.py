@@ -33,7 +33,7 @@ from agricola.caderno.service import (
 
 router = APIRouter(prefix="/caderno", tags=["Caderno de Campo"])
 
-_MODULE = require_module("AGRICOLA_ESSENCIAL")
+_MODULE = require_module("A1_PLANEJAMENTO")
 
 
 # ─── Timeline ─────────────────────────────────────────────────────────────────

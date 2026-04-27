@@ -51,7 +51,13 @@ async def init_db():
 
         plano = PlanoAssinatura(
             nome="Plano Dev Seed",
-            modulos_inclusos=["CORE", "A1", "F1", "O1", "P1"],
+            modulos_inclusos=[
+                "CORE",
+                "A1_PLANEJAMENTO",
+                "F1_TESOURARIA",
+                "O1_FROTA",
+                "P1_REBANHO",
+            ],
             max_fazendas=-1,
             preco_mensal=0,
             preco_anual=0,

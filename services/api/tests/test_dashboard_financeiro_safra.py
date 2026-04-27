@@ -16,6 +16,7 @@ from sqlalchemy.future import select
 
 from core.exceptions import EntityNotFoundError
 from agricola.dashboard.service import DashboardAgricolaService
+from agricola.cultivos.models import Cultivo, CultivoArea
 from agricola.safras.models import Safra
 from agricola.operacoes.models import OperacaoAgricola
 from agricola.romaneios.models import RomaneioColheita
@@ -24,6 +25,41 @@ from agricola.romaneios.schemas import RomaneioColheitaCreate
 from financeiro.models.despesa import Despesa
 from financeiro.models.receita import Receita
 from financeiro.models.plano_conta import PlanoConta
+
+
+def add_safra_com_area(
+    session: AsyncSession,
+    *,
+    tenant_id,
+    talhao_id,
+    ano_safra: str,
+    cultura: str,
+    status: str,
+    area_ha: float,
+) -> Safra:
+    safra = Safra(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        ano_safra=ano_safra,
+        cultura=cultura,
+        status=status,
+    )
+    cultivo = Cultivo(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        safra_id=safra.id,
+        cultura=cultura,
+        status="ATIVO",
+    )
+    cultivo_area = CultivoArea(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        cultivo_id=cultivo.id,
+        area_id=talhao_id,
+        area_ha=area_ha,
+    )
+    session.add_all([safra, cultivo, cultivo_area])
+    return safra
 
 
 class TestDashboardFinanceiroSafra:
@@ -39,16 +75,15 @@ class TestDashboardFinanceiroSafra:
     ):
         """Dashboard deve retornar agregação correta de custo + receita."""
         # Setup: Criar safra
-        safra = Safra(
-            id=uuid4(),
+        safra = add_safra_com_area(
+            session,
             tenant_id=tenant_id,
             talhao_id=talhao_id,
             ano_safra="2025/26",
             cultura="MILHO",
             status="COLHEITA",
-            area_plantada_ha=100.0
+            area_ha=100.0,
         )
-        session.add(safra)
 
         # Criar planos de conta
         plano_despesa = PlanoConta(
@@ -184,16 +219,15 @@ class TestDashboardFinanceiroSafra:
     ):
         """Dashboard com safra sem operações deve retornar zeros."""
         # Setup
-        safra = Safra(
-            id=uuid4(),
+        safra = add_safra_com_area(
+            session,
             tenant_id=tenant_id,
             talhao_id=talhao_id,
             ano_safra="2025/26",
             cultura="SOJA",
             status="PLANTIO",
-            area_plantada_ha=50.0
+            area_ha=50.0,
         )
-        session.add(safra)
         await session.commit()
 
         # Act
@@ -234,16 +268,15 @@ class TestDashboardFinanceiroSafra:
     ):
         """Dashboard de um tenant não deveria acessar safra de outro tenant."""
         # Setup: Safra de outro tenant
-        safra_outro = Safra(
-            id=uuid4(),
+        safra_outro = add_safra_com_area(
+            session,
             tenant_id=outro_tenant_id,
             talhao_id=talhao_id,
             ano_safra="2025/26",
             cultura="MILHO",
             status="COLHEITA",
-            area_plantada_ha=50.0
+            area_ha=50.0,
         )
-        session.add(safra_outro)
         await session.commit()
 
         # Act: Tentar acessar com tenant_id diferente
@@ -262,16 +295,15 @@ class TestDashboardFinanceiroSafra:
     ):
         """Produtividade deve ser calculada corretamente (sacas/ha)."""
         # Setup: Safra com area 100 ha
-        safra = Safra(
-            id=uuid4(),
+        safra = add_safra_com_area(
+            session,
             tenant_id=tenant_id,
             talhao_id=talhao_id,
             ano_safra="2025/26",
             cultura="SOJA",
             status="COLHEITA",
-            area_plantada_ha=100.0
+            area_ha=100.0,
         )
-        session.add(safra)
 
         plano = PlanoConta(
             id=uuid4(),
@@ -326,16 +358,15 @@ class TestDashboardFinanceiroSafra:
     ):
         """ROI deve ser (receita - despesa) / despesa × 100."""
         # Setup
-        safra = Safra(
-            id=uuid4(),
+        safra = add_safra_com_area(
+            session,
             tenant_id=tenant_id,
             talhao_id=talhao_id,
             ano_safra="2025/26",
             cultura="MILHO",
             status="COLHEITA",
-            area_plantada_ha=100.0
+            area_ha=100.0,
         )
-        session.add(safra)
 
         plano_despesa = PlanoConta(
             id=uuid4(),

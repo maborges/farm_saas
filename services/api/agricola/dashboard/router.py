@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, BackgroundTasks
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_tenant_id, require_module, get_session_with_tenant, require_tenant_permission
+from core.constants import PlanTier
+from core.dependencies import get_tenant_id, require_module, get_session_with_tenant, require_tenant_permission, require_tier
 from agricola.dashboard.service import DashboardAgricolaService
 from agricola.dashboard.schemas import SafraResumoFinanceiro, SafraMargemCompleta
 from agricola.alertas.service import AlertasAgricolasService
@@ -29,7 +30,8 @@ async def resumo_financeiro_safra(
     safra_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_tenant_permission("agricola:safras:view")),
+    _permission: None = Depends(require_tenant_permission("agricola:safras:view")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     """
     Retorna resumo financeiro completo de uma safra:
@@ -56,7 +58,8 @@ async def margem_safra(
     safra_id: UUID,
     session: AsyncSession = Depends(get_session_with_tenant),
     tenant_id: UUID = Depends(get_tenant_id),
-    _: None = Depends(require_tenant_permission("agricola:safras:view")),
+    _permission: None = Depends(require_tenant_permission("agricola:safras:view")),
+    _tier: None = Depends(require_tier(PlanTier.PROFISSIONAL)),
 ):
     """
     Dashboard completo de margem de lucro por safra.

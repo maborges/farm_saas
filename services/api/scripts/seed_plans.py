@@ -22,7 +22,7 @@ async def seed_plans():
             PlanoAssinatura(
                 nome="Bronze (Essencial)",
                 descricao="Ideal para pequenos produtores começando a digitalização. Inclui gestão financeira básica e acesso a 1 fazenda.",
-                modulos_inclusos=["CORE", "F1"],
+                modulos_inclusos=["CORE", "F1_TESOURARIA"],
                 limite_usuarios_minimo=1,
                 limite_usuarios_maximo=2,
                 limite_hectares=100.0,
@@ -34,7 +34,7 @@ async def seed_plans():
             PlanoAssinatura(
                 nome="Prata (Profissional)",
                 descricao="Controle completo da lavoura e finanças. Gestão de estoque, máquinas e apontamentos de campo.",
-                modulos_inclusos=["CORE", "F1", "A1", "O1"],
+                modulos_inclusos=["CORE", "F1_TESOURARIA", "A1_PLANEJAMENTO", "O2_ESTOQUE"],
                 limite_usuarios_minimo=1,
                 limite_usuarios_maximo=5,
                 limite_hectares=1000.0,
@@ -46,7 +46,15 @@ async def seed_plans():
             PlanoAssinatura(
                 nome="Ouro (Empresarial)",
                 descricao="A solução definitiva. Integra rebanho, lavoura, agronomia avançada e suporte prioritário.",
-                modulos_inclusos=["CORE", "F1", "A1", "O1", "P1", "A2"],
+                modulos_inclusos=[
+                    "CORE",
+                    "F1_TESOURARIA",
+                    "A1_PLANEJAMENTO",
+                    "O1_FROTA",
+                    "O2_ESTOQUE",
+                    "P1_REBANHO",
+                    "A2_CAMPO",
+                ],
                 limite_usuarios_minimo=1,
                 limite_usuarios_maximo=20,
                 limite_hectares=None, # Ilimitado

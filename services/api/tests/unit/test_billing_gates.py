@@ -7,6 +7,7 @@ Verifica que:
 - _assinatura_ativa_filter() retorna o filtro correto.
 """
 import pytest
+from fastapi import HTTPException
 from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy import select
 
@@ -56,3 +57,44 @@ class TestAssinaturaAtivaFilter:
         filtro = _assinatura_ativa_filter()
         sql = str(filtro.compile(compile_kwargs={"literal_binds": True}))
         assert "CANCELADA" not in sql
+
+
+class TestRequireTier:
+    async def test_bloqueia_tier_baixo_com_headers(self):
+        from core.constants import PlanTier
+        from core.dependencies import require_tier
+
+        verificador = require_tier(PlanTier.PROFISSIONAL)
+
+        with pytest.raises(HTTPException) as exc:
+            await verificador(
+                request=None,
+                claims={
+                    "tenant_id": "aaaaaaaa-0000-0000-0000-000000000010",
+                    "plan_tier": "BASICO",
+                },
+                session=AsyncMock(),
+            )
+
+        assert exc.value.status_code == 402
+        assert exc.value.headers == {
+            "X-Tier-Required": "PROFISSIONAL",
+            "X-Tier-Current": "BASICO",
+        }
+
+    async def test_permite_tier_profissional(self):
+        from core.constants import PlanTier
+        from core.dependencies import require_tier
+
+        verificador = require_tier(PlanTier.PROFISSIONAL)
+
+        result = await verificador(
+            request=None,
+            claims={
+                "tenant_id": "aaaaaaaa-0000-0000-0000-000000000010",
+                "plan_tier": "PROFISSIONAL",
+            },
+            session=AsyncMock(),
+        )
+
+        assert result == PlanTier.PROFISSIONAL

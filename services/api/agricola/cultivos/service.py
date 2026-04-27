@@ -295,6 +295,24 @@ class CultivoService(BaseService[Cultivo]):
             ))
         return tarefas
 
+    async def get_com_areas(self, cultivo_id: uuid.UUID) -> Cultivo:
+        """Retorna cultivo com áreas carregadas. Lança EntityNotFoundError se não encontrado."""
+        from core.exceptions import EntityNotFoundError
+        stmt = (
+            select(Cultivo)
+            .where(Cultivo.id == cultivo_id, Cultivo.tenant_id == self.tenant_id)
+            .options(selectinload(Cultivo.areas))
+        )
+        cultivo = (await self.session.execute(stmt)).scalars().first()
+        if not cultivo:
+            raise EntityNotFoundError("Cultivo não encontrado.")
+        return cultivo
+
+    async def atualizar_com_areas(self, cultivo_id: uuid.UUID, updates: dict) -> Cultivo:
+        """Atualiza cultivo e retorna com áreas carregadas."""
+        await self.update(cultivo_id, updates)
+        return await self.get_com_areas(cultivo_id)
+
     async def listar_por_safra(self, safra_id: uuid.UUID) -> list[Cultivo]:
         """Lista todos os cultivos de uma safra."""
         await self._get_safra(safra_id)

@@ -30,7 +30,7 @@ def _token_e2e() -> str:
     return svc.create_access_token({
         "sub": str(uuid.uuid4()),
         "tenant_id": str(TENANT_E2E),
-        "modules": ["CORE", "A1", "A1_PLANEJAMENTO", "F1", "F1_FINANCEIRO", "O1", "O2"],
+        "modules": ["CORE", "A1_PLANEJAMENTO", "F1_TESOURARIA", "O1_FROTA", "O2_ESTOQUE"],
         "fazendas_auth": [{"id": str(FAZENDA_E2E), "role": "admin"}],
         "is_superuser": False,
         "plan_tier": "ENTERPRISE",

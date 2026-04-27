@@ -33,7 +33,7 @@ def _token(tenant_id: uuid.UUID) -> str:
     return svc.create_access_token({
         "sub": str(uuid.uuid4()),
         "tenant_id": str(tenant_id),
-        "modules": ["CORE", "AGRICOLA_ESSENCIAL"],
+        "modules": ["CORE", "A1_PLANEJAMENTO"],
         "fazendas_auth": [{"id": str(unidade_produtiva_id), "role": "admin"}],
         "is_superuser": False,
         "plan_tier": "PROFISSIONAL",
@@ -82,7 +82,7 @@ async def _setup_tenants(session):
         VALUES (:id, 'Plano Base', CAST(:modulos AS json), 1, 5,
                 0, 0, -1, -1, false, 15, false, false, 0, true, false, true, NOW())
         ON CONFLICT (id) DO NOTHING
-    """), {"id": plano_base_id, "modulos": '["CORE","AGRICOLA_ESSENCIAL"]'})
+    """), {"id": plano_base_id, "modulos": '["CORE","A1_PLANEJAMENTO"]'})
 
     for t_id, f_id, doc in [
         (TENANT_A_ID, FAZENDA_A_ID, "11111111111"),

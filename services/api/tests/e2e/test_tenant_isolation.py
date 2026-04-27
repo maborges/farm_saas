@@ -28,7 +28,7 @@ def _token(tenant_id: uuid.UUID, modules: list[str] = None) -> str:
     return svc.create_access_token({
         "sub": str(uuid.uuid4()),
         "tenant_id": str(tenant_id),
-        "modules": modules or ["CORE", "A1", "F1", "O1", "O2"],
+        "modules": modules or ["CORE", "A1_PLANEJAMENTO", "F1_TESOURARIA", "O1_FROTA", "O2_ESTOQUE"],
         "fazendas_auth": [{"id": str(
             FAZENDA_A_ID if tenant_id == TENANT_A_ID else FAZENDA_B_ID
         ), "role": "admin"}],

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import get_tenant_id, get_session, require_tenant_permission
+from core.dependencies import get_tenant_id, get_session_with_tenant, require_tenant_permission
 from core.exceptions import EntityNotFoundError
 from agricola.cultivos.service import CultivoService
 from agricola.cultivos.schemas import (
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/safras", tags=["Cultivos"])
 async def listar_cultivos(
     safra_id: UUID,
     tenant_id: UUID = Depends(get_tenant_id),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
 ):
     service = CultivoService(session, tenant_id)
     cultivos = await service.listar_por_safra(safra_id)
@@ -34,7 +34,7 @@ async def criar_cultivo(
     safra_id: UUID,
     cultivo_in: CultivoCreate,
     tenant_id: UUID = Depends(get_tenant_id),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     _: bool = Depends(require_tenant_permission("agricola:cultivo:criar")),
 ):
     service = CultivoService(session, tenant_id)
@@ -47,21 +47,14 @@ async def get_cultivo(
     safra_id: UUID,
     cultivo_id: UUID,
     tenant_id: UUID = Depends(get_tenant_id),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
 ):
-    from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
-    from agricola.cultivos.models import Cultivo
     service = CultivoService(session, tenant_id)
-    stmt = (
-        select(Cultivo)
-        .where(Cultivo.id == cultivo_id, Cultivo.tenant_id == tenant_id)
-        .options(selectinload(Cultivo.areas))
-    )
-    cultivo = (await session.execute(stmt)).scalars().first()
-    if not cultivo:
+    try:
+        cultivo = await service.get_com_areas(cultivo_id)
+        return CultivoResponse.model_validate(cultivo)
+    except EntityNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cultivo não encontrado.")
-    return CultivoResponse.model_validate(cultivo)
 
 
 @router.patch("/{safra_id}/cultivos/{cultivo_id}", response_model=CultivoResponse)
@@ -70,23 +63,13 @@ async def atualizar_cultivo(
     cultivo_id: UUID,
     cultivo_in: CultivoUpdate,
     tenant_id: UUID = Depends(get_tenant_id),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     _: bool = Depends(require_tenant_permission("agricola:cultivo:editar")),
 ):
-    from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
-    from agricola.cultivos.models import Cultivo
     service = CultivoService(session, tenant_id)
     try:
-        updates = cultivo_in.model_dump(exclude_unset=True)
-        await service.update(cultivo_id, updates)
+        cultivo = await service.atualizar_com_areas(cultivo_id, cultivo_in.model_dump(exclude_unset=True))
         await session.commit()
-        stmt = (
-            select(Cultivo)
-            .where(Cultivo.id == cultivo_id, Cultivo.tenant_id == tenant_id)
-            .options(selectinload(Cultivo.areas))
-        )
-        cultivo = (await session.execute(stmt)).scalars().first()
         return CultivoResponse.model_validate(cultivo)
     except EntityNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cultivo não encontrado.")
@@ -97,7 +80,7 @@ async def deletar_cultivo(
     safra_id: UUID,
     cultivo_id: UUID,
     tenant_id: UUID = Depends(get_tenant_id),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     _: bool = Depends(require_tenant_permission("agricola:cultivo:deletar")),
 ):
     service = CultivoService(session, tenant_id)
@@ -119,7 +102,7 @@ async def vincular_analise_area(
     area_id: UUID,
     dados: CultivoAreaAnalisePatch,
     tenant_id: UUID = Depends(get_tenant_id),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
 ):
     """Vincula ou rejeita uma análise de solo para este talhão/cultivo."""
     service = CultivoService(session, tenant_id)
@@ -142,7 +125,7 @@ async def preview_tarefas_solo(
     analise_id: UUID | None = None,
     regiao: str | None = None,
     tenant_id: UUID = Depends(get_tenant_id),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
 ):
     """Retorna preview das tarefas. analise_id e regiao sobrepõem o vínculo salvo no banco."""
     from core.exceptions import BusinessRuleError
@@ -161,7 +144,7 @@ async def sincronizar_areas(
     cultivo_id: UUID,
     areas_in: list[CultivoAreaCreate],
     tenant_id: UUID = Depends(get_tenant_id),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_with_tenant),
     _: bool = Depends(require_tenant_permission("agricola:cultivo:editar")),
 ):
     service = CultivoService(session, tenant_id)

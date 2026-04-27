@@ -37,7 +37,7 @@ async def test_create_tenant_for_user_trial_pago(db_session: AsyncSession):
         is_free=False,
         tem_trial=True,
         dias_trial=15,
-        modulos_inclusos=["CORE", "A1"],
+        modulos_inclusos=["CORE", "A1_PLANEJAMENTO"],
         max_fazendas=10,
     )
     db_session.add(plano)

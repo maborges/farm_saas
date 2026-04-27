@@ -45,7 +45,7 @@ def token_pecuaria():
     return svc.create_access_token({
         "sub": str(uuid.uuid4()),
         "tenant_id": str(TENANT_ID),
-        "modules": ["CORE", "P1"],
+        "modules": ["CORE", "P1_REBANHO"],
         "fazendas_auth": [{"id": str(FAZENDA_ID), "role": "admin"}],
         "is_superuser": False,
         "plan_tier": "PROFISSIONAL",
