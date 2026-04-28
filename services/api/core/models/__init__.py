@@ -56,5 +56,5 @@ from pecuaria.models.manejo import ManejoLote
 
 # Operacional
 from operacional.models.frota import PlanoManutencao, OrdemServico, ItemOrdemServico, RegistroManutencao
-from operacional.models.estoque import Deposito, SaldoEstoque, MovimentacaoEstoque, LoteEstoque, RequisicaoMaterial, ItemRequisicao, ReservaEstoque
+from operacional.models.estoque import Deposito, SaldoEstoque, LoteEstoque, RequisicaoMaterial, ItemRequisicao, ReservaEstoque
 from operacional.models.compras import Fornecedor, PedidoCompra, ItemPedidoCompra, CotacaoFornecedor

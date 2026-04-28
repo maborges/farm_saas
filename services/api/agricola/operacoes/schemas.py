@@ -6,6 +6,8 @@ from typing import Optional, List
 class InsumoOperacaoCreate(BaseModel):
     insumo_id: UUID
     lote_insumo: str | None = None
+    lote_estoque_id: UUID | None = None
+    unidade_medida_id: UUID | None = None
     dose_por_ha: float = Field(..., gt=0)
     unidade: str = Field(..., min_length=1, max_length=20)
     area_aplicada: float | None = None
@@ -14,6 +16,8 @@ class InsumoOperacaoResponse(BaseModel):
     id: UUID
     insumo_id: UUID
     lote_insumo: str | None
+    lote_estoque_id: UUID | None
+    unidade_medida_id: UUID | None
     dose_por_ha: float
     unidade: str
     area_aplicada: float | None

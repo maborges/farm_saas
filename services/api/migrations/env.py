@@ -82,7 +82,7 @@ from core.cadastros.equipamentos.models import Equipamento
 from operacional.models.apontamento import ApontamentoUso
 from operacional.models.abastecimento import Abastecimento
 from operacional.models.checklist import ChecklistModelo, ChecklistRealizado
-from operacional.models.estoque import Deposito, SaldoEstoque, LoteEstoque, RequisicaoMaterial, ItemRequisicao, ReservaEstoque, MovimentacaoEstoque, EstoqueMovimento
+from operacional.models.estoque import Deposito, SaldoEstoque, LoteEstoque, RequisicaoMaterial, ItemRequisicao, ReservaEstoque, EstoqueMovimento
 from operacional.models.documento_equipamento import DocumentoEquipamento
 
 # Produtos (insumos / almoxarifado)

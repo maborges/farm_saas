@@ -107,27 +107,6 @@ class ReservaEstoque(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
-class MovimentacaoEstoque(Base):
-    """Histórico de entradas e saídas."""
-    __tablename__ = "estoque_movimentacoes"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    deposito_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("estoque_depositos.id", ondelete="CASCADE"), index=True)
-    produto_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("cadastros_produtos.id", ondelete="CASCADE"), index=True)
-    usuario_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("usuarios.id"))
-    lote_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("estoque_lotes.id"), nullable=True)
-
-    tipo: Mapped[str] = mapped_column(String(20)) # ENTRADA, SAIDA, TRANSFERENCIA, AJUSTE
-    quantidade: Mapped[float] = mapped_column(Float, nullable=False)
-    data_movimentacao: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-
-    custo_unitario: Mapped[float | None] = mapped_column(Float, nullable=True)
-    custo_total: Mapped[float | None] = mapped_column(Float, nullable=True)
-    motivo: Mapped[str | None] = mapped_column(String(255))
-    origem_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True)) # ID do Pedido ou OS
-    origem_tipo: Mapped[str | None] = mapped_column(String(50)) # "ORDEM_SERVICO", "PEDIDO_COMPRA", "MANUAL"
-
-
 class EstoqueMovimento(Base):
     """Ledger append-only de estoque. Correções são novos movimentos via ajuste_de."""
     __tablename__ = "estoque_movimentos"
