@@ -521,88 +521,78 @@ class SafraService(BaseService[Safra]):
         Retorna histórico de movimentações de estoque para uma safra.
         Filtra por tipo, depósito, período, lote, operação associada.
         """
-        from operacional.models.estoque import MovimentacaoEstoque, LoteEstoque, Deposito
+        from operacional.models.estoque import EstoqueMovimento, LoteEstoque, Deposito
         from core.cadastros.produtos.models import Produto
-        from agricola.operacoes.models import OperacaoAgricola
+        from agricola.operacoes.models import OperacaoAgricola, OperacaoExecucao
 
         # Validar tenant isolation
         safra = await self.get_or_fail(safra_id)
 
-        # Query base: MovimentacaoEstoque linked to safra via operacao
         stmt = (
             select(
-                MovimentacaoEstoque.id,
-                MovimentacaoEstoque.produto_id,
-                MovimentacaoEstoque.lote_id,
-                MovimentacaoEstoque.deposito_id,
-                MovimentacaoEstoque.tipo,
-                MovimentacaoEstoque.quantidade,
-                MovimentacaoEstoque.custo_unitario,
-                MovimentacaoEstoque.custo_total,
-                MovimentacaoEstoque.motivo,
-                MovimentacaoEstoque.origem_id,
-                MovimentacaoEstoque.origem_tipo,
-                MovimentacaoEstoque.data_movimentacao,
+                EstoqueMovimento.id,
+                EstoqueMovimento.produto_id,
+                EstoqueMovimento.lote_id,
+                EstoqueMovimento.deposito_id,
+                EstoqueMovimento.tipo_movimento,
+                EstoqueMovimento.quantidade,
+                EstoqueMovimento.custo_unitario,
+                EstoqueMovimento.custo_total,
+                EstoqueMovimento.origem_id,
+                EstoqueMovimento.origem,
+                EstoqueMovimento.data_movimento,
                 Produto.nome.label("produto_nome"),
-                Produto.unidade_estoque,
+                Produto.unidade_medida.label("unidade_estoque"),
                 LoteEstoque.numero_lote,
                 Deposito.nome.label("deposito_nome"),
                 OperacaoAgricola.tipo.label("operacao_tipo"),
             )
-            .join(Produto, MovimentacaoEstoque.produto_id == Produto.id, isouter=True)
-            .join(LoteEstoque, MovimentacaoEstoque.lote_id == LoteEstoque.id, isouter=True)
-            .join(Deposito, MovimentacaoEstoque.deposito_id == Deposito.id, isouter=True)
-            .join(
-                OperacaoAgricola,
-                (MovimentacaoEstoque.origem_id == OperacaoAgricola.id)
-                & (MovimentacaoEstoque.origem_tipo == "OPERACAO_AGRICOLA"),
-                isouter=True,
-            )
+            .join(Produto, EstoqueMovimento.produto_id == Produto.id, isouter=True)
+            .join(LoteEstoque, EstoqueMovimento.lote_id == LoteEstoque.id, isouter=True)
+            .join(Deposito, EstoqueMovimento.deposito_id == Deposito.id, isouter=True)
+            .join(OperacaoExecucao, EstoqueMovimento.operacao_execucao_id == OperacaoExecucao.id, isouter=True)
+            .join(OperacaoAgricola, OperacaoExecucao.operacao_id == OperacaoAgricola.id, isouter=True)
             .where(
                 OperacaoAgricola.safra_id == safra_id,
                 OperacaoAgricola.tenant_id == self.tenant_id,
             )
         )
 
-        # Aplica filtros
         if tipo:
-            stmt = stmt.where(MovimentacaoEstoque.tipo == tipo)
+            stmt = stmt.where(EstoqueMovimento.tipo_movimento == tipo)
         if deposito_id:
-            stmt = stmt.where(MovimentacaoEstoque.deposito_id == deposito_id)
+            stmt = stmt.where(EstoqueMovimento.deposito_id == deposito_id)
         if data_inicio:
-            stmt = stmt.where(MovimentacaoEstoque.data_movimentacao >= data_inicio)
+            stmt = stmt.where(EstoqueMovimento.data_movimento >= data_inicio)
         if data_fim:
-            stmt = stmt.where(MovimentacaoEstoque.data_movimentacao <= data_fim)
+            stmt = stmt.where(EstoqueMovimento.data_movimento <= data_fim)
         if numero_lote:
             stmt = stmt.where(LoteEstoque.numero_lote.ilike(f"%{numero_lote}%"))
 
-        # Ordem e paginação
-        stmt = stmt.order_by(MovimentacaoEstoque.data_movimentacao.desc()).limit(limit).offset(offset)
+        stmt = stmt.order_by(EstoqueMovimento.data_movimento.desc()).limit(limit).offset(offset)
 
         rows = await self.session.execute(stmt)
         movimentacoes = rows.all()
 
-        # Conta total (sem limit/offset para saber se tem mais)
         count_stmt = (
-            select(func.count(MovimentacaoEstoque.id))
-            .join(OperacaoAgricola,
-                  (MovimentacaoEstoque.origem_id == OperacaoAgricola.id)
-                  & (MovimentacaoEstoque.origem_tipo == "OPERACAO_AGRICOLA"),
-                  isouter=True)
+            select(func.count(EstoqueMovimento.id))
+            .join(OperacaoExecucao, EstoqueMovimento.operacao_execucao_id == OperacaoExecucao.id, isouter=True)
+            .join(OperacaoAgricola, OperacaoExecucao.operacao_id == OperacaoAgricola.id, isouter=True)
             .where(
                 OperacaoAgricola.safra_id == safra_id,
                 OperacaoAgricola.tenant_id == self.tenant_id,
             )
         )
         if tipo:
-            count_stmt = count_stmt.where(MovimentacaoEstoque.tipo == tipo)
+            count_stmt = count_stmt.where(EstoqueMovimento.tipo_movimento == tipo)
         if deposito_id:
-            count_stmt = count_stmt.where(MovimentacaoEstoque.deposito_id == deposito_id)
+            count_stmt = count_stmt.where(EstoqueMovimento.deposito_id == deposito_id)
         if data_inicio:
-            count_stmt = count_stmt.where(MovimentacaoEstoque.data_movimentacao >= data_inicio)
+            count_stmt = count_stmt.where(EstoqueMovimento.data_movimento >= data_inicio)
         if data_fim:
-            count_stmt = count_stmt.where(MovimentacaoEstoque.data_movimentacao <= data_fim)
+            count_stmt = count_stmt.where(EstoqueMovimento.data_movimento <= data_fim)
         if numero_lote:
+            count_stmt = count_stmt.join(LoteEstoque, EstoqueMovimento.lote_id == LoteEstoque.id, isouter=True)
             count_stmt = count_stmt.where(LoteEstoque.numero_lote.ilike(f"%{numero_lote}%"))
 
         total = (await self.session.execute(count_stmt)).scalar() or 0
@@ -618,16 +608,16 @@ class SafraService(BaseService[Safra]):
                     "numero_lote": mov.numero_lote,
                     "deposito_id": mov.deposito_id,
                     "deposito_nome": mov.deposito_nome,
-                    "tipo": mov.tipo,
+                    "tipo": mov.tipo_movimento,
                     "quantidade": float(mov.quantidade),
                     "unidade": mov.unidade_estoque,
                     "custo_unitario": float(mov.custo_unitario) if mov.custo_unitario else None,
                     "custo_total": float(mov.custo_total) if mov.custo_total else None,
-                    "motivo": mov.motivo,
+                    "motivo": None,
                     "origem_id": mov.origem_id,
-                    "origem_tipo": mov.origem_tipo,
+                    "origem_tipo": mov.origem,
                     "operacao_tipo": mov.operacao_tipo,
-                    "data_movimentacao": mov.data_movimentacao,
+                    "data_movimentacao": mov.data_movimento,
                 }
                 for mov in movimentacoes
             ],
@@ -645,14 +635,13 @@ class SafraService(BaseService[Safra]):
         Retorna lotes (batches) consumidos em operações da safra.
         Mostra informações de rastreabilidade (numero_lote, fornecedor, custo histórico).
         """
-        from operacional.models.estoque import LoteEstoque, Deposito, MovimentacaoEstoque
+        from operacional.models.estoque import LoteEstoque, Deposito, EstoqueMovimento
         from core.cadastros.produtos.models import Produto
-        from agricola.operacoes.models import OperacaoAgricola
+        from agricola.operacoes.models import OperacaoAgricola, OperacaoExecucao
 
         # Validar tenant isolation
         safra = await self.get_or_fail(safra_id)
 
-        # Query: Lotes consumidos através de MovimentacaoEstoque com origem em operações
         stmt = (
             select(
                 LoteEstoque.id,
@@ -672,17 +661,9 @@ class SafraService(BaseService[Safra]):
             )
             .join(Deposito, LoteEstoque.deposito_id == Deposito.id)
             .join(Produto, LoteEstoque.produto_id == Produto.id)
-            .join(
-                MovimentacaoEstoque,
-                LoteEstoque.id == MovimentacaoEstoque.lote_id,
-                isouter=True,
-            )
-            .join(
-                OperacaoAgricola,
-                (MovimentacaoEstoque.origem_id == OperacaoAgricola.id)
-                & (MovimentacaoEstoque.origem_tipo == "OPERACAO_AGRICOLA"),
-                isouter=True,
-            )
+            .join(EstoqueMovimento, LoteEstoque.id == EstoqueMovimento.lote_id, isouter=True)
+            .join(OperacaoExecucao, EstoqueMovimento.operacao_execucao_id == OperacaoExecucao.id, isouter=True)
+            .join(OperacaoAgricola, OperacaoExecucao.operacao_id == OperacaoAgricola.id, isouter=True)
             .where(
                 OperacaoAgricola.safra_id == safra_id,
                 OperacaoAgricola.tenant_id == self.tenant_id,

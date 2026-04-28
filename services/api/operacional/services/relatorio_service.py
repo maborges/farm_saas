@@ -6,8 +6,8 @@ from sqlalchemy.future import select
 from sqlalchemy import func, and_
 
 from operacional.models.frota import Maquinario, OrdemServico, RegistroManutencao
-from operacional.models.estoque import MovimentacaoEstoque, Deposito
-from core.cadastros.models import ProdutoCatalogo
+from operacional.models.estoque import EstoqueMovimento, Deposito
+from core.cadastros.produtos.models import Produto
 from agricola.operacoes.models import InsumoOperacao, OperacaoAgricola
 from agricola.safras.models import Safra
 
@@ -171,18 +171,19 @@ class OperacionalRelatorioService:
 
         stmt = (
             select(
-                MovimentacaoEstoque.produto_id,
-                MovimentacaoEstoque.tipo,
-                func.count(MovimentacaoEstoque.id).label("qtd_movimentos"),
-                func.sum(MovimentacaoEstoque.quantidade).label("quantidade_total"),
-                func.sum(MovimentacaoEstoque.custo_total).label("custo_total"),
+                EstoqueMovimento.produto_id,
+                EstoqueMovimento.tipo_movimento.label("tipo"),
+                func.count(EstoqueMovimento.id).label("qtd_movimentos"),
+                func.sum(EstoqueMovimento.quantidade).label("quantidade_total"),
+                func.sum(EstoqueMovimento.custo_total).label("custo_total"),
             )
             .where(
-                MovimentacaoEstoque.deposito_id.in_(dep_ids),
-                MovimentacaoEstoque.data_movimentacao >= dt_ini,
-                MovimentacaoEstoque.data_movimentacao <= dt_fim,
+                EstoqueMovimento.tenant_id == self.tenant_id,
+                EstoqueMovimento.deposito_id.in_(dep_ids),
+                EstoqueMovimento.data_movimento >= dt_ini,
+                EstoqueMovimento.data_movimento <= dt_fim,
             )
-            .group_by(MovimentacaoEstoque.produto_id, MovimentacaoEstoque.tipo)
+            .group_by(EstoqueMovimento.produto_id, EstoqueMovimento.tipo_movimento)
         )
         rows = (await self.session.execute(stmt)).all()
 
