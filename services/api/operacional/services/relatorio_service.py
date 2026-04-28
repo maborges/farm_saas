@@ -112,7 +112,7 @@ class OperacionalRelatorioService:
         insumos = (await self.session.execute(stmt_ins)).scalars().all()
 
         # Busca nomes dos produtos
-        produto_ids = {i.insumo_id for i in insumos}
+        produto_ids = {i.produto_id for i in insumos}
         stmt_prods = select(Produto).where(Produto.id.in_(produto_ids))
         produtos = {p.id: p for p in (await self.session.execute(stmt_prods)).scalars().all()}
 
@@ -122,15 +122,15 @@ class OperacionalRelatorioService:
             safra = ops.get(ins.operacao_id)
             if not safra:
                 continue
-            key = (safra, ins.insumo_id)
+            key = (safra, ins.produto_id)
             if key not in agg:
-                prod = produtos.get(ins.insumo_id)
+                prod = produtos.get(ins.produto_id)
                 safra_obj = safras.get(safra)
                 agg[key] = {
                     "safra_id": str(safra),
                     "safra_nome": f"{safra_obj.cultura} {safra_obj.ano_safra}" if safra_obj else str(safra),
-                    "produto_id": str(ins.insumo_id),
-                    "produto_nome": prod.nome if prod else str(ins.insumo_id),
+                    "produto_id": str(ins.produto_id),
+                    "produto_nome": prod.nome if prod else str(ins.produto_id),
                     "unidade_medida": prod.unidade_medida if prod else "—",
                     "quantidade_total": 0.0,
                     "custo_total": 0.0,

@@ -485,9 +485,9 @@ class CadernoExportacaoService(BaseService[CadernoExportacao]):
                         for ins in op.insumos:
                             insumos_rows.append([
                                 Paragraph(e.data_registro.strftime("%d/%m/%Y"), styles["TableCell"]),
-                                Paragraph(ins.get("produto_nome", ins.get("insumo_id", "N/A")), styles["TableCell"]),
-                                Paragraph(f"{ins.get('dose_por_ha', '')} {ins.get('unidade', '')}/ha", styles["TableCell"]),
-                                Paragraph(str(ins.get("registro_mapa", "N/A")), styles["TableCell"]),
+                                Paragraph(getattr(ins, "produto_nome", None) or str(ins.produto_id), styles["TableCell"]),
+                                Paragraph(f"{ins.dose_por_ha or ''} {ins.unidade or ''}/ha", styles["TableCell"]),
+                                Paragraph(str(getattr(ins, "registro_mapa", "N/A")), styles["TableCell"]),
                             ])
 
             if not insumos_rows:
@@ -599,7 +599,7 @@ class CadernoExportacaoService(BaseService[CadernoExportacao]):
                     if op and op.insumos:
                         doses = []
                         for ins in op.insumos:
-                            doses.append(f"{ins.get('dose_por_ha', '')} {ins.get('unidade', '')}/ha")
+                            doses.append(f"{ins.dose_por_ha or ''} {ins.unidade or ''}/ha")
                         dose_info = "; ".join(doses) if doses else "—"
                         intervalo = f"{op.intervalo_seguranca or '—'} dias" if hasattr(op, 'intervalo_seguranca') else "—"
 

@@ -4,7 +4,7 @@ from datetime import date, time, datetime
 from typing import Optional, List
 
 class InsumoOperacaoCreate(BaseModel):
-    insumo_id: UUID
+    produto_id: UUID
     lote_insumo: str | None = None
     lote_estoque_id: UUID | None = None
     unidade_medida_id: UUID | None = None
@@ -14,7 +14,7 @@ class InsumoOperacaoCreate(BaseModel):
 
 class InsumoOperacaoResponse(BaseModel):
     id: UUID
-    insumo_id: UUID
+    produto_id: UUID
     lote_insumo: str | None
     lote_estoque_id: UUID | None
     unidade_medida_id: UUID | None

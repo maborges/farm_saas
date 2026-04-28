@@ -55,7 +55,7 @@ class RastreabilidadeService(BaseService[LoteRastreabilidade]):
         operacoes = list((await self.session.execute(stmt_ops)).scalars().all())
 
         # Busca nomes dos produtos dos insumos
-        produto_ids = {i.insumo_id for op in operacoes for i in op.insumos}
+        produto_ids = {i.produto_id for op in operacoes for i in op.insumos}
         produtos: dict[UUID, Produto] = {}
         if produto_ids:
             stmt_prods = select(Produto).where(Produto.id.in_(produto_ids))
@@ -141,7 +141,7 @@ class RastreabilidadeService(BaseService[LoteRastreabilidade]):
                     "status": op.status,
                     "insumos": [
                         {
-                            "produto_nome": produtos[i.insumo_id].nome if i.insumo_id in produtos else str(i.insumo_id),
+                            "produto_nome": produtos[i.produto_id].nome if i.produto_id in produtos else str(i.produto_id),
                             "unidade": i.unidade,
                             "dose_por_ha": float(i.dose_por_ha or 0),
                             "quantidade_total": float(i.quantidade_total or 0),

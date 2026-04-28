@@ -6,7 +6,7 @@ from agricola.operacoes.schemas import InsumoOperacaoCreate, InsumoOperacaoRespo
 
 def test_insumo_create_aceita_lote_estoque_id():
     payload = InsumoOperacaoCreate(
-        insumo_id=uuid.uuid4(),
+        produto_id=uuid.uuid4(),
         dose_por_ha=1.0,
         unidade="L",
         lote_estoque_id=uuid.uuid4(),
@@ -16,7 +16,7 @@ def test_insumo_create_aceita_lote_estoque_id():
 
 def test_insumo_create_lote_estoque_id_opcional():
     payload = InsumoOperacaoCreate(
-        insumo_id=uuid.uuid4(),
+        produto_id=uuid.uuid4(),
         dose_por_ha=1.0,
         unidade="L",
     )
@@ -26,7 +26,7 @@ def test_insumo_create_lote_estoque_id_opcional():
 def test_insumo_create_aceita_unidade_medida_id():
     uid = uuid.uuid4()
     payload = InsumoOperacaoCreate(
-        insumo_id=uuid.uuid4(),
+        produto_id=uuid.uuid4(),
         dose_por_ha=1.0,
         unidade="L",
         unidade_medida_id=uid,
@@ -36,11 +36,21 @@ def test_insumo_create_aceita_unidade_medida_id():
 
 def test_insumo_create_unidade_medida_id_opcional():
     payload = InsumoOperacaoCreate(
-        insumo_id=uuid.uuid4(),
+        produto_id=uuid.uuid4(),
         dose_por_ha=1.0,
         unidade="L",
     )
     assert payload.unidade_medida_id is None
+
+
+def test_insumo_response_tem_produto_id():
+    assert "produto_id" in InsumoOperacaoResponse.model_fields
+
+
+def test_insumo_create_tem_produto_id():
+    pid = uuid.uuid4()
+    payload = InsumoOperacaoCreate(produto_id=pid, dose_por_ha=1.0, unidade="L")
+    assert payload.produto_id == pid
 
 
 def test_insumo_response_tem_lote_estoque_id():

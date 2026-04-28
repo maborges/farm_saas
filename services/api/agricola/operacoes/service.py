@@ -16,7 +16,6 @@ from agricola.safras.models import Safra
 from agricola.models import OperacaoTipoFase
 from core.cadastros.produtos.models import Produto
 from operacional.services import EstoqueService
-from operacional.models.estoque import MovimentacaoEstoque
 from operacional.services.estoque_fifo import consumir_lotes_fifo, atualizar_saldo_apos_consumo
 from operacional.services.estoque_ledger import registrar_ledger_estoque
 from agricola.custos.allocation_service import registrar_cost_allocation
@@ -92,45 +91,28 @@ class OperacaoService(BaseService[OperacaoAgricola]):
                 quantidade_total = insumo.dose_por_ha * (insumo.area_aplicada or dados.area_aplicada_ha or 1.0)
 
                 # Busca produto
-                produto = await self.session.get(Produto, insumo.insumo_id)
+                produto = await self.session.get(Produto, insumo.produto_id)
                 if not produto:
-                    raise EntityNotFoundError("Produto/Insumo", insumo.insumo_id)
+                    raise EntityNotFoundError("Produto/Insumo", insumo.produto_id)
 
                 # FIFO: Consume oldest batches first
                 try:
                     consumo = await consumir_lotes_fifo(
                         session=self.session,
-                        produto_id=insumo.insumo_id,
+                        produto_id=insumo.produto_id,
                         quantidade_necessaria=quantidade_total,
                         tenant_id=self.tenant_id,
                     )
                 except BusinessRuleError as e:
-                    logger.warning(f"FIFO consumption failed for {insumo.insumo_id}: {e}")
+                    logger.warning(f"FIFO consumption failed for {insumo.produto_id}: {e}")
                     raise
 
                 # Custo real vem do FIFO (lotes históricos), não do preço médio
                 custo_item = consumo.custo_total
 
-                # Record MovimentacaoEstoque for each lote consumed (includes deposito_id for audit trail)
                 for lote_consumido in consumo.lotes_consumidos:
-                    mov = MovimentacaoEstoque(
-                        id=uuid.uuid4(),
-                        deposito_id=lote_consumido["deposito_id"],  # Required: audit trail of which deposit
-                        produto_id=insumo.insumo_id,
-                        usuario_id=None,
-                        lote_id=lote_consumido["lote_id"],
-                        tipo="SAIDA",
-                        quantidade=lote_consumido["quantidade"],
-                        data_movimentacao=datetime.now(timezone.utc),
-                        custo_unitario=lote_consumido["custo_unitario"],
-                        custo_total=lote_consumido["custo"],
-                        motivo=f"Aplicação em operação agrícola ({operacao.tipo})",
-                        origem_id=operacao.id,
-                        origem_tipo="OPERACAO_AGRICOLA",
-                    )
-                    self.session.add(mov)
                     ledger_consumos.append({
-                        "produto_id": insumo.insumo_id,
+                        "produto_id": insumo.produto_id,
                         "deposito_id": lote_consumido["deposito_id"],
                         "lote_id": lote_consumido["lote_id"],
                         "quantidade": lote_consumido["quantidade"],
@@ -152,7 +134,7 @@ class OperacaoService(BaseService[OperacaoAgricola]):
                     id=uuid.uuid4(),
                     operacao_id=operacao.id,
                     tenant_id=self.tenant_id,
-                    insumo_id=insumo.insumo_id,
+                    produto_id=insumo.produto_id,
                     lote_insumo=insumo.lote_insumo,
                     dose_por_ha=insumo.dose_por_ha,
                     unidade=insumo.unidade,
@@ -168,7 +150,7 @@ class OperacaoService(BaseService[OperacaoAgricola]):
                 # Update SaldoEstoque after FIFO consumption (required for UI accuracy)
                 await atualizar_saldo_apos_consumo(
                     session=self.session,
-                    produto_id=insumo.insumo_id,
+                    produto_id=insumo.produto_id,
                     quantidade_total=quantidade_total,
                 )
 

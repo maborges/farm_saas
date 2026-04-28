@@ -99,7 +99,7 @@ async def rastreabilidade_produto_colhido(
     )
     operacoes = list((await session.execute(stmt_ops)).scalars().all())
 
-    produto_ids = {i.insumo_id for op in operacoes for i in op.insumos}
+    produto_ids = {i.produto_id for op in operacoes for i in op.insumos}
     produtos: dict[UUID, Produto] = {}
     if produto_ids:
         stmt_prods = select(Produto).where(Produto.id.in_(produto_ids))
@@ -190,7 +190,7 @@ async def rastreabilidade_produto_colhido(
                 "custo_total": float(op.custo_total or 0),
                 "insumos": [
                     {
-                        "produto": produtos[i.insumo_id].nome if i.insumo_id in produtos else None,
+                        "produto": produtos[i.produto_id].nome if i.produto_id in produtos else None,
                         "quantidade_total": float(i.quantidade_total or 0),
                     }
                     for i in op.insumos

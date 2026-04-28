@@ -90,7 +90,7 @@ class InsumoOperacao(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     operacao_id: Mapped[UUID] = mapped_column(ForeignKey("operacoes_agricolas.id", ondelete="CASCADE"), nullable=False)
     tenant_id: Mapped[UUID] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
-    insumo_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("cadastros_produtos.id"), nullable=False, index=True)
+    produto_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("cadastros_produtos.id"), nullable=False, index=True)
     lote_estoque_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("estoque_lotes.id", ondelete="SET NULL"), nullable=True, index=True)
     unidade_medida_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("unidades_medida.id", ondelete="SET NULL"), nullable=True)
 
