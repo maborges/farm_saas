@@ -14,6 +14,12 @@ class Fornecedor(Base):
     nome_fantasia: Mapped[str] = mapped_column(String(150), nullable=False)
     razao_social: Mapped[str | None] = mapped_column(String(150))
     cnpj_cpf: Mapped[str | None] = mapped_column(String(20), index=True)
+    pessoa_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cadastros_pessoas.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     email: Mapped[str | None] = mapped_column(String(100))
     telefone: Mapped[str | None] = mapped_column(String(20))
     condicoes_pagamento: Mapped[str | None] = mapped_column(String(100))

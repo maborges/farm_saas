@@ -5,7 +5,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
-import asyncio
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
@@ -30,17 +29,6 @@ def _get_db_url():
     if "postgresql" not in db_url:
         db_url = "postgresql+asyncpg://borgus:numsey01@192.168.0.2/farms"
     return db_url
-
-@pytest.fixture(scope="session")
-def event_loop_policy():
-    return asyncio.DefaultEventLoopPolicy()
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Single event loop shared across all tests in the session."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 @pytest.fixture
 def tenant_id() -> uuid.UUID:

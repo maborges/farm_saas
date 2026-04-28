@@ -64,6 +64,71 @@ async def _garantir_suporte(session):
 
 
 # ---------------------------------------------------------------------------
+# OPR-COM-FOR-01: Criar fornecedor com pessoa canônica e sem duplicar legado
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_criar_fornecedor_resolve_pessoa_e_reutiliza_legado(client, session, headers_operacional):
+    await _garantir_suporte(session)
+
+    payload = {
+        "nome_fantasia": "Fornecedor Canonico",
+        "cnpj_cpf": "12.345.678/0001-90",
+        "email": "compras@canonico.test",
+        "telefone": "11999990000",
+        "condicoes_pagamento": "28 dias",
+        "prazo_entrega_dias": 5,
+        "avaliacao": 4.7,
+    }
+
+    response_1 = await client.post(
+        "/api/v1/compras/fornecedores",
+        json=payload,
+        headers=headers_operacional,
+    )
+    assert response_1.status_code == 201, response_1.text
+
+    response_2 = await client.post(
+        "/api/v1/compras/fornecedores",
+        json={
+            **payload,
+            "nome_fantasia": "Fornecedor Canonico Atualizado",
+            "cnpj_cpf": "12345678000190",
+        },
+        headers=headers_operacional,
+    )
+    assert response_2.status_code == 201, response_2.text
+
+    data_1 = response_1.json()
+    data_2 = response_2.json()
+
+    assert data_1["pessoa_id"] is not None
+    assert data_2["pessoa_id"] == data_1["pessoa_id"]
+    assert data_2["id"] == data_1["id"]
+    assert data_2["condicoes_pagamento"] == "28 dias"
+    assert data_2["prazo_entrega_dias"] == 5
+    assert data_2["avaliacao"] == 4.7
+
+    fornecedor_count = await session.execute(
+        text(
+            "SELECT COUNT(*) FROM compras_fornecedores "
+            "WHERE tenant_id = :tenant_id AND pessoa_id = :pessoa_id"
+        ),
+        {"tenant_id": str(TENANT_ID), "pessoa_id": data_1["pessoa_id"]},
+    )
+    pessoa_count = await session.execute(
+        text(
+            "SELECT COUNT(*) FROM cadastros_pessoas_documentos "
+            "WHERE tipo = 'CNPJ' AND numero = :cnpj_cpf"
+        ),
+        {"cnpj_cpf": "12345678000190"},
+    )
+
+    assert fornecedor_count.scalar_one() == 1
+    assert pessoa_count.scalar_one() == 1
+
+
+# ---------------------------------------------------------------------------
 # OPR-COM-01: Criar pedido de compra
 # ---------------------------------------------------------------------------
 

@@ -20,6 +20,7 @@ from operacional.schemas.compras import (
 from core.cadastros.models import ProdutoCatalogo as Produto
 from operacional.services.estoque_service import EstoqueService
 from operacional.services.estoque_ledger import registrar_ledger_estoque
+from operacional.services.fornecedores_service import salvar_fornecedor_legado
 from operacional.schemas.estoque import EntradaEstoqueRequest, LoteCreate
 from operacional.models.estoque import LoteEstoque, MovimentacaoEstoque, SaldoEstoque
 from pydantic import BaseModel, Field
@@ -38,6 +39,7 @@ class FornecedorCreate(BaseModel):
 
 class FornecedorResponse(BaseModel):
     id: uuid.UUID
+    pessoa_id: Optional[uuid.UUID] = None
     nome_fantasia: str
     cnpj_cpf: Optional[str]
     email: Optional[str]
@@ -106,8 +108,11 @@ async def create_fornecedor(
     tenant: Tenant = Depends(get_current_tenant),
     session: AsyncSession = Depends(get_session)
 ):
-    forn = Fornecedor(tenant_id=tenant.id, **data.model_dump())
-    session.add(forn)
+    forn, _created = await salvar_fornecedor_legado(
+        session,
+        tenant.id,
+        **data.model_dump(),
+    )
     await session.commit()
     await session.refresh(forn)
     return forn
@@ -138,8 +143,12 @@ async def update_fornecedor(
     if not forn:
         raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
 
-    for key, value in data.model_dump(exclude_unset=True).items():
-        setattr(forn, key, value)
+    forn, _created = await salvar_fornecedor_legado(
+        session,
+        tenant.id,
+        fornecedor=forn,
+        **data.model_dump(),
+    )
 
     session.add(forn)
     await session.commit()
