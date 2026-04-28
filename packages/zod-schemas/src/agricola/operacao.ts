@@ -3,7 +3,7 @@ import { z } from "zod";
 export const OperacaoStatusEnum = z.enum(["PLANEJADA", "EM_ANDAMENTO", "REALIZADA", "CANCELADA"]);
 
 export const InsumoOperacaoCreateSchema = z.object({
-  insumo_id: z.string().uuid(),
+  produto_id: z.string().uuid(),
   lote_insumo: z.string().max(50).optional().nullable(),
   dose_por_ha: z.number().positive({ message: "Dose por hectare obrigatória" }),
   unidade: z.string().min(1).max(20),
