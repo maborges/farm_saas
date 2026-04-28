@@ -201,6 +201,30 @@ Sem congelamento, novas telas, endpoints ou jobs podem reforçar tabelas duplica
 - `estoque_saldos` é reconciliável a partir do ledger.
 - Movimentos sem origem só são aceitos quando classificados como manuais.
 
+### Observação operacional consolidada no Step 65
+
+- O passivo legado remanescente em `estoque_movimentacoes` é baixo (`9` linhas no snapshot de `2026-04-28`), mas não deve sofrer backfill automático sem classificação prévia.
+- Não foi encontrada duplicidade exata intra-legado; o risco principal está em dupla contagem cross-ledger.
+- Registros legados de `PEDIDO_COMPRA` com cobertura canônica provável devem ser excluídos do backfill por regra determinística.
+- Registros com `origem_tipo` nulo ou `OPERACAO_AGRICOLA` legado exigem política explícita de mapeamento antes da migração.
+- O backfill futuro deve ser idempotente por identificador legado, com dry-run obrigatório e trilha de auditoria.
+
+### Política operacional consolidada no Step 66
+
+- Cada linha legada de `estoque_movimentacoes` deve cair em exatamente uma classe: `IGNORAR`, `MIGRAR`, `MARCAR_COMO_LEGADO` ou `REVISAR_MANUALMENTE`.
+- `PEDIDO_COMPRA` já coberto no ledger canônico deve ser `IGNORAR` para evitar dupla contagem.
+- `OPERACAO_AGRICOLA` legado só pode ser `MIGRAR` se houver remapeamento determinístico para `OPERACAO_EXECUCAO`; caso contrário, fica em `REVISAR_MANUALMENTE`.
+- Linhas com `origem_tipo` nulo devem preferir `MARCAR_COMO_LEGADO` quando precisarem ser preservadas sem origem confiável; `MANUAL` só deve ser usado com decisão explícita de negócio.
+- Nenhum backfill futuro deve inventar rastreabilidade operacional ausente no legado.
+
+### Política operacional consolidada no Step 67
+
+- `LEGADO` fica aprovado como origem oficial de `estoque_movimentos` para carga histórica sem origem operacional confiável.
+- `LEGADO` é exclusivo de backfill/importação/migração; novos fluxos operacionais e lançamentos manuais correntes não devem usar essa origem.
+- `MANUAL` continua reservado para movimentos efetivamente manuais do domínio atual.
+- O backfill futuro deve registrar referência ao identificador legado em `observacoes` ou mecanismo equivalente de auditoria.
+- A política está aprovada antes do backfill, mas a constraint atual do banco ainda não aceita `LEGADO`; será necessária migration específica antes da execução.
+
 ## 3. Padronizar `origem_tipo/origem_id` em Pecuária, Frota, Compras e Vendas
 
 ### Estado atual

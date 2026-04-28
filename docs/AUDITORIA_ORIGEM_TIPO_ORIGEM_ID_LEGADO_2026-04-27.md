@@ -19,9 +19,18 @@ Critério usado nesta etapa:
 
 Observação:
 
-- neste snapshot, os registros legados sem rastreabilidade operacional aparecem como `origem_tipo = 'MANUAL'` com `origem_id = NULL`;
+- neste snapshot, os registros sem rastreabilidade operacional aparecem como `origem_tipo = 'MANUAL'` com `origem_id = NULL`;
 - não foi executado backfill automático;
 - não foi alterado schema.
+
+## Política oficial definida no Step 60
+
+Política aprovada:
+
+- `MANUAL` continua sendo um valor válido para lançamentos criados diretamente no módulo Financeiro;
+- em lançamentos `MANUAL`, `origem_id = NULL` é aceito quando não existe evento operacional de origem;
+- `LEGADO` deve ser usado apenas para dados importados ou migrados sem origem confiável;
+- novos fluxos operacionais não devem cair em `MANUAL` nem `LEGADO` quando a origem real puder ser inferida.
 
 ## Resumo executivo
 
@@ -94,9 +103,8 @@ O cenário atual indica:
 
 - os fluxos operacionais já auditados estão gravando origem quando aplicável;
 - o estoque legado remanescente, neste snapshot, está em lançamentos manuais do Financeiro;
-- antes de qualquer backfill, o próximo passo seguro é decidir se:
-  - `MANUAL` com `origem_id = NULL` continuará sendo aceito como categoria legítima de lançamento manual;
-  - ou se esses registros deverão ser separados entre `MANUAL legítimo` e `LEGADO sem rastreabilidade`.
+- à luz da política oficial do Step 60, estes registros devem ser interpretados primeiro como lançamentos manuais válidos, não como passivo automaticamente quebrado;
+- `LEGADO` fica reservado para futuras cargas/importações em que não exista origem confiável a preservar.
 
 ## Fora de escopo desta etapa
 
