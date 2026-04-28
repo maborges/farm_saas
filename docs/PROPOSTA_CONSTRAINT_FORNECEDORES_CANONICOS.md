@@ -211,7 +211,8 @@ Após criar o índice:
 
 1. monitorar erros de escrita no fluxo de Compras;
 2. monitorar logs do create/update de fornecedor;
-3. verificar se alguma integração externa ainda tenta criar duplicata legada.
+3. monitorar criação e edição de compras, cotações e devoluções com o índice em vigor;
+4. verificar se alguma integração externa ainda tenta criar duplicata legada.
 
 Janela recomendada:
 
@@ -274,7 +275,19 @@ Próxima etapa segura:
 
 1. repetir auditoria em staging/produção;
 2. se tudo estiver limpo, aplicar **apenas** o índice único parcial por `tenant_id + pessoa_id`;
-3. postergar `SET NOT NULL` para uma etapa seguinte, depois de observação operacional.
+3. postergar `SET NOT NULL` para uma etapa seguinte, depois de observação operacional de fornecedores, compras, cotações e devoluções.
+
+## Observação operacional atual
+
+Decisão vigente em 2026-04-27:
+
+- `NOT NULL` não será aplicado por enquanto;
+- o índice único parcial permanece como mecanismo ativo de proteção;
+- a decisão sobre `SET NOT NULL` depende de estabilidade operacional observada nos fluxos de:
+  - criação/edição de fornecedores;
+  - compras;
+  - cotações;
+  - devoluções.
 
 ## Fora de escopo desta etapa
 

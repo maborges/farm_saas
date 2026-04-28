@@ -74,5 +74,19 @@ Estado final:
 
 ## Próximo passo sugerido
 
-- observar o comportamento do fluxo de Compras com o índice em vigor;
+- manter o índice em vigor sem aplicar `NOT NULL` por enquanto;
+- monitorar criação e edição de fornecedores;
+- monitorar criação e edição de compras, cotações e devoluções;
 - só depois considerar a etapa futura de `ALTER COLUMN pessoa_id SET NOT NULL`.
+
+## Observação operacional
+
+Decisão do Step 57:
+
+- não aplicar `ALTER COLUMN pessoa_id SET NOT NULL` nesta etapa;
+- usar o índice único parcial como proteção ativa contra nova duplicidade lógica;
+- acompanhar logs, erros de persistência e comportamento funcional dos fluxos de:
+  - fornecedores;
+  - compras;
+  - cotações;
+  - devoluções.
