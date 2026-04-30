@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Depends, status, Query, HTTPException
 from typing import List
 from uuid import UUID
 from datetime import date
@@ -145,6 +145,11 @@ async def avancar_fase_safra(
     _: None = Depends(require_module("A1_PLANEJAMENTO")),
     user: dict = Depends(require_role(["agronomo", "admin"])),
 ):
+    if dados.novo_status and dados.novo_status.upper() != nova_fase.upper():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="novo_status no corpo diverge da fase informada na URL.",
+        )
     svc = SafraService(session, tenant_id)
     usuario_id = UUID(user["sub"]) if user.get("sub") else None
     safra = await svc.avancar_fase(

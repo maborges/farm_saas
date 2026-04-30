@@ -83,7 +83,7 @@ class SafraUpdate(BaseModel):
     observacoes: str | None = None
 
 class SafraAvancarFase(BaseModel):
-    novo_status: str
+    novo_status: str | None = None
     observacao: Optional[str] = None
     dados_fase: Optional[dict] = None
     forcar_avanco: bool = False

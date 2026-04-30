@@ -609,7 +609,7 @@ class SafraService(BaseService[Safra]):
                     "deposito_id": mov.deposito_id,
                     "deposito_nome": mov.deposito_nome,
                     "tipo": mov.tipo_movimento,
-                    "quantidade": float(mov.quantidade),
+                    "quantidade": abs(float(mov.quantidade)),
                     "unidade": mov.unidade_estoque,
                     "custo_unitario": float(mov.custo_unitario) if mov.custo_unitario else None,
                     "custo_total": float(mov.custo_total) if mov.custo_total else None,
