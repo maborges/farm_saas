@@ -9,19 +9,36 @@ Validates complete flow:
 """
 
 import pytest
-from uuid import uuid4, UUID
+from uuid import uuid4
 from datetime import date, datetime, timezone
+from types import SimpleNamespace
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from operacional.models.estoque import LoteEstoque, Deposito, SaldoEstoque, MovimentacaoEstoque
+from operacional.models.estoque import EstoqueMovimento, LoteEstoque, Deposito, SaldoEstoque
 from operacional.models.compras import (
     PedidoCompra, ItemPedidoCompra, RecebimentoParcial, ItemRecebimento,
     DevolucaoFornecedor, ItemDevolucao, Fornecedor,
 )
 from core.cadastros.produtos.models import Produto
+from core.models.auth import Usuario
+from operacional.routers.compras import atualizar_status_devolucao
+from operacional.schemas.compras import DevolucaoStatusUpdate
 from operacional.services.estoque_fifo import consumir_lotes_fifo, atualizar_saldo_apos_consumo
 from core.exceptions import BusinessRuleError
+
+
+async def criar_usuario(session: AsyncSession, suffix: str = "teste") -> Usuario:
+    usuario = Usuario(
+        id=uuid4(),
+        email=f"{suffix}-{uuid4().hex[:8]}@example.com",
+        username=f"{suffix}_{uuid4().hex[:8]}",
+        nome_completo="Usuario Teste",
+        ativo=True,
+    )
+    session.add(usuario)
+    await session.flush()
+    return usuario
 
 
 class TestComprasLoteIntegration:
@@ -41,8 +58,8 @@ class TestComprasLoteIntegration:
         3. Create operation with insumo
         4. FIFO consumes from correct batch
         """
-        tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(unidade_produtiva_id)
+        tenant_uuid = tenant_id
+        fazenda_uuid = unidade_produtiva_id
 
         # ── Setup: Create product and deposit ──────────────────────────────
         produto = Produto(
@@ -67,12 +84,13 @@ class TestComprasLoteIntegration:
         )
         session.add(deposito)
         await session.flush()
+        usuario = await criar_usuario(session, "pedido_compra")
 
         # ── Step 1: Create PedidoCompra ───────────────────────────────────
         pedido = PedidoCompra(
             id=uuid4(),
             tenant_id=tenant_uuid,
-            usuario_solicitante_id=uuid4(),
+            usuario_solicitante_id=usuario.id,
             deposito_destino_id=deposito.id,
             status="APROVADO",
         )
@@ -201,8 +219,8 @@ class TestComprasLoteIntegration:
         unidade_produtiva_id: str,
     ):
         """Validate that LoteEstoque.numero_lote comes from NFe number."""
-        tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(unidade_produtiva_id)
+        tenant_uuid = tenant_id
+        fazenda_uuid = unidade_produtiva_id
 
         produto = Produto(
             id=uuid4(),
@@ -255,8 +273,8 @@ class TestComprasLoteIntegration:
         unidade_produtiva_id: str,
     ):
         """Validate that LoteEstoque.custo_unitario comes from preco_real_unitario."""
-        tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(unidade_produtiva_id)
+        tenant_uuid = tenant_id
+        fazenda_uuid = unidade_produtiva_id
 
         produto = Produto(
             id=uuid4(),
@@ -312,8 +330,8 @@ class TestComprasLoteIntegration:
         unidade_produtiva_id: str,
     ):
         """P0.2: Validate supplier batch number (numero_lote_fornecedor) enables traceability."""
-        tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(unidade_produtiva_id)
+        tenant_uuid = tenant_id
+        fazenda_uuid = unidade_produtiva_id
 
         produto = Produto(
             id=uuid4(),
@@ -371,8 +389,8 @@ class TestComprasLoteIntegration:
         unidade_produtiva_id: str,
     ):
         """P0.2: Verify numero_lote_fornecedor is captured in ItemRecebimento."""
-        tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(unidade_produtiva_id)
+        tenant_uuid = tenant_id
+        fazenda_uuid = unidade_produtiva_id
 
         produto = Produto(
             id=uuid4(),
@@ -395,12 +413,13 @@ class TestComprasLoteIntegration:
         )
         session.add(deposito)
         await session.flush()
+        usuario = await criar_usuario(session, "pedido_batch")
 
         # Create PO
         pedido = PedidoCompra(
             id=uuid4(),
             tenant_id=tenant_uuid,
-            usuario_solicitante_id=uuid4(),
+            usuario_solicitante_id=usuario.id,
             deposito_destino_id=deposito.id,
             status="APROVADO",
         )
@@ -454,8 +473,8 @@ class TestComprasLoteIntegration:
         unidade_produtiva_id: str,
     ):
         """P0.3: Verify devolução approval reverses FIFO and restores inventory."""
-        tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(unidade_produtiva_id)
+        tenant_uuid = tenant_id
+        fazenda_uuid = unidade_produtiva_id
 
         # ── Setup: Create product, deposit, and supplier ──────────────────
         produto = Produto(
@@ -543,31 +562,32 @@ class TestComprasLoteIntegration:
         assert saldo.quantidade_atual == 400.0
 
         # ── Approve devolução (P0.3: Should reverse FIFO effects) ────────
-        # This would normally be done via router endpoint, but we simulate here
-        devolucao.status = "CONCLUIDA"
-
-        # Manually execute reversal logic (simulating router endpoint)
-        lote.quantidade_atual += item_dev.quantidade  # Restore 150 kg
-        if lote.status == "ESGOTADO":
-            lote.status = "ATIVO"
-
-        # Update SaldoEstoque
-        saldo.quantidade_atual += item_dev.quantidade
-
-        session.add(lote)
-        session.add(saldo)
-        session.add(devolucao)
-        await session.commit()
+        await atualizar_status_devolucao(
+            dev_id=devolucao.id,
+            data=DevolucaoStatusUpdate(status="CONCLUIDA"),
+            tenant=SimpleNamespace(id=tenant_uuid),
+            session=session,
+        )
 
         # ── Verify: Inventory restored ───────────────────────────────────
         await session.refresh(lote)
         await session.refresh(saldo)
+        await session.refresh(devolucao)
+
+        movimentos = (await session.execute(
+            select(EstoqueMovimento).where(
+                EstoqueMovimento.origem_id == devolucao.id,
+                EstoqueMovimento.tipo_movimento == "AJUSTE",
+            )
+        )).scalars().all()
 
         # 400 kg + 150 kg returned = 550 kg
         assert lote.quantidade_atual == 550.0
         assert saldo.quantidade_atual == 550.0
         assert lote.status == "ATIVO"
         assert devolucao.status == "CONCLUIDA"
+        assert len(movimentos) == 1
+        assert float(movimentos[0].quantidade) == 150.0
 
     @pytest.mark.asyncio
     async def test_p0_3_devolucao_reativa_lote_esgotado(
@@ -577,8 +597,8 @@ class TestComprasLoteIntegration:
         unidade_produtiva_id: str,
     ):
         """P0.3: Verify devolução reactivates exhausted batches."""
-        tenant_uuid = UUID(tenant_id)
-        fazenda_uuid = UUID(unidade_produtiva_id)
+        tenant_uuid = tenant_id
+        fazenda_uuid = unidade_produtiva_id
 
         produto = Produto(
             id=uuid4(),
@@ -663,20 +683,26 @@ class TestComprasLoteIntegration:
         assert lote.quantidade_atual == 0.0
 
         # Approve devolução (should reactivate)
-        devolucao.status = "CONCLUIDA"
-        lote.quantidade_atual += item_dev.quantidade  # 50 kg restored
-        if lote.status == "ESGOTADO" and lote.quantidade_atual > 0:
-            lote.status = "ATIVO"  # Reactivate
-        saldo.quantidade_atual += item_dev.quantidade
-
-        session.add(lote)
-        session.add(saldo)
-        session.add(devolucao)
-        await session.commit()
+        await atualizar_status_devolucao(
+            dev_id=devolucao.id,
+            data=DevolucaoStatusUpdate(status="CONCLUIDA"),
+            tenant=SimpleNamespace(id=tenant_uuid),
+            session=session,
+        )
 
         # Verify AFTER: batch is reactivated
         await session.refresh(lote)
         await session.refresh(saldo)
+        await session.refresh(devolucao)
+        movimentos = (await session.execute(
+            select(EstoqueMovimento).where(
+                EstoqueMovimento.origem_id == devolucao.id,
+                EstoqueMovimento.tipo_movimento == "AJUSTE",
+            )
+        )).scalars().all()
         assert lote.status == "ATIVO"  # Reactivated
         assert lote.quantidade_atual == 50.0
         assert saldo.quantidade_atual == 50.0
+        assert devolucao.status == "CONCLUIDA"
+        assert len(movimentos) == 1
+        assert float(movimentos[0].quantidade) == 50.0

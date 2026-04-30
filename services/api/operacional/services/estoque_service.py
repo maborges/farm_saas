@@ -1,14 +1,14 @@
 from uuid import UUID
 import uuid
-from datetime import datetime, timezone
+from datetime import date
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from core.base_service import BaseService
 from core.exceptions import BusinessRuleError, EntityNotFoundError
-from datetime import date, timezone, datetime
 from operacional.models.estoque import (
-    Deposito, SaldoEstoque, MovimentacaoEstoque,
+    Deposito, EstoqueMovimento, SaldoEstoque,
     LoteEstoque, RequisicaoMaterial, ItemRequisicao, ReservaEstoque,
 )
 from core.cadastros.models import ProdutoCatalogo
@@ -201,7 +201,7 @@ class EstoqueService(BaseService[SaldoEstoque]):
 
     # ── Movimentações ─────────────────────────────────────────────────────
 
-    def _registrar_mov(
+    async def _registrar_movimento(
         self,
         deposito_id: UUID,
         produto_id: UUID,
@@ -212,22 +212,20 @@ class EstoqueService(BaseService[SaldoEstoque]):
         origem_id: UUID | None = None,
         origem_tipo: str | None = None,
         lote_id: UUID | None = None,
-    ) -> MovimentacaoEstoque:
-        custo_total = round(quantidade * custo_unitario, 2) if custo_unitario else None
-        mov = MovimentacaoEstoque(
-            deposito_id=deposito_id,
+    ) -> EstoqueMovimento:
+        return await registrar_ledger_estoque(
+            self.session,
+            tenant_id=self.tenant_id,
             produto_id=produto_id,
-            tipo=tipo,
+            deposito_id=deposito_id,
+            lote_id=lote_id,
+            tipo_movimento=tipo,
             quantidade=quantidade,
             custo_unitario=custo_unitario,
-            custo_total=custo_total,
-            motivo=motivo,
+            origem=origem_tipo or "MANUAL",
             origem_id=origem_id,
-            origem_tipo=origem_tipo,
-            lote_id=lote_id,
+            observacoes=motivo,
         )
-        self.session.add(mov)
-        return mov
 
     async def _descontar_lote(self, lote_id: UUID, quantidade: float) -> LoteEstoque:
         """Desconta quantidade de um lote e atualiza status se esgotado."""
@@ -245,7 +243,7 @@ class EstoqueService(BaseService[SaldoEstoque]):
             lote.status = "ESGOTADO"
         return lote
 
-    async def registrar_entrada(self, data: EntradaEstoqueRequest) -> MovimentacaoEstoque:
+    async def registrar_entrada(self, data: EntradaEstoqueRequest) -> EstoqueMovimento:
         stmt = select(Deposito).where(
             Deposito.id == data.deposito_id, Deposito.tenant_id == self.tenant_id
         )
@@ -276,7 +274,7 @@ class EstoqueService(BaseService[SaldoEstoque]):
             if lote:
                 lote.quantidade_atual += data.quantidade
 
-        mov = self._registrar_mov(
+        mov = await self._registrar_movimento(
             deposito_id=data.deposito_id,
             produto_id=data.produto_id,
             tipo="ENTRADA",
@@ -286,19 +284,6 @@ class EstoqueService(BaseService[SaldoEstoque]):
             origem_id=data.origem_id,
             origem_tipo=data.origem_tipo or "MANUAL",
             lote_id=data.lote_id,
-        )
-        await registrar_ledger_estoque(
-            self.session,
-            tenant_id=self.tenant_id,
-            produto_id=data.produto_id,
-            deposito_id=data.deposito_id,
-            lote_id=data.lote_id,
-            tipo_movimento="ENTRADA",
-            quantidade=data.quantidade,
-            custo_unitario=data.custo_unitario or (prod.preco_medio if prod else None),
-            origem=data.origem_tipo or "MANUAL",
-            origem_id=data.origem_id,
-            observacoes=data.motivo or "Entrada manual",
         )
         await self.session.flush()
         await self.session.refresh(mov)
@@ -313,7 +298,7 @@ class EstoqueService(BaseService[SaldoEstoque]):
         origem_tipo: str = "OPERACAO_AGRICOLA",
         motivo: str = "Uso em operação agrícola",
         deposito_id: UUID | None = None,
-    ) -> MovimentacaoEstoque:
+    ) -> EstoqueMovimento:
         if deposito_id:
             stmt_saldo = select(SaldoEstoque).where(
                 SaldoEstoque.produto_id == produto_id,
@@ -345,7 +330,7 @@ class EstoqueService(BaseService[SaldoEstoque]):
 
         saldo_sel.quantidade_atual -= quantidade
         prod = await self._get_produto(produto_id)
-        mov = self._registrar_mov(
+        mov = await self._registrar_movimento(
             deposito_id=saldo_sel.deposito_id,
             produto_id=produto_id,
             tipo="SAIDA",
@@ -354,18 +339,6 @@ class EstoqueService(BaseService[SaldoEstoque]):
             motivo=motivo,
             origem_id=origem_id,
             origem_tipo=origem_tipo,
-        )
-        await registrar_ledger_estoque(
-            self.session,
-            tenant_id=self.tenant_id,
-            produto_id=produto_id,
-            deposito_id=saldo_sel.deposito_id,
-            tipo_movimento="SAIDA",
-            quantidade=quantidade,
-            custo_unitario=prod.preco_medio if prod else None,
-            origem=origem_tipo,
-            origem_id=origem_id,
-            observacoes=motivo,
         )
         await self.session.flush()
         await self.session.refresh(mov)
@@ -379,7 +352,7 @@ class EstoqueService(BaseService[SaldoEstoque]):
         origem_id: UUID,
         origem_tipo: str = "OPERACAO_AGRICOLA",
         motivo: str = "Uso em operação agrícola",
-    ) -> MovimentacaoEstoque:
+    ) -> EstoqueMovimento:
         """Busca o produto pelo nome e registra a saída."""
         stmt = select(ProdutoCatalogo).where(
             ProdutoCatalogo.tenant_id == self.tenant_id,
@@ -400,7 +373,7 @@ class EstoqueService(BaseService[SaldoEstoque]):
             motivo=motivo
         )
 
-    async def registrar_saida(self, data: SaidaEstoqueRequest) -> MovimentacaoEstoque:
+    async def registrar_saida(self, data: SaidaEstoqueRequest) -> EstoqueMovimento:
         if data.deposito_id:
             stmt = select(SaldoEstoque).where(
                 SaldoEstoque.produto_id == data.produto_id,
@@ -418,26 +391,13 @@ class EstoqueService(BaseService[SaldoEstoque]):
             if data.lote_id:
                 await self._descontar_lote(data.lote_id, data.quantidade)
             prod = await self._get_produto(data.produto_id)
-            mov = self._registrar_mov(
+            mov = await self._registrar_movimento(
                 deposito_id=data.deposito_id, produto_id=data.produto_id,
                 tipo="SAIDA", quantidade=data.quantidade,
                 custo_unitario=prod.preco_medio if prod else None,
                 motivo=data.motivo, origem_id=data.origem_id,
                 origem_tipo=data.origem_tipo or "MANUAL",
                 lote_id=data.lote_id,
-            )
-            await registrar_ledger_estoque(
-                self.session,
-                tenant_id=self.tenant_id,
-                produto_id=data.produto_id,
-                deposito_id=data.deposito_id,
-                lote_id=data.lote_id,
-                tipo_movimento="SAIDA",
-                quantidade=data.quantidade,
-                custo_unitario=prod.preco_medio if prod else None,
-                origem=data.origem_tipo or "MANUAL",
-                origem_id=data.origem_id,
-                observacoes=data.motivo,
             )
             await self.session.flush()
             await self.session.refresh(mov)
@@ -452,31 +412,23 @@ class EstoqueService(BaseService[SaldoEstoque]):
             )
         raise BusinessRuleError("Informe deposito_id ou unidade_produtiva_id.")
 
-    async def registrar_ajuste(self, data: AjusteEstoqueRequest) -> MovimentacaoEstoque:
+    async def registrar_ajuste(self, data: AjusteEstoqueRequest) -> EstoqueMovimento:
         saldo = await self._get_ou_criar_saldo(data.deposito_id, data.produto_id)
         diff = data.quantidade_nova - saldo.quantidade_atual
         saldo.quantidade_atual = data.quantidade_nova
-        mov = self._registrar_mov(
-            deposito_id=data.deposito_id, produto_id=data.produto_id,
-            tipo="AJUSTE", quantidade=abs(diff),
-            motivo=data.motivo, origem_tipo="AJUSTE",
+        mov = await self._registrar_movimento(
+            deposito_id=data.deposito_id,
+            produto_id=data.produto_id,
+            tipo="AJUSTE",
+            quantidade=diff,
+            motivo=data.motivo,
+            origem_tipo="AJUSTE",
         )
-        if diff != 0:
-            await registrar_ledger_estoque(
-                self.session,
-                tenant_id=self.tenant_id,
-                produto_id=data.produto_id,
-                deposito_id=data.deposito_id,
-                tipo_movimento="AJUSTE",
-                quantidade=diff,
-                origem="AJUSTE",
-                observacoes=data.motivo,
-            )
         await self.session.flush()
         await self.session.refresh(mov)
         return mov
 
-    async def registrar_transferencia(self, data: TransferenciaEstoqueRequest) -> list[MovimentacaoEstoque]:
+    async def registrar_transferencia(self, data: TransferenciaEstoqueRequest) -> list[EstoqueMovimento]:
         stmt = select(SaldoEstoque).where(
             SaldoEstoque.produto_id == data.produto_id,
             SaldoEstoque.deposito_id == data.deposito_origem_id,
@@ -491,43 +443,22 @@ class EstoqueService(BaseService[SaldoEstoque]):
 
         prod = await self._get_produto(data.produto_id)
         motivo = data.motivo or "Transferência entre depósitos"
-        mov_saida = self._registrar_mov(
+        transferencia_id = uuid.uuid4()
+        mov_saida = await self._registrar_movimento(
             deposito_id=data.deposito_origem_id, produto_id=data.produto_id,
-            tipo="TRANSFERENCIA", quantidade=data.quantidade,
+            tipo="TRANSFERENCIA", quantidade=-data.quantidade,
             custo_unitario=prod.preco_medio if prod else None,
-            motivo=motivo, origem_tipo="TRANSFERENCIA",
+            motivo=motivo, origem_id=transferencia_id, origem_tipo="TRANSFERENCIA",
         )
-        mov_entrada = self._registrar_mov(
+        mov_entrada = await self._registrar_movimento(
             deposito_id=data.deposito_destino_id, produto_id=data.produto_id,
             tipo="TRANSFERENCIA", quantidade=data.quantidade,
             custo_unitario=prod.preco_medio if prod else None,
-            motivo=motivo, origem_tipo="TRANSFERENCIA",
-        )
-        await registrar_ledger_estoque(
-            self.session,
-            tenant_id=self.tenant_id,
-            produto_id=data.produto_id,
-            deposito_id=data.deposito_origem_id,
-            tipo_movimento="TRANSFERENCIA",
-            quantidade=-data.quantidade,
-            custo_unitario=prod.preco_medio if prod else None,
-            origem="TRANSFERENCIA",
-            origem_id=mov_saida.id,
-            observacoes=motivo,
-        )
-        await registrar_ledger_estoque(
-            self.session,
-            tenant_id=self.tenant_id,
-            produto_id=data.produto_id,
-            deposito_id=data.deposito_destino_id,
-            tipo_movimento="TRANSFERENCIA",
-            quantidade=data.quantidade,
-            custo_unitario=prod.preco_medio if prod else None,
-            origem="TRANSFERENCIA",
-            origem_id=mov_entrada.id,
-            observacoes=motivo,
+            motivo=motivo, origem_id=transferencia_id, origem_tipo="TRANSFERENCIA",
         )
         await self.session.flush()
+        await self.session.refresh(mov_saida)
+        await self.session.refresh(mov_entrada)
         return [mov_saida, mov_entrada]
 
     async def listar_movimentacoes(
@@ -535,18 +466,19 @@ class EstoqueService(BaseService[SaldoEstoque]):
         produto_id: UUID | None = None,
         deposito_id: UUID | None = None,
         limit: int = 100,
-    ) -> list[MovimentacaoEstoque]:
+    ) -> list[EstoqueMovimento]:
         dep_stmt = select(Deposito.id).where(Deposito.tenant_id == self.tenant_id)
         dep_ids = set((await self.session.execute(dep_stmt)).scalars().all())
 
-        stmt = select(MovimentacaoEstoque).where(
-            MovimentacaoEstoque.deposito_id.in_(dep_ids)
-        ).order_by(MovimentacaoEstoque.data_movimentacao.desc()).limit(limit)
+        stmt = select(EstoqueMovimento).where(
+            EstoqueMovimento.tenant_id == self.tenant_id,
+            EstoqueMovimento.deposito_id.in_(dep_ids),
+        ).order_by(EstoqueMovimento.data_movimento.desc()).limit(limit)
 
         if produto_id:
-            stmt = stmt.where(MovimentacaoEstoque.produto_id == produto_id)
+            stmt = stmt.where(EstoqueMovimento.produto_id == produto_id)
         if deposito_id:
-            stmt = stmt.where(MovimentacaoEstoque.deposito_id == deposito_id)
+            stmt = stmt.where(EstoqueMovimento.deposito_id == deposito_id)
 
         return list((await self.session.execute(stmt)).scalars().all())
 

@@ -1,25 +1,19 @@
 """
 FIFO (First In, First Out) inventory deduction for agricultural operations.
 
-When an operation is created with inputs:
-1. Find all LoteEstoque batches for the product (oldest first)
-2. Deduct quantidade from each batch until fully consumed
-3. Calculate cost: quantidade × lote.custo_unitario
-4. Record MovimentacaoEstoque for each batch consumed
-5. Update SaldoEstoque and LoteEstoque.quantidade_atual
+The FIFO service consumes available lotes and returns canonical batch metadata
+for the caller to persist in the estoque ledger.
 """
 
 from uuid import UUID
-import uuid
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import and_, join
+from sqlalchemy import and_
 from loguru import logger
 
 from core.exceptions import BusinessRuleError
-from operacional.models.estoque import LoteEstoque, SaldoEstoque, MovimentacaoEstoque, Deposito
-from core.cadastros.produtos.models import Produto
+from operacional.models.estoque import LoteEstoque, SaldoEstoque, Deposito
 
 
 class EstoqueConsumidoFIFO:

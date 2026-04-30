@@ -10,14 +10,29 @@ Valida:
 """
 
 import pytest
-from uuid import uuid4, UUID
-from datetime import date, datetime, timezone
+from uuid import uuid4
+from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 
-from operacional.models.estoque import LoteEstoque, SaldoEstoque, MovimentacaoEstoque, Deposito
+from operacional.models.estoque import LoteEstoque, Deposito
 from operacional.services.estoque_fifo import consumir_lotes_fifo
+from core.cadastros.produtos.models import Produto
 from core.exceptions import BusinessRuleError
+
+
+async def criar_produto(session: AsyncSession, tenant_id, nome: str = "Produto FIFO") -> Produto:
+    produto = Produto(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        nome=nome,
+        tipo="INSUMO",
+        unidade_medida="KG",
+        preco_medio=0.0,
+        ativo=True,
+    )
+    session.add(produto)
+    await session.flush()
+    return produto
 
 
 class TestFIFODeduction:
@@ -32,11 +47,11 @@ class TestFIFODeduction:
     ):
         """FIFO deve consumir lotes na ordem de data_fabricacao (ASC)."""
         # Setup: Criar 3 lotes com datas diferentes
-        produto_id = uuid4()
+        produto = await criar_produto(session, tenant_id, "Produto FIFO 1")
         deposito = Deposito(
             id=uuid4(),
-            tenant_id=UUID(tenant_id),
-            unidade_produtiva_id=UUID(unidade_produtiva_id),
+            tenant_id=tenant_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             nome="Galpão A",
             tipo="GERAL",
             ativo=True,
@@ -47,7 +62,7 @@ class TestFIFODeduction:
         # Lote 1: MAIS ANTIGO (2026-01-01)
         lote1 = LoteEstoque(
             id=uuid4(),
-            produto_id=produto_id,
+            produto_id=produto.id,
             deposito_id=deposito.id,
             numero_lote="LOTE001",
             data_fabricacao=date(2026, 1, 1),
@@ -61,7 +76,7 @@ class TestFIFODeduction:
         # Lote 2: Intermediário (2026-02-01)
         lote2 = LoteEstoque(
             id=uuid4(),
-            produto_id=produto_id,
+            produto_id=produto.id,
             deposito_id=deposito.id,
             numero_lote="LOTE002",
             data_fabricacao=date(2026, 2, 1),
@@ -75,7 +90,7 @@ class TestFIFODeduction:
         # Lote 3: MAIS NOVO (2026-03-01)
         lote3 = LoteEstoque(
             id=uuid4(),
-            produto_id=produto_id,
+            produto_id=produto.id,
             deposito_id=deposito.id,
             numero_lote="LOTE003",
             data_fabricacao=date(2026, 3, 1),
@@ -92,10 +107,10 @@ class TestFIFODeduction:
         # Act: Consumir 700 unidades (FIFO)
         consumo = await consumir_lotes_fifo(
             session=session,
-            produto_id=produto_id,
+            produto_id=produto.id,
             quantidade_necessaria=700.0,
             deposito_id=deposito.id,
-            tenant_id=UUID(tenant_id),
+            tenant_id=tenant_id,
         )
 
         # Assert: Deve consumir na ordem FIFO
@@ -124,11 +139,11 @@ class TestFIFODeduction:
         unidade_produtiva_id: str,
     ):
         """FIFO deve usar custo_unitario do lote (histórico), não preco_medio do produto."""
-        produto_id = uuid4()
+        produto = await criar_produto(session, tenant_id, "Produto FIFO 2")
         deposito = Deposito(
             id=uuid4(),
-            tenant_id=UUID(tenant_id),
-            unidade_produtiva_id=UUID(unidade_produtiva_id),
+            tenant_id=tenant_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             nome="Galpão",
             tipo="GERAL",
             ativo=True,
@@ -139,7 +154,7 @@ class TestFIFODeduction:
         # Lote antigo com custo baixo
         lote = LoteEstoque(
             id=uuid4(),
-            produto_id=produto_id,
+            produto_id=produto.id,
             deposito_id=deposito.id,
             numero_lote="LOTE_ANTIGO",
             data_fabricacao=date(2025, 1, 1),
@@ -154,10 +169,10 @@ class TestFIFODeduction:
         # Act
         consumo = await consumir_lotes_fifo(
             session=session,
-            produto_id=produto_id,
+            produto_id=produto.id,
             quantidade_necessaria=100.0,
             deposito_id=deposito.id,
-            tenant_id=UUID(tenant_id),
+            tenant_id=tenant_id,
         )
 
         # Assert: Custo deve ser 5.0 × 100 = 500, não preco_medio
@@ -172,11 +187,11 @@ class TestFIFODeduction:
         unidade_produtiva_id: str,
     ):
         """FIFO deve falhar com erro claro quando estoque insuficiente."""
-        produto_id = uuid4()
+        produto = await criar_produto(session, tenant_id, "Produto FIFO 3")
         deposito = Deposito(
             id=uuid4(),
-            tenant_id=UUID(tenant_id),
-            unidade_produtiva_id=UUID(unidade_produtiva_id),
+            tenant_id=tenant_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             nome="Galpão",
             tipo="GERAL",
             ativo=True,
@@ -187,7 +202,7 @@ class TestFIFODeduction:
         # Lote com apenas 50 unidades
         lote = LoteEstoque(
             id=uuid4(),
-            produto_id=produto_id,
+            produto_id=produto.id,
             deposito_id=deposito.id,
             numero_lote="LOTE001",
             quantidade_inicial=50.0,
@@ -202,10 +217,10 @@ class TestFIFODeduction:
         with pytest.raises(BusinessRuleError) as exc_info:
             await consumir_lotes_fifo(
                 session=session,
-                produto_id=produto_id,
+                produto_id=produto.id,
                 quantidade_necessaria=100.0,
                 deposito_id=deposito.id,
-                tenant_id=UUID(tenant_id),
+                tenant_id=tenant_id,
             )
 
         assert "Saldo insuficiente" in str(exc_info.value)
@@ -218,11 +233,11 @@ class TestFIFODeduction:
         unidade_produtiva_id: str,
     ):
         """FIFO com quantidade exata que consome todos os lotes."""
-        produto_id = uuid4()
+        produto = await criar_produto(session, tenant_id, "Produto FIFO 4")
         deposito = Deposito(
             id=uuid4(),
-            tenant_id=UUID(tenant_id),
-            unidade_produtiva_id=UUID(unidade_produtiva_id),
+            tenant_id=tenant_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             nome="Galpão",
             tipo="GERAL",
             ativo=True,
@@ -233,7 +248,7 @@ class TestFIFODeduction:
         # 2 lotes: 300 + 200 = 500 total
         lote1 = LoteEstoque(
             id=uuid4(),
-            produto_id=produto_id,
+            produto_id=produto.id,
             deposito_id=deposito.id,
             numero_lote="L1",
             data_fabricacao=date(2026, 1, 1),
@@ -244,7 +259,7 @@ class TestFIFODeduction:
         )
         lote2 = LoteEstoque(
             id=uuid4(),
-            produto_id=produto_id,
+            produto_id=produto.id,
             deposito_id=deposito.id,
             numero_lote="L2",
             data_fabricacao=date(2026, 2, 1),
@@ -259,10 +274,10 @@ class TestFIFODeduction:
         # Act: Consumir exatamente 500
         consumo = await consumir_lotes_fifo(
             session=session,
-            produto_id=produto_id,
+            produto_id=produto.id,
             quantidade_necessaria=500.0,
             deposito_id=deposito.id,
-            tenant_id=UUID(tenant_id),
+            tenant_id=tenant_id,
         )
 
         # Assert
@@ -281,11 +296,11 @@ class TestFIFODeduction:
         unidade_produtiva_id: str,
     ):
         """FIFO deve marcar lote como ESGOTADO quando quantidade_atual = 0."""
-        produto_id = uuid4()
+        produto = await criar_produto(session, tenant_id, "Produto FIFO 5")
         deposito = Deposito(
             id=uuid4(),
-            tenant_id=UUID(tenant_id),
-            unidade_produtiva_id=UUID(unidade_produtiva_id),
+            tenant_id=tenant_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             nome="Galpão",
             tipo="GERAL",
             ativo=True,
@@ -295,7 +310,7 @@ class TestFIFODeduction:
 
         lote = LoteEstoque(
             id=uuid4(),
-            produto_id=produto_id,
+            produto_id=produto.id,
             deposito_id=deposito.id,
             numero_lote="LOTE",
             quantidade_inicial=100.0,
@@ -309,10 +324,10 @@ class TestFIFODeduction:
         # Act: Consumir tudo
         await consumir_lotes_fifo(
             session=session,
-            produto_id=produto_id,
+            produto_id=produto.id,
             quantidade_necessaria=100.0,
             deposito_id=deposito.id,
-            tenant_id=UUID(tenant_id),
+            tenant_id=tenant_id,
         )
 
         # Assert: Lote deve estar ESGOTADO
@@ -328,21 +343,21 @@ class TestFIFODeduction:
         unidade_produtiva_id: str,
     ):
         """FIFO sem deposito_id deve buscar em todos os depósitos da fazenda."""
-        produto_id = uuid4()
+        produto = await criar_produto(session, tenant_id, "Produto FIFO 6")
 
         # 2 depósitos
         dep1 = Deposito(
             id=uuid4(),
-            tenant_id=UUID(tenant_id),
-            unidade_produtiva_id=UUID(unidade_produtiva_id),
+            tenant_id=tenant_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             nome="Galpão A",
             tipo="GERAL",
             ativo=True,
         )
         dep2 = Deposito(
             id=uuid4(),
-            tenant_id=UUID(tenant_id),
-            unidade_produtiva_id=UUID(unidade_produtiva_id),
+            tenant_id=tenant_id,
+            unidade_produtiva_id=unidade_produtiva_id,
             nome="Galpão B",
             tipo="GERAL",
             ativo=True,
@@ -353,7 +368,7 @@ class TestFIFODeduction:
         # Lote em dep1
         lote1 = LoteEstoque(
             id=uuid4(),
-            produto_id=produto_id,
+            produto_id=produto.id,
             deposito_id=dep1.id,
             numero_lote="L1",
             data_fabricacao=date(2026, 1, 1),
@@ -365,7 +380,7 @@ class TestFIFODeduction:
         # Lote em dep2
         lote2 = LoteEstoque(
             id=uuid4(),
-            produto_id=produto_id,
+            produto_id=produto.id,
             deposito_id=dep2.id,
             numero_lote="L2",
             data_fabricacao=date(2026, 2, 1),
@@ -380,10 +395,10 @@ class TestFIFODeduction:
         # Act: Consumir sem especificar deposito
         consumo = await consumir_lotes_fifo(
             session=session,
-            produto_id=produto_id,
+            produto_id=produto.id,
             quantidade_necessaria=120.0,
             deposito_id=None,  # Busca em todos
-            tenant_id=UUID(tenant_id),
+            tenant_id=tenant_id,
         )
 
         # Assert: Deve consumir de ambos os depósitos (FIFO)

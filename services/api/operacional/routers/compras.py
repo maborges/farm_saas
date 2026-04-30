@@ -22,7 +22,7 @@ from operacional.services.estoque_service import EstoqueService
 from operacional.services.estoque_ledger import registrar_ledger_estoque
 from operacional.services.fornecedores_service import salvar_fornecedor_legado
 from operacional.schemas.estoque import EntradaEstoqueRequest, LoteCreate
-from operacional.models.estoque import LoteEstoque, MovimentacaoEstoque, SaldoEstoque
+from operacional.models.estoque import LoteEstoque, SaldoEstoque
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/compras", tags=["Operacional — Compras"], dependencies=[Depends(require_module("O3_COMPRAS"))])
@@ -779,23 +779,6 @@ async def atualizar_status_devolucao(
 
                 session.add(lote)
 
-                # Create reverse MovimentacaoEstoque (SAIDA_REVERSA)
-                mov_reversa = MovimentacaoEstoque(
-                    id=uuid.uuid4(),
-                    deposito_id=item_dev.deposito_origem_id,
-                    produto_id=item_dev.produto_id,
-                    usuario_id=None,
-                    lote_id=item_dev.lote_id,
-                    tipo="SAIDA_REVERSA",
-                    quantidade=item_dev.quantidade,
-                    data_movimentacao=datetime.now(timezone.utc),
-                    custo_unitario=item_dev.custo_unitario,
-                    custo_total=item_dev.quantidade * item_dev.custo_unitario if item_dev.custo_unitario else 0.0,
-                    motivo=f"Devolução aprovada ({dev.motivo})",
-                    origem_id=dev.id,
-                    origem_tipo="DEVOLUCAO_FORNECEDOR",
-                )
-                session.add(mov_reversa)
                 await registrar_ledger_estoque(
                     session,
                     tenant_id=tenant.id,
@@ -806,7 +789,7 @@ async def atualizar_status_devolucao(
                     quantidade=item_dev.quantidade,
                     custo_unitario=item_dev.custo_unitario,
                     custo_total=item_dev.quantidade * item_dev.custo_unitario if item_dev.custo_unitario else 0.0,
-                    origem="AJUSTE",
+                    origem="DEVOLUCAO_FORNECEDOR",
                     origem_id=dev.id,
                     observacoes=f"Devolução aprovada ({dev.motivo})",
                 )
@@ -817,10 +800,16 @@ async def atualizar_status_devolucao(
                     SaldoEstoque.produto_id == item_dev.produto_id,
                 )
                 saldo = (await session.execute(saldo_stmt)).scalar_one_or_none()
-                if saldo:
-                    saldo.quantidade_atual += item_dev.quantidade
-                    saldo.ultima_atualizacao = datetime.now(timezone.utc)
-                    session.add(saldo)
+                if not saldo:
+                    saldo = SaldoEstoque(
+                        deposito_id=item_dev.deposito_origem_id,
+                        produto_id=item_dev.produto_id,
+                        quantidade_atual=0.0,
+                        quantidade_reservada=0.0,
+                    )
+                saldo.quantidade_atual += item_dev.quantidade
+                saldo.ultima_atualizacao = datetime.now(timezone.utc)
+                session.add(saldo)
 
                 logger.info(
                     f"Batch inventory restored via devolução reversal",
