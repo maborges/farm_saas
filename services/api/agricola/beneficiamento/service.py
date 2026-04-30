@@ -376,7 +376,7 @@ class BeneficiamentoService(BaseService[LoteBeneficiamento]):
             lote_beneficiamento_id=lote.id,
         )
 
-        # Cria MovimentacaoEstoque
+        # Registra movimento no ledger canônico de estoque
         await estoque_svc.registrar_movimentacao(
             tipo="ENTRADA",
             origem_tipo="BENEFICIAMENTO",

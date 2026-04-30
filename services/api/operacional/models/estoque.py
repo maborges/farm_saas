@@ -161,7 +161,3 @@ class EstoqueMovimento(Base):
         kwargs.pop("usuario_id", None)
 
         super().__init__(**kwargs)
-
-
-# Alias retrocompatível esperado por módulos antigos.
-MovimentacaoEstoque = EstoqueMovimento

@@ -259,7 +259,7 @@ async def get_estoque_saldo(
     "/{id}/estoque/movimentacoes",
     summary="Histórico de movimentações de estoque para a safra",
 )
-async def get_estoque_movimentacoes(
+async def get_estoque_historico(
     id: UUID,
     tipo: str | None = Query(None, description="Tipo de movimentação: ENTRADA, SAIDA, AJUSTE, TRANSFERENCIA"),
     deposito_id: UUID | None = Query(None, description="Filtrar por depósito"),
