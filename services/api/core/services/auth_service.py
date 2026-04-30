@@ -16,6 +16,7 @@ from core.models.billing import AssinaturaTenant, PlanoAssinatura, Fatura
 from core.schemas.auth_schemas import LoginRequest, UserCreateRequest, TenantAcessoResponse, UnidadeProdutivaAcessoResponse as FazendaAcessoResponse, PerfilSimplesResponse, UsuarioMeResponse
 from core.config import settings
 from core.services.login_rate_limit_service import LoginRateLimitService
+from core.services.email_service import email_service
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -650,12 +651,21 @@ class AuthService:
 
         # Envia e-mail de recuperação
         nome_usuario = user.nome_completo or user.username
-        await email_service.send_password_recovery(
-            email=user.email,
-            nome_usuario=nome_usuario,
-            token=token_value,
-            tenant_id=tenant_id
-        )
+        try:
+            await email_service.send_password_recovery(
+                email=user.email,
+                nome_usuario=nome_usuario,
+                token=token_value,
+                tenant_id=tenant_id
+            )
+        except Exception as exc:
+            logger.error(
+                f"Falha no envio do e-mail de recuperação para {user.email}: {exc}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Falha ao enviar o e-mail de recuperação. Verifique a configuração SMTP."
+            ) from exc
 
         return {
             "sucesso": True,

@@ -3,6 +3,8 @@ node_modules
 .agents
 .claude
 .venv
+.next
+**/.next
 **/.venv
 __pycache__
 **/__pycache__

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, date, timezone
 from sqlalchemy import String, Boolean, DateTime, Date, ForeignKey, JSON, Float, Integer, Numeric, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, synonym
 from sqlalchemy import Uuid as UUID
 from core.database import Base
 
@@ -139,3 +139,29 @@ class EstoqueMovimento(Base):
     )
     observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    # Compatibilidade com o nomeado antigo usado em serviços/routers legados.
+    data_movimentacao = synonym("data_movimento")
+    tipo = synonym("tipo_movimento")
+    origem_tipo = synonym("origem")
+    motivo = synonym("observacoes")
+
+    def __init__(self, **kwargs):
+        legacy_to_current = {
+            "data_movimentacao": "data_movimento",
+            "tipo": "tipo_movimento",
+            "origem_tipo": "origem",
+            "motivo": "observacoes",
+        }
+        for legacy_key, current_key in legacy_to_current.items():
+            if legacy_key in kwargs and current_key not in kwargs:
+                kwargs[current_key] = kwargs.pop(legacy_key)
+
+        # Chamadas legadas ainda passam usuario_id, mas o ledger atual não usa esse campo.
+        kwargs.pop("usuario_id", None)
+
+        super().__init__(**kwargs)
+
+
+# Alias retrocompatível esperado por módulos antigos.
+MovimentacaoEstoque = EstoqueMovimento

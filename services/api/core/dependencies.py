@@ -61,6 +61,15 @@ async def get_session(request: Request = None) -> AsyncGenerator[AsyncSession, N
 def get_token(request: Request) -> str:
     authorization = request.headers.get("Authorization")
     if not authorization or not authorization.startswith("Bearer "):
+        logger.warning(
+            "Auth header ausente ou inválido",
+            path=str(request.url.path),
+            method=request.method,
+            has_authorization_header=authorization is not None,
+            authorization_prefix=(authorization[:20] if authorization else None),
+            origin=request.headers.get("origin"),
+            referer=request.headers.get("referer"),
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Não autenticado"

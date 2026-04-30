@@ -56,6 +56,16 @@ class EmailService:
             port = int(config.get("port", 587))
             user = config.get("user")
             pwd = config.get("pass")
+            from_email = config.get("from", settings.mail_from)
+
+            if not host:
+                raise RuntimeError("SMTP host não configurado.")
+
+            # Para portas autenticadas comuns, exigir credenciais explicitamente.
+            if port in (465, 587) and (not user or not pwd):
+                raise RuntimeError(
+                    f"SMTP configurado em {host}:{port}, mas sem credenciais de autenticação."
+                )
 
             if user and pwd:
                 await aiosmtplib.send(
@@ -70,9 +80,18 @@ class EmailService:
             else:
                 await aiosmtplib.send(message, hostname=host, port=port)
                 
-            logger.info(f"Email enviado ({'White-label' if tenant_id else 'SaaS'}) para {to_email}")
+            logger.info(
+                f"Email enviado ({'White-label' if tenant_id else 'SaaS'}) para {to_email} "
+                f"via {host}:{port} como {from_email}"
+            )
         except Exception as e:
-            logger.error(f"Falha ao enviar email para {to_email}: {e}")
+            logger.exception(
+                f"Falha ao enviar email para {to_email} "
+                f"usando SMTP host={config.get('host')} port={config.get('port')} "
+                f"user={'set' if config.get('user') else 'empty'} "
+                f"from={config.get('from', settings.mail_from)}"
+            )
+            raise
 
     async def send_invoice_approved(self, email: str, nome: str, plano: str, valor: float, tenant_id: uuid.UUID = None):
         template = self.env.get_template("emails/invoice_approved.html")
